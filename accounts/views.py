@@ -1,10 +1,17 @@
 from django.contrib import messages
+from django.contrib.auth import get_user_model
 from django.contrib.auth import update_session_auth_hash
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth.decorators import user_passes_test
 from django.contrib.auth.forms import PasswordChangeForm
-from django.shortcuts import redirect, render
+from django.db.models import Q
+from django.shortcuts import get_object_or_404, redirect, render
 
-from .forms import AccountProfileForm
+from .forms import AccountProfileForm, PanelUserCreateForm, PanelUserEditForm
+
+
+def can_access_panel_settings(user):
+    return user.is_authenticated and (user.is_staff or user.is_superuser)
 
 
 @login_required
@@ -36,5 +43,71 @@ def profile_settings(request):
         {
             "profile_form": profile_form,
             "password_form": password_form,
+        },
+    )
+
+
+@login_required
+@user_passes_test(can_access_panel_settings)
+def panel_settings(request):
+    query = request.GET.get("q", "").strip()
+    users = get_user_model().objects.order_by("username")
+    if query:
+        users = users.filter(
+            Q(username__icontains=query)
+            | Q(email__icontains=query)
+        )
+
+    return render(
+        request,
+        "accounts/panel_settings.html",
+        {
+            "query": query,
+            "users": users,
+        },
+    )
+
+
+@login_required
+@user_passes_test(can_access_panel_settings)
+def panel_user_create(request):
+    form = PanelUserCreateForm()
+    if request.method == "POST":
+        form = PanelUserCreateForm(request.POST)
+        if form.is_valid():
+            user = form.save()
+            messages.success(request, f"User '{user.username}' created.")
+            return redirect("panel_settings")
+
+    return render(
+        request,
+        "accounts/panel_user_form.html",
+        {
+            "form": form,
+            "title": "Add New User",
+            "submit_label": "Create User",
+        },
+    )
+
+
+@login_required
+@user_passes_test(can_access_panel_settings)
+def panel_user_edit(request, user_id: int):
+    user = get_object_or_404(get_user_model(), id=user_id)
+    form = PanelUserEditForm(instance=user)
+    if request.method == "POST":
+        form = PanelUserEditForm(request.POST, instance=user)
+        if form.is_valid():
+            form.save()
+            messages.success(request, f"User '{user.username}' updated.")
+            return redirect("panel_settings")
+
+    return render(
+        request,
+        "accounts/panel_user_form.html",
+        {
+            "form": form,
+            "title": "Edit User",
+            "submit_label": "Save User",
         },
     )

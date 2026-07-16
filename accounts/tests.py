@@ -73,3 +73,67 @@ class ProfileSettingsTests(TestCase):
 
         response = self.client.get(reverse("profile_settings"))
         self.assertEqual(response.status_code, 200)
+
+
+class PanelSettingsTests(TestCase):
+    def setUp(self):
+        self.admin = User.objects.create_user(
+            username="staff-admin",
+            password="password-123",
+            is_staff=True,
+        )
+        self.user = User.objects.create_user(
+            username="project-user",
+            password="password-123",
+            email="user@example.com",
+        )
+        self.client = Client(HTTP_HOST="localhost")
+        self.client.force_login(self.admin)
+
+    def test_staff_user_sees_panel_settings_link(self):
+        response = self.client.get(reverse("dashboard"))
+
+        self.assertContains(response, reverse("panel_settings"))
+        self.assertContains(response, "Panel Settings")
+
+    def test_non_staff_user_cannot_access_panel_settings(self):
+        self.client.force_login(self.user)
+
+        response = self.client.get(reverse("panel_settings"))
+
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(reverse("login"), response["Location"])
+
+    def test_panel_settings_lists_and_searches_users(self):
+        response = self.client.get(reverse("panel_settings"), {"q": "project"})
+
+        self.assertContains(response, "project-user")
+        self.assertContains(response, "user@example.com")
+        self.assertNotContains(response, "<td>staff-admin</td>", html=True)
+
+    def test_staff_user_can_create_user(self):
+        response = self.client.post(
+            reverse("panel_user_create"),
+            {
+                "username": "new-user",
+                "password": "created-password-123",
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        user = User.objects.get(username="new-user")
+        self.assertTrue(user.check_password("created-password-123"))
+
+    def test_staff_user_can_update_user_email_but_not_username(self):
+        response = self.client.post(
+            reverse("panel_user_edit", kwargs={"user_id": self.user.id}),
+            {
+                "username": "renamed-user",
+                "email": "updated@example.com",
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.username, "project-user")
+        self.assertEqual(self.user.email, "updated@example.com")

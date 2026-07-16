@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }} - BlueMap Web UI Panel{% endblock %}
+
+{% block content %}
+  <div class="row">
+    <h1>{{ title }}</h1>
+    <a href="{% url 'panel_settings' %}">Back to Panel Settings</a>
+  </div>
+
+  <section class="panel">
+    <form method="post">
+      {% csrf_token %}
+      {{ form.as_p }}
+      <button type="submit">{{ submit_label }}</button>
+    </form>
+  </section>
+{% endblock %}
