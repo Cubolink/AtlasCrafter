@@ -15,4 +15,52 @@
       <button type="submit">{{ submit_label }}</button>
     </form>
   </section>
+
+  {% if edited_user %}
+    <section class="panel">
+      <h2>Project Access</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Project</th>
+            <th>Role</th>
+            {% if request.user.is_superuser %}
+              <th></th>
+            {% endif %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for membership in memberships %}
+            <tr>
+              <td>{{ membership.project.name }}</td>
+              <td>{{ membership.get_role_display }}</td>
+              {% if request.user.is_superuser %}
+                <td>
+                  <form method="post" action="{% url 'panel_user_project_access_remove' edited_user.id membership.id %}">
+                    {% csrf_token %}
+                    <button type="submit">Remove</button>
+                  </form>
+                </td>
+              {% endif %}
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="{% if request.user.is_superuser %}3{% else %}2{% endif %}">No Project access assigned.</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </section>
+
+    {% if request.user.is_superuser %}
+      <section class="panel">
+        <h2>Add Project Access</h2>
+        <form method="post" action="{% url 'panel_user_project_access_add' edited_user.id %}">
+          {% csrf_token %}
+          {{ project_access_form.as_p }}
+          <button type="submit">Add Project Access</button>
+        </form>
+      </section>
+    {% endif %}
+  {% endif %}
 {% endblock %}

@@ -2,6 +2,9 @@ from django import forms
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 
+from projects.models import Project
+from .models import ProjectMembership
+
 
 class AccountProfileForm(forms.ModelForm):
     class Meta:
@@ -41,3 +44,27 @@ class PanelUserEditForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["username"].disabled = True
+
+
+class ProjectAccessForm(forms.ModelForm):
+    class Meta:
+        model = ProjectMembership
+        fields = ["project", "role"]
+
+    def __init__(self, *args, user, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.user = user
+        assigned_project_ids = ProjectMembership.objects.filter(user=user).values_list(
+            "project_id",
+            flat=True,
+        )
+        self.fields["project"].queryset = Project.objects.exclude(
+            id__in=assigned_project_ids,
+        ).order_by("name")
+
+    def save(self, commit=True):
+        membership = super().save(commit=False)
+        membership.user = self.user
+        if commit:
+            membership.save()
+        return membership

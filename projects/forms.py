@@ -1,5 +1,7 @@
 from django import forms
+from django.contrib.auth import get_user_model
 
+from accounts.models import ProjectMembership
 from .models import Atlas, Project, Render
 
 
@@ -45,3 +47,46 @@ class RenderCreateForm(forms.ModelForm):
         if commit:
             render.save()
         return render
+
+
+class ProjectUserAddForm(forms.Form):
+    user_lookup = forms.CharField(
+        label="Username or email",
+        max_length=254,
+        help_text="Enter an exact username or email for an existing user.",
+    )
+
+    def __init__(self, *args, project: Project, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.project = project
+        self.user = None
+
+    def clean_user_lookup(self):
+        lookup = self.cleaned_data["user_lookup"].strip()
+        User = get_user_model()
+
+        username_matches = list(User.objects.filter(username=lookup))
+        if username_matches:
+            user = username_matches[0]
+        else:
+            email_matches = list(User.objects.filter(email__iexact=lookup))
+            if not email_matches:
+                raise forms.ValidationError("No user exists with that username or email.")
+            if len(email_matches) > 1:
+                raise forms.ValidationError(
+                    "Multiple users have that email. Use the exact username instead."
+                )
+            user = email_matches[0]
+
+        if ProjectMembership.objects.filter(project=self.project, user=user).exists():
+            raise forms.ValidationError("That user already has access to this Project.")
+
+        self.user = user
+        return lookup
+
+    def save(self):
+        return ProjectMembership.objects.create(
+            project=self.project,
+            user=self.user,
+            role=ProjectMembership.Role.PROJECT_USER,
+        )

@@ -55,6 +55,11 @@ class ProjectSetupViewTests(TestCase):
     def setUp(self):
         self.admin = User.objects.create_user(username="admin", password="password")
         self.user = User.objects.create_user(username="viewer", password="password")
+        self.unassigned_user = User.objects.create_user(
+            username="guest",
+            password="password",
+            email="guest@example.com",
+        )
         self.project = Project.objects.create(name="Survival Server")
         self.world = WorldFolder.objects.create(
             display_name="Overworld",
@@ -159,3 +164,84 @@ class ProjectSetupViewTests(TestCase):
         self.assertEqual(render_response.status_code, 403)
         self.assertFalse(self.project.atlases.filter(display_name="Denied").exists())
         self.assertFalse(atlas.renders.filter(bluemap_map_id="denied").exists())
+
+    def test_project_admin_can_add_existing_user_as_project_user_by_username(self):
+        response = self.client_for(self.admin).post(
+            reverse("add_project_user", kwargs={"slug": self.project.slug}),
+            {
+                "user_lookup": self.unassigned_user.username,
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        membership = ProjectMembership.objects.get(
+            user=self.unassigned_user,
+            project=self.project,
+        )
+        self.assertEqual(membership.role, ProjectMembership.Role.PROJECT_USER)
+
+    def test_project_admin_can_add_existing_user_as_project_user_by_email(self):
+        response = self.client_for(self.admin).post(
+            reverse("add_project_user", kwargs={"slug": self.project.slug}),
+            {
+                "user_lookup": self.unassigned_user.email,
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        membership = ProjectMembership.objects.get(
+            user=self.unassigned_user,
+            project=self.project,
+        )
+        self.assertEqual(membership.role, ProjectMembership.Role.PROJECT_USER)
+
+    def test_project_user_cannot_add_project_users(self):
+        response = self.client_for(self.user).post(
+            reverse("add_project_user", kwargs={"slug": self.project.slug}),
+            {
+                "user_lookup": self.unassigned_user.username,
+            },
+        )
+
+        self.assertEqual(response.status_code, 403)
+        self.assertFalse(
+            ProjectMembership.objects.filter(
+                user=self.unassigned_user,
+                project=self.project,
+            ).exists()
+        )
+
+    def test_project_admin_can_remove_project_user_membership(self):
+        membership = ProjectMembership.objects.create(
+            user=self.unassigned_user,
+            project=self.project,
+            role=ProjectMembership.Role.PROJECT_USER,
+        )
+
+        response = self.client_for(self.admin).post(
+            reverse(
+                "remove_project_membership",
+                kwargs={"slug": self.project.slug, "membership_id": membership.id},
+            ),
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(ProjectMembership.objects.filter(id=membership.id).exists())
+
+    def test_project_admin_cannot_remove_project_administrator_membership(self):
+        other_admin = User.objects.create_user(username="other-admin", password="password")
+        membership = ProjectMembership.objects.create(
+            user=other_admin,
+            project=self.project,
+            role=ProjectMembership.Role.PROJECT_ADMINISTRATOR,
+        )
+
+        response = self.client_for(self.admin).post(
+            reverse(
+                "remove_project_membership",
+                kwargs={"slug": self.project.slug, "membership_id": membership.id},
+            ),
+        )
+
+        self.assertEqual(response.status_code, 403)
+        self.assertTrue(ProjectMembership.objects.filter(id=membership.id).exists())

@@ -5,7 +5,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
 from accounts.models import ProjectMembership
-from .forms import AtlasCreateForm, RenderCreateForm
+from .forms import AtlasCreateForm, ProjectUserAddForm, RenderCreateForm
 from .models import Atlas, Project
 from .permissions import can_manage_project
 
@@ -41,6 +41,8 @@ def project_detail(request, slug: str):
             "project": project,
             "can_manage_project": can_manage,
             "atlas_form": AtlasCreateForm(project=project) if can_manage else None,
+            "project_user_add_form": ProjectUserAddForm(project=project) if can_manage else None,
+            "memberships": project.memberships.select_related("user").all(),
             "atlas_sections": [
                 {
                     "atlas": atlas,
@@ -84,3 +86,44 @@ def create_render(request, atlas_id: int):
         for error in form.errors.values():
             messages.error(request, error)
     return redirect(atlas.project.get_absolute_url())
+
+
+@login_required
+@require_POST
+def add_project_user(request, slug: str):
+    project = get_object_or_404(Project, slug=slug)
+    if not can_manage_project(request.user, project):
+        raise PermissionDenied("You do not have permission to add Project users.")
+
+    form = ProjectUserAddForm(request.POST, project=project)
+    if form.is_valid():
+        membership = form.save()
+        messages.success(
+            request,
+            f"Added {membership.user.username} to this Project as Project User.",
+        )
+    else:
+        for error in form.errors.values():
+            messages.error(request, error)
+    return redirect(project.get_absolute_url())
+
+
+@login_required
+@require_POST
+def remove_project_membership(request, slug: str, membership_id: int):
+    project = get_object_or_404(Project, slug=slug)
+    if not can_manage_project(request.user, project):
+        raise PermissionDenied("You do not have permission to remove Project users.")
+
+    membership = get_object_or_404(
+        ProjectMembership.objects.select_related("user"),
+        id=membership_id,
+        project=project,
+    )
+    if not request.user.is_superuser and membership.role != ProjectMembership.Role.PROJECT_USER:
+        raise PermissionDenied("Project Administrators can only remove Project Users.")
+
+    username = membership.user.username
+    membership.delete()
+    messages.success(request, f"Removed {username} from this Project.")
+    return redirect(project.get_absolute_url())

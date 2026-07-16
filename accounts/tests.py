@@ -2,6 +2,9 @@ from django.contrib.auth.models import User
 from django.test import Client, TestCase
 from django.urls import reverse
 
+from projects.models import Project
+from .models import ProjectMembership
+
 
 class ProfileSettingsTests(TestCase):
     def setUp(self):
@@ -137,3 +140,60 @@ class PanelSettingsTests(TestCase):
         self.user.refresh_from_db()
         self.assertEqual(self.user.username, "project-user")
         self.assertEqual(self.user.email, "updated@example.com")
+
+    def test_superuser_can_assign_project_access_to_user(self):
+        superuser = User.objects.create_superuser(
+            username="superadmin",
+            password="password-123",
+        )
+        project = Project.objects.create(name="Survival")
+        self.client.force_login(superuser)
+
+        response = self.client.post(
+            reverse("panel_user_project_access_add", kwargs={"user_id": self.user.id}),
+            {
+                "project": project.id,
+                "role": ProjectMembership.Role.PROJECT_ADMINISTRATOR,
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        membership = ProjectMembership.objects.get(user=self.user, project=project)
+        self.assertEqual(membership.role, ProjectMembership.Role.PROJECT_ADMINISTRATOR)
+
+    def test_superuser_can_remove_project_access_from_user(self):
+        superuser = User.objects.create_superuser(
+            username="superadmin",
+            password="password-123",
+        )
+        project = Project.objects.create(name="Survival")
+        membership = ProjectMembership.objects.create(
+            user=self.user,
+            project=project,
+            role=ProjectMembership.Role.PROJECT_USER,
+        )
+        self.client.force_login(superuser)
+
+        response = self.client.post(
+            reverse(
+                "panel_user_project_access_remove",
+                kwargs={"user_id": self.user.id, "membership_id": membership.id},
+            ),
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(ProjectMembership.objects.filter(id=membership.id).exists())
+
+    def test_staff_user_cannot_assign_project_administrator_access(self):
+        project = Project.objects.create(name="Survival")
+
+        response = self.client.post(
+            reverse("panel_user_project_access_add", kwargs={"user_id": self.user.id}),
+            {
+                "project": project.id,
+                "role": ProjectMembership.Role.PROJECT_ADMINISTRATOR,
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(ProjectMembership.objects.filter(user=self.user, project=project).exists())

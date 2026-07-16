@@ -6,8 +6,10 @@ from django.contrib.auth.decorators import user_passes_test
 from django.contrib.auth.forms import PasswordChangeForm
 from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
+from django.views.decorators.http import require_POST
 
-from .forms import AccountProfileForm, PanelUserCreateForm, PanelUserEditForm
+from .forms import AccountProfileForm, PanelUserCreateForm, PanelUserEditForm, ProjectAccessForm
+from .models import ProjectMembership
 
 
 def can_access_panel_settings(user):
@@ -107,7 +109,40 @@ def panel_user_edit(request, user_id: int):
         "accounts/panel_user_form.html",
         {
             "form": form,
+            "project_access_form": ProjectAccessForm(user=user) if request.user.is_superuser else None,
+            "memberships": user.project_memberships.select_related("project").all(),
+            "edited_user": user,
             "title": "Edit User",
             "submit_label": "Save User",
         },
     )
+
+
+@login_required
+@user_passes_test(lambda user: user.is_superuser)
+@require_POST
+def panel_user_project_access_add(request, user_id: int):
+    user = get_object_or_404(get_user_model(), id=user_id)
+    form = ProjectAccessForm(request.POST, user=user)
+    if form.is_valid():
+        membership = form.save()
+        messages.success(
+            request,
+            f"Added {user.username} to {membership.project.name} as {membership.get_role_display()}.",
+        )
+    else:
+        for error in form.errors.values():
+            messages.error(request, error)
+    return redirect("panel_user_edit", user_id=user.id)
+
+
+@login_required
+@user_passes_test(lambda user: user.is_superuser)
+@require_POST
+def panel_user_project_access_remove(request, user_id: int, membership_id: int):
+    user = get_object_or_404(get_user_model(), id=user_id)
+    membership = get_object_or_404(ProjectMembership, id=membership_id, user=user)
+    project_name = membership.project.name
+    membership.delete()
+    messages.success(request, f"Removed {user.username} from {project_name}.")
+    return redirect("panel_user_edit", user_id=user.id)
