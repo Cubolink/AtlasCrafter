@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -145,4 +146,197 @@ class ProtectedRenderAssetTests(TestCase):
                 self.assertEqual(response.status_code, 200)
                 self.assertEqual(response.headers["Content-Type"], "application/json")
                 self.assertEqual(response.headers["Content-Encoding"], "gzip")
+                response.close()
+
+    def test_root_viewer_settings_are_scoped_to_requested_render(self):
+        with TemporaryDirectory() as webroot_dir:
+            webroot = Path(webroot_dir)
+            (webroot / "settings.json").write_text(
+                json.dumps(
+                    {
+                        "version": "5.22",
+                        "mapDataRoot": "maps",
+                        "liveDataRoot": "maps",
+                        "maps": ["overworld", "nether_render"],
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            with override_settings(DEBUG=True, BLUEMAP_WEBROOT_DIR=webroot):
+                user = User.objects.create_superuser(
+                    username="admin3",
+                    email="admin3@example.com",
+                    password="password",
+                )
+                project = Project.objects.create(name="Survival Server 3")
+                world = WorldFolder.objects.create(
+                    display_name="Overworld 3",
+                    source_path="/srv/minecraft/world3",
+                )
+                ProjectVisibleWorld.objects.create(project=project, world_folder=world)
+                atlas = Atlas.objects.create(
+                    project=project,
+                    world_folder=world,
+                    display_name="Overworld 3",
+                )
+                render = Render.objects.create(
+                    atlas=atlas,
+                    bluemap_map_id="nether-render",
+                    display_name="Nether",
+                    dimension=Render.Dimension.NETHER,
+                )
+
+                client = Client()
+                client.force_login(user)
+                response = client.get(
+                    reverse(
+                        "protected_render_asset",
+                        kwargs={"render_id": render.id, "asset_path": "settings.json"},
+                    )
+                )
+
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(response.json()["maps"], ["nether_render"])
+
+    def test_root_viewer_settings_fall_back_to_normalized_render_id(self):
+        with TemporaryDirectory() as webroot_dir:
+            webroot = Path(webroot_dir)
+            (webroot / "settings.json").write_text(
+                json.dumps(
+                    {
+                        "version": "5.22",
+                        "mapDataRoot": "maps",
+                        "liveDataRoot": "maps",
+                        "maps": ["other_map"],
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            with override_settings(DEBUG=True, BLUEMAP_WEBROOT_DIR=webroot):
+                user = User.objects.create_superuser(
+                    username="admin5",
+                    email="admin5@example.com",
+                    password="password",
+                )
+                project = Project.objects.create(name="Survival Server 5")
+                world = WorldFolder.objects.create(
+                    display_name="Overworld 5",
+                    source_path="/srv/minecraft/world5",
+                )
+                ProjectVisibleWorld.objects.create(project=project, world_folder=world)
+                atlas = Atlas.objects.create(
+                    project=project,
+                    world_folder=world,
+                    display_name="Overworld 5",
+                )
+                render = Render.objects.create(
+                    atlas=atlas,
+                    bluemap_map_id="render-1234",
+                    display_name="Overworld",
+                    dimension=Render.Dimension.OVERWORLD,
+                )
+
+                client = Client()
+                client.force_login(user)
+                response = client.get(
+                    reverse(
+                        "protected_render_asset",
+                        kwargs={"render_id": render.id, "asset_path": "settings.json"},
+                    )
+                )
+
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(response.json()["maps"], ["render_1234"])
+
+    def test_render_asset_endpoint_blocks_other_map_assets(self):
+        with TemporaryDirectory() as webroot_dir:
+            webroot = Path(webroot_dir)
+            other_map_dir = webroot / "maps" / "nether"
+            other_map_dir.mkdir(parents=True)
+            (other_map_dir / "settings.json").write_text("{}", encoding="utf-8")
+
+            with override_settings(DEBUG=True, BLUEMAP_WEBROOT_DIR=webroot):
+                user = User.objects.create_superuser(
+                    username="admin4",
+                    email="admin4@example.com",
+                    password="password",
+                )
+                project = Project.objects.create(name="Survival Server 4")
+                world = WorldFolder.objects.create(
+                    display_name="Overworld 4",
+                    source_path="/srv/minecraft/world4",
+                )
+                ProjectVisibleWorld.objects.create(project=project, world_folder=world)
+                atlas = Atlas.objects.create(
+                    project=project,
+                    world_folder=world,
+                    display_name="Overworld 4",
+                )
+                render = Render.objects.create(
+                    atlas=atlas,
+                    bluemap_map_id="overworld",
+                    display_name="Overworld",
+                    dimension=Render.Dimension.OVERWORLD,
+                )
+
+                client = Client()
+                client.force_login(user)
+                response = client.get(
+                    reverse(
+                        "protected_render_asset",
+                        kwargs={
+                            "render_id": render.id,
+                            "asset_path": "maps/nether/settings.json",
+                        },
+                    )
+                )
+
+                self.assertEqual(response.status_code, 404)
+
+    def test_render_asset_endpoint_allows_normalized_map_asset(self):
+        with TemporaryDirectory() as webroot_dir:
+            webroot = Path(webroot_dir)
+            map_dir = webroot / "maps" / "overworld_render"
+            map_dir.mkdir(parents=True)
+            (map_dir / "settings.json").write_text("{}", encoding="utf-8")
+
+            with override_settings(DEBUG=True, BLUEMAP_WEBROOT_DIR=webroot):
+                user = User.objects.create_superuser(
+                    username="admin6",
+                    email="admin6@example.com",
+                    password="password",
+                )
+                project = Project.objects.create(name="Survival Server 6")
+                world = WorldFolder.objects.create(
+                    display_name="Overworld 6",
+                    source_path="/srv/minecraft/world6",
+                )
+                ProjectVisibleWorld.objects.create(project=project, world_folder=world)
+                atlas = Atlas.objects.create(
+                    project=project,
+                    world_folder=world,
+                    display_name="Overworld 6",
+                )
+                render = Render.objects.create(
+                    atlas=atlas,
+                    bluemap_map_id="overworld-render",
+                    display_name="Overworld",
+                    dimension=Render.Dimension.OVERWORLD,
+                )
+
+                client = Client()
+                client.force_login(user)
+                response = client.get(
+                    reverse(
+                        "protected_render_asset",
+                        kwargs={
+                            "render_id": render.id,
+                            "asset_path": "maps/overworld_render/settings.json",
+                        },
+                    )
+                )
+
+                self.assertEqual(response.status_code, 200)
                 response.close()
