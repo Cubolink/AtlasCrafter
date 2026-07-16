@@ -23,7 +23,7 @@
     <a href="{% url 'dashboard' %}" style="color:white">BlueMap Web UI Panel</a>
     <nav>
       {% if request.user.is_authenticated %}
-        <span>{{ request.user.username }}</span>
+        <a href="{% url 'profile_settings' %}" style="color:white">{{ request.user.username }}</a>
         <form method="post" action="{% url 'logout' %}" style="display:inline">
           {% csrf_token %}
           <button type="submit">Log out</button>

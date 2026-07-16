@@ -2,6 +2,7 @@ from django.contrib import admin
 from django.contrib.auth import views as auth_views
 from django.urls import path
 
+from accounts.views import profile_settings
 from assets.views import protected_render_asset
 from projects.views import create_atlas, create_render, dashboard, project_detail
 from viewer.views import render_status, render_viewer, trigger_render
@@ -11,6 +12,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('login/', auth_views.LoginView.as_view(template_name='registration/login.html'), name='login'),
     path('logout/', auth_views.LogoutView.as_view(), name='logout'),
+    path('profile/', profile_settings, name='profile_settings'),
     path('projects/<slug:slug>/', project_detail, name='project_detail'),
     path('projects/<slug:slug>/atlases/create/', create_atlas, name='create_atlas'),
     path('atlases/<int:atlas_id>/renders/create/', create_render, name='create_render'),

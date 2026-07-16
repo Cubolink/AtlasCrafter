@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+
+{% block title %}Profile Settings - BlueMap Web UI Panel{% endblock %}
+
+{% block content %}
+  <h1>Profile Settings</h1>
+
+  <section class="panel">
+    <h2>Account</h2>
+    <p class="muted">Signed in as {{ request.user.username }}</p>
+    <form method="post">
+      {% csrf_token %}
+      <input type="hidden" name="form" value="profile">
+      {{ profile_form.as_p }}
+      <button type="submit">Save Profile</button>
+    </form>
+  </section>
+
+  <section class="panel">
+    <h2>Change Password</h2>
+    <form method="post">
+      {% csrf_token %}
+      <input type="hidden" name="form" value="password">
+      {{ password_form.as_p }}
+      <button type="submit">Change Password</button>
+    </form>
+  </section>
+{% endblock %}
