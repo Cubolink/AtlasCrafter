@@ -1,6 +1,9 @@
+from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
-from django.test import TestCase
+from django.test import Client, TestCase
+from django.urls import reverse
 
+from accounts.models import ProjectMembership
 from .models import Atlas, Project, ProjectVisibleWorld, Render, WorldFolder
 
 
@@ -45,4 +48,112 @@ class ProjectAtlasRenderModelTests(TestCase):
 
         self.assertEqual(render.effective_dimension, "minecraft:overworld")
 
-# Create your tests here.
+
+class ProjectSetupViewTests(TestCase):
+    def setUp(self):
+        self.admin = User.objects.create_user(username="admin", password="password")
+        self.user = User.objects.create_user(username="viewer", password="password")
+        self.project = Project.objects.create(name="Survival Server")
+        self.world = WorldFolder.objects.create(
+            display_name="Overworld",
+            source_path="/srv/minecraft/world",
+        )
+        self.other_world = WorldFolder.objects.create(
+            display_name="Archive",
+            source_path="/srv/minecraft/archive",
+        )
+        ProjectVisibleWorld.objects.create(project=self.project, world_folder=self.world)
+        ProjectMembership.objects.create(
+            user=self.admin,
+            project=self.project,
+            role=ProjectMembership.Role.PROJECT_ADMINISTRATOR,
+        )
+        ProjectMembership.objects.create(
+            user=self.user,
+            project=self.project,
+            role=ProjectMembership.Role.PROJECT_USER,
+        )
+
+    def client_for(self, user):
+        client = Client(HTTP_HOST="localhost")
+        client.force_login(user)
+        return client
+
+    def test_project_admin_can_create_atlas_from_visible_world(self):
+        response = self.client_for(self.admin).post(
+            reverse("create_atlas", kwargs={"slug": self.project.slug}),
+            {
+                "world_folder": self.world.id,
+                "display_name": "Overworld",
+                "notes": "",
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(self.project.atlases.filter(display_name="Overworld").exists())
+
+    def test_project_admin_cannot_create_atlas_from_invisible_world(self):
+        response = self.client_for(self.admin).post(
+            reverse("create_atlas", kwargs={"slug": self.project.slug}),
+            {
+                "world_folder": self.other_world.id,
+                "display_name": "Archive",
+                "notes": "",
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(self.project.atlases.filter(display_name="Archive").exists())
+
+    def test_project_admin_can_create_render_for_atlas(self):
+        atlas = Atlas.objects.create(
+            project=self.project,
+            world_folder=self.world,
+            display_name="Overworld",
+        )
+
+        response = self.client_for(self.admin).post(
+            reverse("create_render", kwargs={"atlas_id": atlas.id}),
+            {
+                "display_name": "HD 4K",
+                "bluemap_map_id": "overworld-hd",
+                "dimension": Render.Dimension.OVERWORLD,
+                "custom_dimension": "",
+                "perspective_preset": Render.PerspectivePreset.DAY,
+                "sorting": 0,
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(atlas.renders.filter(bluemap_map_id="overworld-hd").exists())
+
+    def test_project_user_cannot_create_atlas_or_render(self):
+        atlas = Atlas.objects.create(
+            project=self.project,
+            world_folder=self.world,
+            display_name="Overworld",
+        )
+
+        atlas_response = self.client_for(self.user).post(
+            reverse("create_atlas", kwargs={"slug": self.project.slug}),
+            {
+                "world_folder": self.world.id,
+                "display_name": "Denied",
+            },
+        )
+        render_response = self.client_for(self.user).post(
+            reverse("create_render", kwargs={"atlas_id": atlas.id}),
+            {
+                "display_name": "Denied",
+                "bluemap_map_id": "denied",
+                "dimension": Render.Dimension.OVERWORLD,
+                "custom_dimension": "",
+                "perspective_preset": Render.PerspectivePreset.DAY,
+                "sorting": 0,
+            },
+        )
+
+        self.assertEqual(atlas_response.status_code, 403)
+        self.assertEqual(render_response.status_code, 403)
+        self.assertFalse(self.project.atlases.filter(display_name="Denied").exists())
+        self.assertFalse(atlas.renders.filter(bluemap_map_id="denied").exists())
