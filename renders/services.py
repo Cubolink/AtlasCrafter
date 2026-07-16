@@ -4,6 +4,7 @@ import shlex
 import subprocess
 from pathlib import Path
 
+from django.db import transaction
 from django.conf import settings
 from django.core.exceptions import PermissionDenied
 from django.utils import timezone
@@ -21,6 +22,12 @@ from .models import RenderJob, RenderLogChunk
 
 class RenderConfigurationError(RuntimeError):
     pass
+
+
+ACTIVE_RENDER_STATUSES = [
+    RenderJob.Status.QUEUED,
+    RenderJob.Status.RUNNING,
+]
 
 
 def user_can_trigger_render(user, render: Render) -> bool:
@@ -156,16 +163,65 @@ def build_command(render_config: BlueMapRenderConfig) -> list[str]:
     return command
 
 
-def run_render(render: Render, requested_by=None) -> RenderJob:
+def has_active_render_job(render: Render) -> bool:
+    return render.jobs.filter(status__in=ACTIVE_RENDER_STATUSES).exists()
+
+
+def enqueue_render(render: Render, requested_by=None) -> RenderJob:
     if requested_by is not None and not user_can_trigger_render(requested_by, render):
         raise PermissionDenied("You do not have permission to trigger this Render.")
 
-    job = RenderJob.objects.create(render=render, requested_by=requested_by)
+    with transaction.atomic():
+        if RenderJob.objects.select_for_update().filter(
+            render=render,
+            status__in=ACTIVE_RENDER_STATUSES,
+        ).exists():
+            raise RenderConfigurationError("This Render already has a queued or running job.")
+        job = RenderJob.objects.create(render=render, requested_by=requested_by)
 
+    return job
+
+
+def run_render(render: Render, requested_by=None) -> RenderJob:
+    job = RenderJob.objects.create(render=render, requested_by=requested_by)
+    return execute_render_job(job)
+
+
+def claim_next_queued_job(max_running: int | None = None) -> RenderJob | None:
+    max_running = max_running or settings.BLUEMAP_RENDER_WORKER_CONCURRENCY
+    if RenderJob.objects.filter(status=RenderJob.Status.RUNNING).count() >= max_running:
+        return None
+
+    with transaction.atomic():
+        if RenderJob.objects.filter(status=RenderJob.Status.RUNNING).count() >= max_running:
+            return None
+
+        job = (
+            RenderJob.objects.select_for_update()
+            .select_related(
+                "render__atlas__project",
+                "render__atlas__world_folder",
+                "requested_by",
+            )
+            .filter(status=RenderJob.Status.QUEUED)
+            .order_by("created_at")
+            .first()
+        )
+        if job is None:
+            return None
+
+        job.status = RenderJob.Status.RUNNING
+        job.started_at = timezone.now()
+        job.save(update_fields=["status", "started_at", "updated_at"])
+        return job
+
+
+def execute_render_job(job: RenderJob) -> RenderJob:
+    render = job.render
     command = []
     try:
         render_config = get_or_create_render_config(render)
-        write_render_config(render_config, requested_by)
+        write_render_config(render_config, job.requested_by)
         command = build_command(render_config)
         settings.BLUEMAP_TMP_DIR.mkdir(parents=True, exist_ok=True)
         process_env = os.environ.copy()

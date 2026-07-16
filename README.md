@@ -151,6 +151,12 @@ python -m venv .venv
 
 The development app uses SQLite by default. Configure paths and runtime settings by copying `.env.example` to `.env`. The app loads `.env` automatically on startup, and relative paths are resolved from the project root.
 
+Render jobs are processed by a separate worker process. Start it in another terminal:
+
+```powershell
+.\.venv\Scripts\python manage.py renderworker
+```
+
 Local runtime data is kept under `data/` by default:
 
 ```text
@@ -169,9 +175,11 @@ The MVP integration expects BlueMap to be available as a local command or standa
 - `BLUEMAP_CONFIG_DIR`: directory where the app writes generated BlueMap config files.
 - `BLUEMAP_WEBROOT_DIR`: directory where BlueMap writes rendered web output.
 - `BLUEMAP_TMP_DIR`: temp directory used for BlueMap subprocesses and Java extraction.
-- `BLUEMAP_RENDER_TIMEOUT_SECONDS`: maximum time a synchronous MVP render may run.
+- `BLUEMAP_RENDER_TIMEOUT_SECONDS`: maximum time a BlueMap render subprocess may run.
+- `BLUEMAP_RENDER_WORKER_CONCURRENCY`: maximum number of render jobs the worker may run in parallel. Defaults to `1`.
+- `BLUEMAP_RENDER_WORKER_POLL_SECONDS`: how often the worker checks for queued jobs. Defaults to `5`.
 
-Each Render page has a **Trigger render** button for superusers and Project Administrators. The app writes a generated config file to:
+Each Render page has a **Trigger render** button for superusers and Project Administrators. Pressing it queues a `RenderJob`; the separate `renderworker` process claims queued jobs and runs BlueMap. The app writes a generated config file to:
 
 ```text
 <BLUEMAP_CONFIG_DIR>/maps/<bluemap_map_id>.conf

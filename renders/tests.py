@@ -6,19 +6,30 @@ from django.test import TestCase, override_settings
 from bluemap_configs.models import BlueMapProfile
 from projects.models import Atlas, Project, ProjectVisibleWorld, Render, WorldFolder
 from .models import RenderJob
-from .services import build_command, get_or_create_render_config, run_render
+from .services import (
+    RenderConfigurationError,
+    build_command,
+    claim_next_queued_job,
+    enqueue_render,
+    get_or_create_render_config,
+    run_render,
+)
 
 
 class RenderRunnerTests(TestCase):
     def create_render(self):
-        profile = BlueMapProfile.objects.create(name="Default", slug="default")
+        suffix = BlueMapProfile.objects.count() + 1
+        profile = BlueMapProfile.objects.create(
+            name=f"Default {suffix}",
+            slug=f"default-{suffix}",
+        )
         project = Project.objects.create(
-            name="Survival Server",
+            name=f"Survival Server {suffix}",
             default_bluemap_profile=profile,
         )
         world = WorldFolder.objects.create(
-            display_name="Overworld",
-            source_path="/srv/minecraft/world",
+            display_name=f"Overworld {suffix}",
+            source_path=f"/srv/minecraft/world-{suffix}",
         )
         ProjectVisibleWorld.objects.create(project=project, world_folder=world)
         atlas = Atlas.objects.create(
@@ -28,7 +39,7 @@ class RenderRunnerTests(TestCase):
         )
         return Render.objects.create(
             atlas=atlas,
-            bluemap_map_id="overworld-hd",
+            bluemap_map_id=f"overworld-hd-{suffix}",
             display_name="HD 4K",
             dimension=Render.Dimension.OVERWORLD,
         )
@@ -46,7 +57,7 @@ class RenderRunnerTests(TestCase):
 
                 self.assertEqual(job.status, RenderJob.Status.FAILED)
                 self.assertTrue(job.log_chunks.filter(content__contains="not found").exists())
-                self.assertTrue(render.config.generated_file.path.endswith("overworld-hd.conf"))
+                self.assertTrue(render.config.generated_file.path.endswith("overworld-hd-1.conf"))
 
     def test_jar_cli_path_builds_java_command(self):
         with TemporaryDirectory() as config_dir, TemporaryDirectory() as webroot_dir:
@@ -82,5 +93,43 @@ class RenderRunnerTests(TestCase):
 
                 self.assertEqual(command[0], "C:/Java/bin/java.exe")
                 self.assertEqual(command[2:4], ["-jar", "C:/Tools/BlueMap-cli.jar"])
+
+    def test_enqueue_render_rejects_existing_active_job(self):
+        render = self.create_render()
+        RenderJob.objects.create(render=render, status=RenderJob.Status.RUNNING)
+
+        with self.assertRaises(RenderConfigurationError):
+            enqueue_render(render)
+
+        self.assertEqual(render.jobs.count(), 1)
+
+    def test_enqueue_render_leaves_job_queued_for_worker(self):
+        render = self.create_render()
+
+        job = enqueue_render(render)
+
+        self.assertEqual(job.status, RenderJob.Status.QUEUED)
+        self.assertIsNone(job.started_at)
+
+    def test_claim_next_queued_job_respects_global_running_limit(self):
+        first_render = self.create_render()
+        second_render = self.create_render()
+        RenderJob.objects.create(render=first_render, status=RenderJob.Status.RUNNING)
+        RenderJob.objects.create(render=second_render, status=RenderJob.Status.QUEUED)
+
+        claimed = claim_next_queued_job(max_running=1)
+
+        self.assertIsNone(claimed)
+
+    def test_claim_next_queued_job_marks_oldest_job_running(self):
+        render = self.create_render()
+        job = RenderJob.objects.create(render=render, status=RenderJob.Status.QUEUED)
+
+        claimed = claim_next_queued_job(max_running=1)
+
+        self.assertEqual(claimed.id, job.id)
+        job.refresh_from_db()
+        self.assertEqual(job.status, RenderJob.Status.RUNNING)
+        self.assertIsNotNone(job.started_at)
 
 # Create your tests here.

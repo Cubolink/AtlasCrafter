@@ -3,6 +3,34 @@
 {% block title %}{{ render.display_name }} - BlueMap Web UI Panel{% endblock %}
 
 {% block content %}
+  {% if has_active_job %}
+    <script>
+      (function pollRenderStatus() {
+        var statusUrl = "{% url 'render_status' render.id %}";
+        var currentJobId = {{ active_job.id }};
+
+        window.setTimeout(function () {
+          fetch(statusUrl, { headers: { "Accept": "application/json" } })
+            .then(function (response) {
+              if (!response.ok) throw new Error("status request failed");
+              return response.json();
+            })
+            .then(function (data) {
+              var job = data.job;
+              if (!data.has_active_job || !job || job.id !== currentJobId) {
+                window.location.reload();
+                return;
+              }
+              pollRenderStatus();
+            })
+            .catch(function () {
+              pollRenderStatus();
+            });
+        }, 5000);
+      })();
+    </script>
+  {% endif %}
+
   <section class="panel">
     <h1>{{ render.display_name }}</h1>
     <p class="muted">{{ render.project.name }} / {{ render.atlas.display_name }}</p>
@@ -28,8 +56,16 @@
     {% if can_trigger_render %}
       <form method="post" action="{% url 'trigger_render' render.id %}">
         {% csrf_token %}
-        <button type="submit">Trigger render</button>
+        <button type="submit" {% if has_active_job %}disabled{% endif %}>
+          {% if has_active_job %}Render in progress{% else %}Trigger render{% endif %}
+        </button>
       </form>
+      {% if has_active_job %}
+        <p class="muted">
+          Job #{{ active_job.id }} is {{ active_job.get_status_display|lower }}.
+          The page will refresh when the job finishes.
+        </p>
+      {% endif %}
     {% endif %}
   </section>
 
