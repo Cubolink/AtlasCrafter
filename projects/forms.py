@@ -27,7 +27,6 @@ class RenderCreateForm(forms.ModelForm):
         model = Render
         fields = [
             "display_name",
-            "bluemap_map_id",
             "dimension",
             "custom_dimension",
             "perspective_preset",

@@ -1,7 +1,13 @@
+import uuid
+
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.urls import reverse
 from django.utils.text import slugify
+
+
+def generate_bluemap_map_id() -> str:
+    return f"render-{uuid.uuid4()}"
 
 
 class TimeStampedModel(models.Model):
@@ -151,7 +157,12 @@ class Render(TimeStampedModel):
         CUSTOM = "custom", "Custom"
 
     atlas = models.ForeignKey(Atlas, on_delete=models.CASCADE, related_name="renders")
-    bluemap_map_id = models.SlugField(max_length=180)
+    bluemap_map_id = models.SlugField(
+        max_length=180,
+        unique=True,
+        editable=False,
+        default=generate_bluemap_map_id,
+    )
     display_name = models.CharField(max_length=160)
     dimension = models.CharField(max_length=80, choices=Dimension.choices)
     custom_dimension = models.CharField(max_length=160, blank=True)
@@ -171,7 +182,6 @@ class Render(TimeStampedModel):
 
     class Meta:
         ordering = ["atlas__project__name", "atlas__display_name", "sorting", "display_name"]
-        unique_together = [("atlas", "bluemap_map_id")]
         permissions = [
             ("manage_render", "Can manage render"),
             ("trigger_render", "Can trigger render"),
@@ -182,6 +192,11 @@ class Render(TimeStampedModel):
             raise ValidationError("Custom dimension should only be set for custom renders.")
         if self.dimension == self.Dimension.CUSTOM and not self.custom_dimension:
             raise ValidationError("Custom renders require a custom dimension key.")
+
+    def save(self, *args, **kwargs):
+        if not self.bluemap_map_id:
+            self.bluemap_map_id = generate_bluemap_map_id()
+        super().save(*args, **kwargs)
 
     @property
     def project(self):
@@ -199,5 +214,3 @@ class Render(TimeStampedModel):
 
     def __str__(self) -> str:
         return f"{self.atlas} / {self.display_name}"
-
-# Create your models here.

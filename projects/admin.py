@@ -32,6 +32,7 @@ class ProjectAdmin(admin.ModelAdmin):
 class RenderInline(admin.TabularInline):
     model = Render
     extra = 0
+    readonly_fields = ("bluemap_map_id",)
     fields = ("display_name", "bluemap_map_id", "dimension", "perspective_preset", "is_enabled")
 
 
@@ -56,6 +57,7 @@ class RenderAdmin(admin.ModelAdmin):
         "is_enabled",
     )
     list_filter = ("dimension", "perspective_preset", "is_enabled")
+    readonly_fields = ("bluemap_map_id",)
     search_fields = ("display_name", "bluemap_map_id", "atlas__display_name", "atlas__project__name")
     autocomplete_fields = ("atlas", "region")
 
@@ -64,4 +66,3 @@ class RenderAdmin(admin.ModelAdmin):
 class RegionAdmin(admin.ModelAdmin):
     list_display = ("name", "min_x", "min_z", "max_x", "max_z", "min_y", "max_y")
     search_fields = ("name",)
-# Register your models here.

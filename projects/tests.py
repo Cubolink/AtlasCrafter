@@ -1,3 +1,5 @@
+import uuid
+
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
 from django.test import Client, TestCase
@@ -116,7 +118,6 @@ class ProjectSetupViewTests(TestCase):
             reverse("create_render", kwargs={"atlas_id": atlas.id}),
             {
                 "display_name": "HD 4K",
-                "bluemap_map_id": "overworld-hd",
                 "dimension": Render.Dimension.OVERWORLD,
                 "custom_dimension": "",
                 "perspective_preset": Render.PerspectivePreset.DAY,
@@ -125,7 +126,9 @@ class ProjectSetupViewTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 302)
-        self.assertTrue(atlas.renders.filter(bluemap_map_id="overworld-hd").exists())
+        render = atlas.renders.get(display_name="HD 4K")
+        self.assertTrue(render.bluemap_map_id.startswith("render-"))
+        uuid.UUID(render.bluemap_map_id.removeprefix("render-"))
 
     def test_project_user_cannot_create_atlas_or_render(self):
         atlas = Atlas.objects.create(
@@ -145,7 +148,6 @@ class ProjectSetupViewTests(TestCase):
             reverse("create_render", kwargs={"atlas_id": atlas.id}),
             {
                 "display_name": "Denied",
-                "bluemap_map_id": "denied",
                 "dimension": Render.Dimension.OVERWORLD,
                 "custom_dimension": "",
                 "perspective_preset": Render.PerspectivePreset.DAY,
