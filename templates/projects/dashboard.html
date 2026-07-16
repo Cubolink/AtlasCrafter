@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+
+{% block title %}Projects - BlueMap Web UI Panel{% endblock %}
+
+{% block content %}
+  <h1>Projects</h1>
+  <div class="list">
+    {% for project in projects %}
+      <section class="panel">
+        <div class="row">
+          <h2><a href="{{ project.get_absolute_url }}">{{ project.name }}</a></h2>
+          <span class="muted">{{ project.atlases.count }} atlases</span>
+        </div>
+        {% if project.description %}
+          <p>{{ project.description }}</p>
+        {% endif %}
+      </section>
+    {% empty %}
+      <section class="panel">
+        <p>No Projects are available for your account yet.</p>
+      </section>
+    {% endfor %}
+  </div>
+{% endblock %}

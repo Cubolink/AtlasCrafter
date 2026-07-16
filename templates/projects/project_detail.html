@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+
+{% block title %}{{ project.name }} - BlueMap Web UI Panel{% endblock %}
+
+{% block content %}
+  <h1>{{ project.name }}</h1>
+  {% if project.description %}
+    <p>{{ project.description }}</p>
+  {% endif %}
+
+  <section class="panel">
+    <h2>Atlases</h2>
+    <div class="list">
+      {% for atlas in project.atlases.all %}
+        <article>
+          <h3>{{ atlas.display_name }}</h3>
+          <p class="muted">{{ atlas.world_folder.source_path }}</p>
+          <ul>
+            {% for render in atlas.renders.all %}
+              <li>
+                <a href="{% url 'render_viewer' render.id %}">{{ render.display_name }}</a>
+                <span class="muted">({{ render.bluemap_map_id }})</span>
+              </li>
+            {% empty %}
+              <li>No Renders defined.</li>
+            {% endfor %}
+          </ul>
+        </article>
+      {% empty %}
+        <p>No Atlases have been created for this Project.</p>
+      {% endfor %}
+    </div>
+  </section>
+
+  {% if request.user.is_superuser %}
+    <section class="panel">
+      <h2>Visible World Folders</h2>
+      <ul>
+        {% for world in project.visible_worlds.all %}
+          <li>{{ world.display_name }} <span class="muted">{{ world.source_path }}</span></li>
+        {% empty %}
+          <li>No world folders are visible to this Project.</li>
+        {% endfor %}
+      </ul>
+    </section>
+  {% endif %}
+{% endblock %}

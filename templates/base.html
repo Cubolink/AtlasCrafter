@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}BlueMap Web UI Panel{% endblock %}</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 0; background: #f6f7f9; color: #1f2933; }
+    header { background: #16202a; color: white; padding: 1rem 1.5rem; display: flex; justify-content: space-between; }
+    main { max-width: 1100px; margin: 0 auto; padding: 2rem 1.5rem; }
+    a { color: #1264a3; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .panel { background: white; border: 1px solid #d9e2ec; border-radius: 8px; padding: 1rem; margin-bottom: 1rem; }
+    .muted { color: #627d98; }
+    .list { display: grid; gap: 0.75rem; }
+    .row { display: flex; justify-content: space-between; gap: 1rem; align-items: baseline; }
+    input, button { font: inherit; padding: 0.5rem 0.65rem; }
+    button { cursor: pointer; }
+  </style>
+</head>
+<body>
+  <header>
+    <a href="{% url 'dashboard' %}" style="color:white">BlueMap Web UI Panel</a>
+    <nav>
+      {% if request.user.is_authenticated %}
+        <span>{{ request.user.username }}</span>
+        <form method="post" action="{% url 'logout' %}" style="display:inline">
+          {% csrf_token %}
+          <button type="submit">Log out</button>
+        </form>
+      {% endif %}
+    </nav>
+  </header>
+  <main>
+    {% if messages %}
+      <div class="list">
+        {% for message in messages %}
+          <div class="panel">{{ message }}</div>
+        {% endfor %}
+      </div>
+    {% endif %}
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

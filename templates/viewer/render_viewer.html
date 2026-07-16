@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+
+{% block title %}{{ render.display_name }} - BlueMap Web UI Panel{% endblock %}
+
+{% block content %}
+  <section class="panel">
+    <h1>{{ render.display_name }}</h1>
+    <p class="muted">{{ render.project.name }} / {{ render.atlas.display_name }}</p>
+    <dl>
+      <dt>BlueMap map id</dt>
+      <dd>{{ render.bluemap_map_id }}</dd>
+      <dt>World folder</dt>
+      <dd>{{ render.world_folder.source_path }}</dd>
+      <dt>Dimension</dt>
+      <dd>{{ render.effective_dimension }}</dd>
+      <dt>Config</dt>
+      <dd>
+        {% if render.config %}
+          {{ render.config.profile.name }}
+          {% if render.config.generated_file %}
+            <span class="muted">{{ render.config.generated_file.path }}</span>
+          {% endif %}
+        {% else %}
+          <span class="muted">No explicit config yet. The default Project/Profile config will be created when rendering.</span>
+        {% endif %}
+      </dd>
+    </dl>
+    {% if can_trigger_render %}
+      <form method="post" action="{% url 'trigger_render' render.id %}">
+        {% csrf_token %}
+        <button type="submit">Trigger render</button>
+      </form>
+    {% endif %}
+  </section>
+
+  {% if viewer_entry_exists %}
+    <section class="panel">
+      <h2>BlueMap Viewer</h2>
+      <iframe
+        title="{{ render.display_name }} BlueMap viewer"
+        src="{% url 'protected_render_asset' render.id 'index.html' %}"
+        style="width:100%; height:70vh; border:1px solid #d9e2ec; border-radius:8px;"
+      ></iframe>
+    </section>
+  {% else %}
+    <section class="panel">
+      <h2>BlueMap Viewer</h2>
+      <p class="muted">No rendered viewer output was found yet for this Render.</p>
+    </section>
+  {% endif %}
+
+  <section class="panel">
+    <h2>Recent Jobs</h2>
+    <div class="list">
+      {% for job in jobs %}
+        <article>
+          <div class="row">
+            <strong>{{ job.get_status_display }}</strong>
+            <span class="muted">{{ job.created_at }}</span>
+          </div>
+          {% if job.command %}
+            <p class="muted">{{ job.command|join:" " }}</p>
+          {% endif %}
+          {% for chunk in job.log_chunks.all %}
+            <pre>{{ chunk.stream }}: {{ chunk.content }}</pre>
+          {% empty %}
+            <p class="muted">No logs captured.</p>
+          {% endfor %}
+        </article>
+      {% empty %}
+        <p>No render jobs have been triggered yet.</p>
+      {% endfor %}
+    </div>
+  </section>
+{% endblock %}

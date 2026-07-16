@@ -1,0 +1,21 @@
+.venv/
+__pycache__/
+*.py[cod]
+db.sqlite3
+.env
+staticfiles/
+data/
+
+# IDE related stuff
+.idea/
+.vscode/
+
+# Logs
+*.log
+
+# Python and Django files
+.pytest_cache/
+.coverage
+htmlcov/
+*.sqlite3
+media/
