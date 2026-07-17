@@ -56,6 +56,11 @@ def get_or_create_render_config(render: Render) -> BlueMapRenderConfig:
     return BlueMapRenderConfig.objects.create(render=render, profile=profile)
 
 
+def preview_render_config(render: Render) -> tuple[BlueMapRenderConfig, str]:
+    render_config = get_or_create_render_config(render)
+    return render_config, render_config.generate_content()
+
+
 def write_render_config(render_config: BlueMapRenderConfig, user=None) -> Path:
     ensure_bluemap_runtime_config()
     path = render_config.config_path()

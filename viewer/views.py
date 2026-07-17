@@ -13,6 +13,7 @@ from renders.services import (
     cancel_queued_render_job,
     enqueue_render,
     has_active_render_job,
+    preview_render_config,
     user_can_trigger_render,
 )
 
@@ -59,6 +60,24 @@ def render_viewer(request, render_id: int):
             "active_job": active_job,
             "has_active_job": active_job is not None,
             "viewer_entry_exists": viewer_entry_path.is_file(),
+        },
+    )
+
+
+@login_required
+def render_config_preview(request, render_id: int):
+    render_obj = get_visible_render_or_404(request, render_id)
+    if not user_can_trigger_render(request.user, render_obj):
+        raise PermissionDenied("You do not have permission to preview this Render config.")
+
+    render_config, content = preview_render_config(render_obj)
+    return render(
+        request,
+        "viewer/render_config_preview.html",
+        {
+            "render": render_obj,
+            "render_config": render_config,
+            "config_content": content,
         },
     )
 

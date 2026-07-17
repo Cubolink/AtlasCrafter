@@ -30,7 +30,14 @@ from projects.views import (
     scan_world_folders,
     world_folders,
 )
-from viewer.views import cancel_render_job, render_job_detail, render_status, render_viewer, trigger_render
+from viewer.views import (
+    cancel_render_job,
+    render_config_preview,
+    render_job_detail,
+    render_status,
+    render_viewer,
+    trigger_render,
+)
 
 urlpatterns = [
     path('', dashboard, name='dashboard'),
@@ -72,6 +79,7 @@ urlpatterns = [
     path('renders/<int:render_id>/edit/', edit_render, name='edit_render'),
     path('renders/<int:render_id>/delete/', delete_render, name='delete_render'),
     path('renders/<int:render_id>/', render_viewer, name='render_viewer'),
+    path('renders/<int:render_id>/config-preview/', render_config_preview, name='render_config_preview'),
     path('renders/<int:render_id>/status/', render_status, name='render_status'),
     path('renders/<int:render_id>/trigger/', trigger_render, name='trigger_render'),
     path('jobs/<int:job_id>/', render_job_detail, name='render_job_detail'),

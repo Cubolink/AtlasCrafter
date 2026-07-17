@@ -3,6 +3,7 @@ from django.test import Client, TestCase
 from django.urls import reverse
 
 from accounts.models import ProjectMembership
+from bluemap_configs.models import BlueMapProfile, BlueMapRenderConfig, ConfigRevision, GeneratedConfigFile
 from projects.models import Atlas, Project, ProjectVisibleWorld, Render, WorldFolder
 from renders.models import RenderJob, RenderLogChunk
 
@@ -131,3 +132,53 @@ class RenderViewerStateTests(TestCase):
         self.assertEqual(cancel_response.status_code, 403)
         job.refresh_from_db()
         self.assertEqual(job.status, RenderJob.Status.QUEUED)
+
+    def test_render_page_links_to_config_preview_for_admin(self):
+        BlueMapProfile.objects.create(name="Default", slug="default")
+
+        response = self.client.get(reverse("render_viewer", kwargs={"render_id": self.render.id}))
+
+        self.assertContains(
+            response,
+            reverse("render_config_preview", kwargs={"render_id": self.render.id}),
+        )
+
+    def test_admin_can_preview_generated_render_config(self):
+        BlueMapProfile.objects.create(name="Default", slug="default")
+        self.render.sky_color = "#112233"
+        self.render.save()
+
+        response = self.client.get(
+            reverse("render_config_preview", kwargs={"render_id": self.render.id})
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('sky-color: "#112233"', response.context["config_content"])
+        self.assertIn('world: "/srv/minecraft/world"', response.context["config_content"])
+
+    def test_config_preview_does_not_write_generated_file_or_revision(self):
+        BlueMapProfile.objects.create(name="Default", slug="default")
+
+        response = self.client.get(
+            reverse("render_config_preview", kwargs={"render_id": self.render.id})
+        )
+
+        self.assertEqual(response.status_code, 200)
+        render_config = BlueMapRenderConfig.objects.get(render=self.render)
+        self.assertFalse(ConfigRevision.objects.filter(render_config=render_config).exists())
+        self.assertFalse(GeneratedConfigFile.objects.filter(render_config=render_config).exists())
+
+    def test_project_user_cannot_preview_render_config(self):
+        project_user = User.objects.create_user(username="viewer2", password="password")
+        ProjectMembership.objects.create(
+            user=project_user,
+            project=self.project,
+            role=ProjectMembership.Role.PROJECT_USER,
+        )
+        self.client.force_login(project_user)
+
+        response = self.client.get(
+            reverse("render_config_preview", kwargs={"render_id": self.render.id})
+        )
+
+        self.assertEqual(response.status_code, 403)

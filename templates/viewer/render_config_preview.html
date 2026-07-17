@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+
+{% block title %}Config Preview - {{ render.display_name }}{% endblock %}
+
+{% block content %}
+  <div class="row">
+    <h1>Config Preview</h1>
+    <a href="{% url 'render_viewer' render.id %}">Back to Render</a>
+  </div>
+
+  <section class="panel">
+    <p class="muted">{{ render.project.name }} / {{ render.atlas.display_name }} / {{ render.display_name }}</p>
+    <dl>
+      <dt>Profile</dt>
+      <dd>{{ render_config.profile.name }}</dd>
+      <dt>Config path</dt>
+      <dd>{{ render_config.config_path }}</dd>
+    </dl>
+  </section>
+
+  <section class="panel">
+    <h2>Generated Map Config</h2>
+    <pre>{{ config_content }}</pre>
+  </section>
+{% endblock %}

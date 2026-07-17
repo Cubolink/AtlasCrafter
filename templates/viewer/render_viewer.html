@@ -54,6 +54,7 @@
       </dd>
     </dl>
     {% if can_trigger_render %}
+      <p><a href="{% url 'render_config_preview' render.id %}">Preview generated config</a></p>
       <form method="post" action="{% url 'trigger_render' render.id %}">
         {% csrf_token %}
         <button type="submit" {% if has_active_job %}disabled{% endif %}>
