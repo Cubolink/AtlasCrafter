@@ -15,13 +15,17 @@ from projects.views import (
     add_project_user,
     create_atlas,
     create_render,
+    create_world_folder,
     dashboard,
     delete_atlas,
     delete_render,
     edit_atlas,
     edit_render,
+    edit_world_folder,
     project_detail,
     remove_project_membership,
+    scan_world_folders,
+    world_folders,
 )
 from viewer.views import render_status, render_viewer, trigger_render
 
@@ -32,6 +36,10 @@ urlpatterns = [
     path('logout/', auth_views.LogoutView.as_view(), name='logout'),
     path('profile/', profile_settings, name='profile_settings'),
     path('settings/', panel_settings, name='panel_settings'),
+    path('settings/world-folders/', world_folders, name='world_folders'),
+    path('settings/world-folders/scan/', scan_world_folders, name='scan_world_folders'),
+    path('settings/world-folders/create/', create_world_folder, name='create_world_folder'),
+    path('settings/world-folders/<int:world_id>/edit/', edit_world_folder, name='edit_world_folder'),
     path('settings/users/create/', panel_user_create, name='panel_user_create'),
     path('settings/users/<int:user_id>/edit/', panel_user_edit, name='panel_user_edit'),
     path(

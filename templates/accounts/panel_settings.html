@@ -8,6 +8,14 @@
     <a href="{% url 'panel_user_create' %}">Add New User</a>
   </div>
 
+  {% if request.user.is_superuser %}
+    <section class="panel">
+      <h2>World Folders</h2>
+      <p class="muted">Discover and manage Minecraft world folders available to Projects.</p>
+      <a href="{% url 'world_folders' %}">Manage World Folders</a>
+    </section>
+  {% endif %}
+
   <section class="panel">
     <h2>Users</h2>
     <form method="get">

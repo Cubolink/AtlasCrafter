@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+
+{% block title %}World Folders - BlueMap Web UI Panel{% endblock %}
+
+{% block content %}
+  <div class="row">
+    <h1>World Folders</h1>
+    <a href="{% url 'panel_settings' %}">Back to Panel Settings</a>
+  </div>
+
+  <section class="panel">
+    <h2>Source Worlds</h2>
+    <p class="muted">{{ source_root }}</p>
+    <form method="post" action="{% url 'scan_world_folders' %}" style="display:inline">
+      {% csrf_token %}
+      <button type="submit">Scan Source Worlds</button>
+    </form>
+    <a href="{% url 'create_world_folder' %}">Add World Folder Manually</a>
+  </section>
+
+  <section class="panel">
+    <h2>Discovered Tree</h2>
+    {% if worlds %}
+      <ul>
+        {% include "projects/world_tree_node.html" with node=tree only %}
+      </ul>
+    {% else %}
+      <p class="muted">No world folders have been discovered yet.</p>
+    {% endif %}
+  </section>
+
+  <section class="panel">
+    <h2>Known World Folders</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Path</th>
+          <th>Active</th>
+          <th>Dimensions</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for world in worlds %}
+          <tr>
+            <td>{{ world.display_name }}</td>
+            <td>{{ world.source_path }}</td>
+            <td>{{ world.is_active|yesno:"Yes,No" }}</td>
+            <td>{{ world.detected_dimensions|join:", " }}</td>
+            <td><a href="{% url 'edit_world_folder' world.id %}">Edit</a></td>
+          </tr>
+        {% empty %}
+          <tr>
+            <td colspan="5">No world folders found.</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+{% endblock %}

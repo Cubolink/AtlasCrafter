@@ -1,5 +1,7 @@
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth.decorators import user_passes_test
 from django.contrib import messages
+from django.conf import settings
 from django.core.exceptions import PermissionDenied
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
@@ -14,9 +16,15 @@ from .forms import (
     RENDER_BASIC_FIELDS,
     RenderCreateForm,
     RenderEditForm,
+    WorldFolderForm,
 )
-from .models import Atlas, Project, Render
+from .models import Atlas, Project, Render, WorldFolder
 from .permissions import can_manage_project
+from .world_discovery import build_world_tree, scan_source_worlds
+
+
+def superuser_required(user):
+    return user.is_authenticated and user.is_superuser
 
 
 @login_required
@@ -31,6 +39,82 @@ def dashboard(request):
         projects = Project.objects.filter(id__in=project_ids).prefetch_related("atlases__renders")
 
     return render(request, "projects/dashboard.html", {"projects": projects})
+
+
+@login_required
+@user_passes_test(superuser_required)
+def world_folders(request):
+    worlds = WorldFolder.objects.all()
+    return render(
+        request,
+        "projects/world_folders.html",
+        {
+            "source_root": settings.SOURCE_WORLDS_DIR,
+            "tree": build_world_tree(worlds),
+            "worlds": worlds,
+        },
+    )
+
+
+@login_required
+@user_passes_test(superuser_required)
+@require_POST
+def scan_world_folders(request):
+    result = scan_source_worlds()
+    messages.success(
+        request,
+        (
+            f"Scan complete. Added {len(result.created)}, updated {len(result.updated)}, "
+            f"already known {len(result.unchanged)}."
+        ),
+    )
+    return redirect("world_folders")
+
+
+@login_required
+@user_passes_test(superuser_required)
+def create_world_folder(request):
+    form = WorldFolderForm()
+    if request.method == "POST":
+        form = WorldFolderForm(request.POST)
+        if form.is_valid():
+            world = form.save()
+            messages.success(request, f"World folder '{world.display_name}' added.")
+            return redirect("world_folders")
+
+    return render(
+        request,
+        "projects/world_folder_form.html",
+        {
+            "form": form,
+            "title": "Add World Folder",
+            "submit_label": "Add World Folder",
+        },
+    )
+
+
+@login_required
+@user_passes_test(superuser_required)
+def edit_world_folder(request, world_id: int):
+    world = get_object_or_404(WorldFolder, id=world_id)
+    form = WorldFolderForm(instance=world)
+    if request.method == "POST":
+        form = WorldFolderForm(request.POST, instance=world)
+        if form.is_valid():
+            world = form.save()
+            messages.success(request, f"World folder '{world.display_name}' updated.")
+            return redirect("world_folders")
+
+    return render(
+        request,
+        "projects/world_folder_form.html",
+        {
+            "form": form,
+            "world": world,
+            "title": "Edit World Folder",
+            "submit_label": "Save World Folder",
+        },
+    )
 
 
 @login_required

@@ -1,8 +1,10 @@
 from django import forms
 from django.contrib.auth import get_user_model
+from pathlib import Path
 
 from accounts.models import ProjectMembership
-from .models import Atlas, Project, Render
+from .models import Atlas, Project, Render, WorldFolder
+from .world_discovery import detect_dimensions
 
 
 RENDER_BASIC_FIELDS = [
@@ -50,6 +52,25 @@ class AtlasCreateForm(forms.ModelForm):
         if commit:
             atlas.save()
         return atlas
+
+
+class WorldFolderForm(forms.ModelForm):
+    class Meta:
+        model = WorldFolder
+        fields = ["display_name", "source_path", "is_active", "notes"]
+
+    def clean_source_path(self):
+        source_path = Path(self.cleaned_data["source_path"]).expanduser().resolve()
+        if not (source_path / "level.dat").is_file():
+            raise forms.ValidationError("This folder does not contain level.dat.")
+        return str(source_path)
+
+    def save(self, commit=True):
+        world = super().save(commit=False)
+        world.detected_dimensions = detect_dimensions(Path(world.source_path))
+        if commit:
+            world.save()
+        return world
 
 
 class AtlasEditForm(forms.ModelForm):
