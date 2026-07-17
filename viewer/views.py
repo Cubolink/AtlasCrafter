@@ -49,7 +49,6 @@ def render_viewer(request, render_id: int):
 
     jobs = render_obj.jobs.prefetch_related("log_chunks").all()[:10]
     active_job = render_obj.jobs.filter(status__in=ACTIVE_JOB_STATUSES).first()
-    viewer_entry_path = settings.BLUEMAP_WEBROOT_DIR / "index.html"
     return render(
         request,
         "viewer/render_viewer.html",
@@ -59,7 +58,7 @@ def render_viewer(request, render_id: int):
             "can_trigger_render": user_can_trigger_render(request.user, render_obj),
             "active_job": active_job,
             "has_active_job": active_job is not None,
-            "viewer_entry_exists": viewer_entry_path.is_file(),
+            "render_output_exists": render_output_exists(render_obj),
         },
     )
 
@@ -155,4 +154,16 @@ def serialize_job(job):
         "finished_at": job.finished_at.isoformat() if job.finished_at else None,
     }
 
-# Create your views here.
+
+def render_output_exists(render_obj: Render) -> bool:
+    if not (settings.BLUEMAP_WEBROOT_DIR / "index.html").is_file():
+        return False
+    return any(
+        (settings.BLUEMAP_WEBROOT_DIR / "maps" / map_id / "settings.json").is_file()
+        or (settings.BLUEMAP_WEBROOT_DIR / "maps" / map_id / "settings.json.gz").is_file()
+        for map_id in viewer_map_ids(render_obj)
+    )
+
+
+def viewer_map_ids(render_obj: Render) -> set[str]:
+    return {render_obj.bluemap_map_id, render_obj.bluemap_map_id.replace("-", "_")}

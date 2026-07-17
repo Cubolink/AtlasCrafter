@@ -1,5 +1,8 @@
+from pathlib import Path
+from tempfile import TemporaryDirectory
+
 from django.contrib.auth.models import User
-from django.test import Client, TestCase
+from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 
 from accounts.models import ProjectMembership
@@ -42,6 +45,33 @@ class RenderViewerStateTests(TestCase):
 
         self.assertContains(response, "Render in progress")
         self.assertContains(response, "disabled")
+
+    def test_render_page_hides_viewer_when_render_output_is_missing(self):
+        with TemporaryDirectory() as webroot_dir:
+            webroot = Path(webroot_dir)
+            (webroot / "index.html").write_text("<html>BlueMap</html>", encoding="utf-8")
+
+            with override_settings(BLUEMAP_WEBROOT_DIR=webroot):
+                response = self.client.get(reverse("render_viewer", kwargs={"render_id": self.render.id}))
+
+        self.assertContains(response, "No render output has been generated for this Render yet.")
+        self.assertNotContains(response, "<iframe", html=False)
+
+    def test_render_page_shows_viewer_when_render_output_exists(self):
+        self.render.bluemap_map_id = "overworld-render"
+        self.render.save(update_fields=["bluemap_map_id"])
+        with TemporaryDirectory() as webroot_dir:
+            webroot = Path(webroot_dir)
+            map_dir = webroot / "maps" / "overworld_render"
+            map_dir.mkdir(parents=True)
+            (webroot / "index.html").write_text("<html>BlueMap</html>", encoding="utf-8")
+            (map_dir / "settings.json").write_text("{}", encoding="utf-8")
+
+            with override_settings(BLUEMAP_WEBROOT_DIR=webroot):
+                response = self.client.get(reverse("render_viewer", kwargs={"render_id": self.render.id}))
+
+        self.assertContains(response, "<iframe", html=False)
+        self.assertNotContains(response, "No render output has been generated")
 
     def test_trigger_redirects_without_duplicate_when_active_job_exists(self):
         RenderJob.objects.create(render=self.render, status=RenderJob.Status.QUEUED)

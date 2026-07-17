@@ -70,7 +70,7 @@
     {% endif %}
   </section>
 
-  {% if viewer_entry_exists %}
+  {% if render_output_exists %}
     <section class="panel">
       <h2>BlueMap Viewer</h2>
       <iframe
@@ -82,7 +82,7 @@
   {% else %}
     <section class="panel">
       <h2>BlueMap Viewer</h2>
-      <p class="muted">No rendered viewer output was found yet for this Render.</p>
+      <p class="muted">No render output has been generated for this Render yet.</p>
     </section>
   {% endif %}
 
