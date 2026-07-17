@@ -243,6 +243,22 @@ class ProjectSetupViewTests(TestCase):
                 "perspective_preset": Render.PerspectivePreset.NIGHT,
                 "sorting": 10,
                 "is_enabled": "on",
+                "storage_profile": "file",
+                "sky_color": "#112233",
+                "void_color": "#445566",
+                "sky_light": "0.75",
+                "ambient_light": "0.25",
+                "remove_caves_below_y": 42,
+                "cave_detection_ocean_floor": -3,
+                "cave_detection_uses_block_light": "on",
+                "min_inhabited_time": 1200,
+                "render_edges": "on",
+                "edge_light_strength": 12,
+                "enable_perspective_view": "on",
+                "enable_flat_view": "on",
+                "enable_free_flight_view": "on",
+                "enable_hires": "on",
+                "ignore_missing_light_data": "on",
             },
         )
 
@@ -253,6 +269,10 @@ class ProjectSetupViewTests(TestCase):
         self.assertEqual(render.perspective_preset, Render.PerspectivePreset.NIGHT)
         self.assertEqual(render.sorting, 10)
         self.assertEqual(render.bluemap_map_id, "stable-render-id")
+        self.assertEqual(render.sky_color, "#112233")
+        self.assertTrue(render.cave_detection_uses_block_light)
+        self.assertEqual(render.edge_light_strength, 12)
+        self.assertTrue(render.ignore_missing_light_data)
 
     def test_project_admin_can_delete_render(self):
         atlas = Atlas.objects.create(
@@ -321,6 +341,20 @@ class ProjectSetupViewTests(TestCase):
                 "perspective_preset": Render.PerspectivePreset.DAY,
                 "sorting": 0,
                 "is_enabled": "on",
+                "storage_profile": "",
+                "sky_color": "#7dabff",
+                "void_color": "#000000",
+                "sky_light": "1.00",
+                "ambient_light": "0.00",
+                "remove_caves_below_y": 55,
+                "cave_detection_ocean_floor": -5,
+                "min_inhabited_time": 0,
+                "render_edges": "on",
+                "edge_light_strength": 8,
+                "enable_perspective_view": "on",
+                "enable_flat_view": "on",
+                "enable_free_flight_view": "on",
+                "enable_hires": "on",
             },
         )
         delete_render_response = self.client_for(self.user).post(

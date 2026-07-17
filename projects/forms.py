@@ -5,6 +5,34 @@ from accounts.models import ProjectMembership
 from .models import Atlas, Project, Render
 
 
+RENDER_BASIC_FIELDS = [
+    "display_name",
+    "dimension",
+    "custom_dimension",
+    "perspective_preset",
+    "sorting",
+    "is_enabled",
+]
+RENDER_ADVANCED_FIELDS = [
+    "storage_profile",
+    "sky_color",
+    "void_color",
+    "sky_light",
+    "ambient_light",
+    "remove_caves_below_y",
+    "cave_detection_ocean_floor",
+    "cave_detection_uses_block_light",
+    "min_inhabited_time",
+    "render_edges",
+    "edge_light_strength",
+    "enable_perspective_view",
+    "enable_flat_view",
+    "enable_free_flight_view",
+    "enable_hires",
+    "ignore_missing_light_data",
+]
+
+
 class AtlasCreateForm(forms.ModelForm):
     class Meta:
         model = Atlas
@@ -58,14 +86,7 @@ class RenderCreateForm(forms.ModelForm):
 class RenderEditForm(forms.ModelForm):
     class Meta:
         model = Render
-        fields = [
-            "display_name",
-            "dimension",
-            "custom_dimension",
-            "perspective_preset",
-            "sorting",
-            "is_enabled",
-        ]
+        fields = RENDER_BASIC_FIELDS + RENDER_ADVANCED_FIELDS
 
 
 class ProjectUserAddForm(forms.Form):

@@ -10,6 +10,8 @@ from .forms import (
     AtlasCreateForm,
     AtlasEditForm,
     ProjectUserAddForm,
+    RENDER_ADVANCED_FIELDS,
+    RENDER_BASIC_FIELDS,
     RenderCreateForm,
     RenderEditForm,
 )
@@ -118,6 +120,8 @@ def edit_render(request, render_id: int):
         {
             "render": render_obj,
             "form": form,
+            "basic_fields": [form[field] for field in RENDER_BASIC_FIELDS],
+            "advanced_fields": [form[field] for field in RENDER_ADVANCED_FIELDS],
             "title": "Edit Render",
             "submit_label": "Save Render",
         },

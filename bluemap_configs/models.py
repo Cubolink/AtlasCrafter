@@ -16,23 +16,23 @@ class BlueMapProfile(models.Model):
             'name: "{display_name}"\n'
             'sorting: {sorting}\n'
             'start-pos: {{ x: 0, z: 0 }}\n'
-            'sky-color: "#7dabff"\n'
-            'void-color: "#000000"\n'
-            'sky-light: 1\n'
-            'ambient-light: 0\n'
-            'remove-caves-below-y: 55\n'
-            'cave-detection-ocean-floor: -5\n'
-            'cave-detection-uses-block-light: false\n'
-            'min-inhabited-time: 0\n'
+            'sky-color: "{sky_color}"\n'
+            'void-color: "{void_color}"\n'
+            'sky-light: {sky_light}\n'
+            'ambient-light: {ambient_light}\n'
+            'remove-caves-below-y: {remove_caves_below_y}\n'
+            'cave-detection-ocean-floor: {cave_detection_ocean_floor}\n'
+            'cave-detection-uses-block-light: {cave_detection_uses_block_light}\n'
+            'min-inhabited-time: {min_inhabited_time}\n'
             'render-mask: []\n'
-            'render-edges: true\n'
-            'edge-light-strength: 8\n'
-            'enable-perspective-view: true\n'
-            'enable-flat-view: true\n'
-            'enable-free-flight-view: true\n'
-            'enable-hires: true\n'
+            'render-edges: {render_edges}\n'
+            'edge-light-strength: {edge_light_strength}\n'
+            'enable-perspective-view: {enable_perspective_view}\n'
+            'enable-flat-view: {enable_flat_view}\n'
+            'enable-free-flight-view: {enable_free_flight_view}\n'
+            'enable-hires: {enable_hires}\n'
             'storage: "{storage}"\n'
-            'ignore-missing-light-data: false\n'
+            'ignore-missing-light-data: {ignore_missing_light_data}\n'
             'marker-sets: {{}}\n'
         )
     )
@@ -83,7 +83,22 @@ class BlueMapRenderConfig(models.Model):
             "dimension": render.effective_dimension,
             "display_name": render.display_name,
             "sorting": str(render.sorting),
+            "sky_color": render.sky_color,
+            "void_color": render.void_color,
+            "sky_light": format_decimal(render.sky_light),
+            "ambient_light": format_decimal(render.ambient_light),
+            "remove_caves_below_y": str(render.remove_caves_below_y),
+            "cave_detection_ocean_floor": str(render.cave_detection_ocean_floor),
+            "cave_detection_uses_block_light": hocon_bool(render.cave_detection_uses_block_light),
+            "min_inhabited_time": str(render.min_inhabited_time),
+            "render_edges": hocon_bool(render.render_edges),
+            "edge_light_strength": str(render.edge_light_strength),
+            "enable_perspective_view": hocon_bool(render.enable_perspective_view),
+            "enable_flat_view": hocon_bool(render.enable_flat_view),
+            "enable_free_flight_view": hocon_bool(render.enable_free_flight_view),
+            "enable_hires": hocon_bool(render.enable_hires),
             "storage": render.storage_profile or "file",
+            "ignore_missing_light_data": hocon_bool(render.ignore_missing_light_data),
             "bluemap_cli": settings.BLUEMAP_CLI_PATH,
             "config_dir": settings.BLUEMAP_CONFIG_DIR.as_posix(),
             "config_file": self.config_path().as_posix(),
@@ -143,4 +158,10 @@ class GeneratedConfigFile(models.Model):
     def __str__(self) -> str:
         return self.path
 
-# Create your models here.
+
+def hocon_bool(value: bool) -> str:
+    return "true" if value else "false"
+
+
+def format_decimal(value) -> str:
+    return f"{value.normalize():f}"

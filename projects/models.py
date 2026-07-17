@@ -1,6 +1,8 @@
 import uuid
+from decimal import Decimal
 
 from django.core.exceptions import ValidationError
+from django.core.validators import MaxValueValidator, MinValueValidator, RegexValidator
 from django.db import models
 from django.urls import reverse
 from django.utils.text import slugify
@@ -8,6 +10,12 @@ from django.utils.text import slugify
 
 def generate_bluemap_map_id() -> str:
     return f"render-{uuid.uuid4()}"
+
+
+hex_color_validator = RegexValidator(
+    regex=r"^#[0-9a-fA-F]{6}$",
+    message="Enter a hex color like #7dabff.",
+)
 
 
 class TimeStampedModel(models.Model):
@@ -177,6 +185,42 @@ class Render(TimeStampedModel):
     cave_options = models.JSONField(default=dict, blank=True)
     region = models.ForeignKey(Region, on_delete=models.SET_NULL, null=True, blank=True)
     storage_profile = models.CharField(max_length=160, blank=True)
+    sky_color = models.CharField(
+        max_length=7,
+        default="#7dabff",
+        validators=[hex_color_validator],
+    )
+    void_color = models.CharField(
+        max_length=7,
+        default="#000000",
+        validators=[hex_color_validator],
+    )
+    sky_light = models.DecimalField(
+        max_digits=3,
+        decimal_places=2,
+        default=Decimal("1.00"),
+        validators=[MinValueValidator(0), MaxValueValidator(1)],
+    )
+    ambient_light = models.DecimalField(
+        max_digits=3,
+        decimal_places=2,
+        default=Decimal("0.00"),
+        validators=[MinValueValidator(0), MaxValueValidator(1)],
+    )
+    remove_caves_below_y = models.IntegerField(default=55)
+    cave_detection_ocean_floor = models.IntegerField(default=-5)
+    cave_detection_uses_block_light = models.BooleanField(default=False)
+    min_inhabited_time = models.PositiveBigIntegerField(default=0)
+    render_edges = models.BooleanField(default=True)
+    edge_light_strength = models.PositiveSmallIntegerField(
+        default=8,
+        validators=[MinValueValidator(0), MaxValueValidator(15)],
+    )
+    enable_perspective_view = models.BooleanField(default=True)
+    enable_flat_view = models.BooleanField(default=True)
+    enable_free_flight_view = models.BooleanField(default=True)
+    enable_hires = models.BooleanField(default=True)
+    ignore_missing_light_data = models.BooleanField(default=False)
     output_path = models.CharField(max_length=1024, blank=True)
     is_enabled = models.BooleanField(default=True)
 

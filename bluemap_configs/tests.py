@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from django.test import TestCase
 
 from projects.models import Atlas, Project, ProjectVisibleWorld, Render, WorldFolder
@@ -25,6 +27,23 @@ class BlueMapRenderConfigTests(TestCase):
 
     def test_default_template_generates_content(self):
         render = self.create_render()
+        render.sky_color = "#112233"
+        render.void_color = "#445566"
+        render.sky_light = Decimal("0.75")
+        render.ambient_light = Decimal("0.25")
+        render.remove_caves_below_y = 42
+        render.cave_detection_ocean_floor = -3
+        render.cave_detection_uses_block_light = True
+        render.min_inhabited_time = 1200
+        render.render_edges = False
+        render.edge_light_strength = 12
+        render.enable_perspective_view = False
+        render.enable_flat_view = True
+        render.enable_free_flight_view = False
+        render.enable_hires = True
+        render.storage_profile = "file"
+        render.ignore_missing_light_data = True
+        render.save()
         profile = BlueMapProfile.objects.create(name="Default", slug="default")
         render_config = BlueMapRenderConfig.objects.create(render=render, profile=profile)
 
@@ -32,6 +51,21 @@ class BlueMapRenderConfigTests(TestCase):
 
         self.assertIn('world="/srv/minecraft/world"', content.replace(": ", "="))
         self.assertIn('storage: "file"', content)
+        self.assertIn('sky-color: "#112233"', content)
+        self.assertIn('void-color: "#445566"', content)
+        self.assertIn("sky-light: 0.75", content)
+        self.assertIn("ambient-light: 0.25", content)
+        self.assertIn("remove-caves-below-y: 42", content)
+        self.assertIn("cave-detection-ocean-floor: -3", content)
+        self.assertIn("cave-detection-uses-block-light: true", content)
+        self.assertIn("min-inhabited-time: 1200", content)
+        self.assertIn("render-edges: false", content)
+        self.assertIn("edge-light-strength: 12", content)
+        self.assertIn("enable-perspective-view: false", content)
+        self.assertIn("enable-flat-view: true", content)
+        self.assertIn("enable-free-flight-view: false", content)
+        self.assertIn("enable-hires: true", content)
+        self.assertIn("ignore-missing-light-data: true", content)
         self.assertNotIn("maps:", content)
 
     def create_render(self):

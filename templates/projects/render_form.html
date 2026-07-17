@@ -16,7 +16,28 @@
     </dl>
     <form method="post">
       {% csrf_token %}
-      {{ form.as_p }}
+      {% for field in basic_fields %}
+        <p>
+          {{ field.label_tag }}
+          {{ field }}
+          {% if field.help_text %}<span class="muted">{{ field.help_text }}</span>{% endif %}
+          {{ field.errors }}
+        </p>
+      {% endfor %}
+
+      <section>
+        <h2>Advanced Settings</h2>
+        {% for field in advanced_fields %}
+          <p>
+            {{ field.label_tag }}
+            {{ field }}
+            {% if field.help_text %}<span class="muted">{{ field.help_text }}</span>{% endif %}
+            {{ field.errors }}
+          </p>
+        {% endfor %}
+      </section>
+
+      {{ form.non_field_errors }}
       <button type="submit">{{ submit_label }}</button>
     </form>
   </section>
