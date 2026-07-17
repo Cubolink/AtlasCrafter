@@ -9,7 +9,12 @@ from django.views.decorators.http import require_POST
 from accounts.models import ProjectMembership
 from projects.models import Render
 from renders.models import RenderJob
-from renders.services import enqueue_render, has_active_render_job, user_can_trigger_render
+from renders.services import (
+    cancel_queued_render_job,
+    enqueue_render,
+    has_active_render_job,
+    user_can_trigger_render,
+)
 
 
 ACTIVE_JOB_STATUSES = [RenderJob.Status.QUEUED, RenderJob.Status.RUNNING]
@@ -24,6 +29,17 @@ def get_visible_render_or_404(request, render_id: int):
     if not request.user.is_superuser:
         get_object_or_404(ProjectMembership, user=request.user, project=render_obj.project)
     return render_obj
+
+
+def get_visible_job_or_404(request, job_id: int):
+    job = get_object_or_404(
+        RenderJob.objects.select_related("render__atlas__project", "render__atlas__world_folder", "requested_by")
+        .prefetch_related("log_chunks", "artifacts"),
+        id=job_id,
+    )
+    if not request.user.is_superuser:
+        get_object_or_404(ProjectMembership, user=request.user, project=job.render.project)
+    return job
 
 
 @login_required
@@ -61,6 +77,37 @@ def trigger_render(request, render_id: int):
     job = enqueue_render(render_obj, requested_by=request.user)
     messages.success(request, f"Render job #{job.id} queued.")
     return redirect("render_viewer", render_id=render_obj.id)
+
+
+@login_required
+def render_job_detail(request, job_id: int):
+    job = get_visible_job_or_404(request, job_id)
+    return render(
+        request,
+        "viewer/render_job_detail.html",
+        {
+            "job": job,
+            "render": job.render,
+            "can_cancel_job": (
+                job.status == RenderJob.Status.QUEUED
+                and user_can_trigger_render(request.user, job.render)
+            ),
+        },
+    )
+
+
+@login_required
+@require_POST
+def cancel_render_job(request, job_id: int):
+    job = get_visible_job_or_404(request, job_id)
+    if not user_can_trigger_render(request.user, job.render):
+        raise PermissionDenied("You do not have permission to cancel this Render job.")
+
+    if cancel_queued_render_job(job, request.user):
+        messages.success(request, f"Render job #{job.id} canceled.")
+    else:
+        messages.warning(request, "Only queued render jobs can be canceled.")
+    return redirect("render_job_detail", job_id=job.id)
 
 
 @login_required

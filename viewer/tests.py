@@ -2,8 +2,9 @@ from django.contrib.auth.models import User
 from django.test import Client, TestCase
 from django.urls import reverse
 
+from accounts.models import ProjectMembership
 from projects.models import Atlas, Project, ProjectVisibleWorld, Render, WorldFolder
-from renders.models import RenderJob
+from renders.models import RenderJob, RenderLogChunk
 
 
 class RenderViewerStateTests(TestCase):
@@ -69,4 +70,64 @@ class RenderViewerStateTests(TestCase):
         self.assertEqual(response.json()["job"]["id"], job.id)
         self.assertEqual(response.json()["job"]["status"], RenderJob.Status.SUCCEEDED)
 
-# Create your tests here.
+    def test_render_page_links_to_job_detail(self):
+        job = RenderJob.objects.create(render=self.render, status=RenderJob.Status.SUCCEEDED)
+
+        response = self.client.get(reverse("render_viewer", kwargs={"render_id": self.render.id}))
+
+        self.assertContains(response, reverse("render_job_detail", kwargs={"job_id": job.id}))
+        self.assertContains(response, "View details and logs")
+
+    def test_job_detail_shows_logs_and_cancel_for_queued_job(self):
+        job = RenderJob.objects.create(
+            render=self.render,
+            status=RenderJob.Status.QUEUED,
+            requested_by=self.user,
+        )
+        RenderLogChunk.objects.create(job=job, stream="stderr", content="Something happened")
+
+        response = self.client.get(reverse("render_job_detail", kwargs={"job_id": job.id}))
+
+        self.assertContains(response, "Render Job")
+        self.assertContains(response, "Something happened")
+        self.assertContains(response, reverse("cancel_render_job", kwargs={"job_id": job.id}))
+
+    def test_superuser_can_cancel_queued_job(self):
+        job = RenderJob.objects.create(render=self.render, status=RenderJob.Status.QUEUED)
+
+        response = self.client.post(reverse("cancel_render_job", kwargs={"job_id": job.id}))
+
+        self.assertEqual(response.status_code, 302)
+        job.refresh_from_db()
+        self.assertEqual(job.status, RenderJob.Status.CANCELED)
+        self.assertIsNotNone(job.finished_at)
+
+    def test_running_job_cannot_be_canceled(self):
+        job = RenderJob.objects.create(render=self.render, status=RenderJob.Status.RUNNING)
+
+        response = self.client.post(reverse("cancel_render_job", kwargs={"job_id": job.id}))
+
+        self.assertEqual(response.status_code, 302)
+        job.refresh_from_db()
+        self.assertEqual(job.status, RenderJob.Status.RUNNING)
+        self.assertIsNone(job.finished_at)
+
+    def test_project_user_can_view_but_not_cancel_job(self):
+        project_user = User.objects.create_user(username="viewer", password="password")
+
+        ProjectMembership.objects.create(
+            user=project_user,
+            project=self.project,
+            role=ProjectMembership.Role.PROJECT_USER,
+        )
+        job = RenderJob.objects.create(render=self.render, status=RenderJob.Status.QUEUED)
+        self.client.force_login(project_user)
+
+        detail_response = self.client.get(reverse("render_job_detail", kwargs={"job_id": job.id}))
+        cancel_response = self.client.post(reverse("cancel_render_job", kwargs={"job_id": job.id}))
+
+        self.assertEqual(detail_response.status_code, 200)
+        self.assertNotContains(detail_response, "Cancel queued job")
+        self.assertEqual(cancel_response.status_code, 403)
+        job.refresh_from_db()
+        self.assertEqual(job.status, RenderJob.Status.QUEUED)

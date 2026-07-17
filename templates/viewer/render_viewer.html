@@ -91,17 +91,19 @@
       {% for job in jobs %}
         <article>
           <div class="row">
-            <strong>{{ job.get_status_display }}</strong>
+            <strong><a href="{% url 'render_job_detail' job.id %}">Job #{{ job.id }}</a> {{ job.get_status_display }}</strong>
             <span class="muted">{{ job.created_at }}</span>
           </div>
+          {% if can_trigger_render and job.status == "queued" %}
+            <form method="post" action="{% url 'cancel_render_job' job.id %}">
+              {% csrf_token %}
+              <button type="submit">Cancel queued job</button>
+            </form>
+          {% endif %}
           {% if job.command %}
             <p class="muted">{{ job.command|join:" " }}</p>
           {% endif %}
-          {% for chunk in job.log_chunks.all %}
-            <pre>{{ chunk.stream }}: {{ chunk.content }}</pre>
-          {% empty %}
-            <p class="muted">No logs captured.</p>
-          {% endfor %}
+          <p><a href="{% url 'render_job_detail' job.id %}">View details and logs</a></p>
         </article>
       {% empty %}
         <p>No render jobs have been triggered yet.</p>

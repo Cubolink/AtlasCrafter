@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+
+{% block title %}Render Job #{{ job.id }} - BlueMap Web UI Panel{% endblock %}
+
+{% block content %}
+  <div class="row">
+    <h1>Render Job #{{ job.id }}</h1>
+    <a href="{% url 'render_viewer' render.id %}">Back to Render</a>
+  </div>
+
+  <section class="panel">
+    <p class="muted">{{ render.project.name }} / {{ render.atlas.display_name }} / {{ render.display_name }}</p>
+    <dl>
+      <dt>Status</dt>
+      <dd>{{ job.get_status_display }}</dd>
+      <dt>Requested by</dt>
+      <dd>
+        {% if job.requested_by %}
+          {{ job.requested_by.username }}
+        {% else %}
+          <span class="muted">Unknown</span>
+        {% endif %}
+      </dd>
+      <dt>Created</dt>
+      <dd>{{ job.created_at }}</dd>
+      <dt>Started</dt>
+      <dd>{{ job.started_at|default:"-" }}</dd>
+      <dt>Finished</dt>
+      <dd>{{ job.finished_at|default:"-" }}</dd>
+      <dt>Exit code</dt>
+      <dd>{{ job.exit_code|default:"-" }}</dd>
+    </dl>
+
+    {% if job.command %}
+      <h2>Command</h2>
+      <pre>{{ job.command|join:" " }}</pre>
+    {% endif %}
+
+    {% if can_cancel_job %}
+      <form method="post" action="{% url 'cancel_render_job' job.id %}">
+        {% csrf_token %}
+        <button type="submit">Cancel queued job</button>
+      </form>
+    {% endif %}
+  </section>
+
+  <section class="panel">
+    <h2>Logs</h2>
+    {% for chunk in job.log_chunks.all %}
+      <article>
+        <strong>{{ chunk.stream }}</strong>
+        <span class="muted">{{ chunk.created_at }}</span>
+        <pre>{{ chunk.content }}</pre>
+      </article>
+    {% empty %}
+      <p class="muted">No logs captured.</p>
+    {% endfor %}
+  </section>
+
+  <section class="panel">
+    <h2>Artifacts</h2>
+    <ul>
+      {% for artifact in job.artifacts.all %}
+        <li>{{ artifact.path }} <span class="muted">{{ artifact.size_bytes|default:"unknown size" }}</span></li>
+      {% empty %}
+        <li>No artifacts recorded.</li>
+      {% endfor %}
+    </ul>
+  </section>
+{% endblock %}

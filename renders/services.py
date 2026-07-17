@@ -167,6 +167,20 @@ def has_active_render_job(render: Render) -> bool:
     return render.jobs.filter(status__in=ACTIVE_RENDER_STATUSES).exists()
 
 
+def cancel_queued_render_job(job: RenderJob, user=None) -> bool:
+    if user is not None and not user_can_trigger_render(user, job.render):
+        raise PermissionDenied("You do not have permission to cancel this Render job.")
+
+    with transaction.atomic():
+        locked_job = RenderJob.objects.select_for_update().get(id=job.id)
+        if locked_job.status != RenderJob.Status.QUEUED:
+            return False
+        locked_job.status = RenderJob.Status.CANCELED
+        locked_job.finished_at = timezone.now()
+        locked_job.save(update_fields=["status", "finished_at", "updated_at"])
+        return True
+
+
 def enqueue_render(render: Render, requested_by=None) -> RenderJob:
     if requested_by is not None and not user_can_trigger_render(requested_by, render):
         raise PermissionDenied("You do not have permission to trigger this Render.")
