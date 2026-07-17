@@ -6,6 +6,7 @@ from django.test import Client, TestCase
 from django.urls import reverse
 
 from accounts.models import ProjectMembership
+from renders.models import RenderJob
 from .models import Atlas, Project, ProjectVisibleWorld, Render, WorldFolder
 
 
@@ -164,6 +165,176 @@ class ProjectSetupViewTests(TestCase):
         self.assertEqual(render_response.status_code, 403)
         self.assertFalse(self.project.atlases.filter(display_name="Denied").exists())
         self.assertFalse(atlas.renders.filter(bluemap_map_id="denied").exists())
+
+    def test_project_admin_can_edit_atlas(self):
+        atlas = Atlas.objects.create(
+            project=self.project,
+            world_folder=self.world,
+            display_name="Overworld",
+        )
+
+        response = self.client_for(self.admin).post(
+            reverse("edit_atlas", kwargs={"atlas_id": atlas.id}),
+            {
+                "display_name": "Renamed Atlas",
+                "notes": "Updated notes",
+                "is_active": "on",
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        atlas.refresh_from_db()
+        self.assertEqual(atlas.display_name, "Renamed Atlas")
+        self.assertEqual(atlas.notes, "Updated notes")
+
+    def test_project_admin_can_delete_atlas(self):
+        atlas = Atlas.objects.create(
+            project=self.project,
+            world_folder=self.world,
+            display_name="Overworld",
+        )
+
+        response = self.client_for(self.admin).post(
+            reverse("delete_atlas", kwargs={"atlas_id": atlas.id}),
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(Atlas.objects.filter(id=atlas.id).exists())
+
+    def test_project_admin_cannot_delete_atlas_with_active_render_job(self):
+        atlas = Atlas.objects.create(
+            project=self.project,
+            world_folder=self.world,
+            display_name="Overworld",
+        )
+        render = Render.objects.create(
+            atlas=atlas,
+            display_name="Standard",
+            dimension=Render.Dimension.OVERWORLD,
+        )
+        RenderJob.objects.create(render=render, status=RenderJob.Status.QUEUED)
+
+        response = self.client_for(self.admin).post(
+            reverse("delete_atlas", kwargs={"atlas_id": atlas.id}),
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(Atlas.objects.filter(id=atlas.id).exists())
+
+    def test_project_admin_can_edit_render_without_changing_bluemap_id(self):
+        atlas = Atlas.objects.create(
+            project=self.project,
+            world_folder=self.world,
+            display_name="Overworld",
+        )
+        render = Render.objects.create(
+            atlas=atlas,
+            bluemap_map_id="stable-render-id",
+            display_name="Standard",
+            dimension=Render.Dimension.OVERWORLD,
+        )
+
+        response = self.client_for(self.admin).post(
+            reverse("edit_render", kwargs={"render_id": render.id}),
+            {
+                "display_name": "Renamed Render",
+                "dimension": Render.Dimension.NETHER,
+                "custom_dimension": "",
+                "perspective_preset": Render.PerspectivePreset.NIGHT,
+                "sorting": 10,
+                "is_enabled": "on",
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        render.refresh_from_db()
+        self.assertEqual(render.display_name, "Renamed Render")
+        self.assertEqual(render.dimension, Render.Dimension.NETHER)
+        self.assertEqual(render.perspective_preset, Render.PerspectivePreset.NIGHT)
+        self.assertEqual(render.sorting, 10)
+        self.assertEqual(render.bluemap_map_id, "stable-render-id")
+
+    def test_project_admin_can_delete_render(self):
+        atlas = Atlas.objects.create(
+            project=self.project,
+            world_folder=self.world,
+            display_name="Overworld",
+        )
+        render = Render.objects.create(
+            atlas=atlas,
+            display_name="Standard",
+            dimension=Render.Dimension.OVERWORLD,
+        )
+
+        response = self.client_for(self.admin).post(
+            reverse("delete_render", kwargs={"render_id": render.id}),
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(Render.objects.filter(id=render.id).exists())
+
+    def test_project_admin_cannot_delete_render_with_active_job(self):
+        atlas = Atlas.objects.create(
+            project=self.project,
+            world_folder=self.world,
+            display_name="Overworld",
+        )
+        render = Render.objects.create(
+            atlas=atlas,
+            display_name="Standard",
+            dimension=Render.Dimension.OVERWORLD,
+        )
+        RenderJob.objects.create(render=render, status=RenderJob.Status.RUNNING)
+
+        response = self.client_for(self.admin).post(
+            reverse("delete_render", kwargs={"render_id": render.id}),
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(Render.objects.filter(id=render.id).exists())
+
+    def test_project_user_cannot_edit_or_delete_atlas_or_render(self):
+        atlas = Atlas.objects.create(
+            project=self.project,
+            world_folder=self.world,
+            display_name="Overworld",
+        )
+        render = Render.objects.create(
+            atlas=atlas,
+            display_name="Standard",
+            dimension=Render.Dimension.OVERWORLD,
+        )
+
+        edit_atlas_response = self.client_for(self.user).post(
+            reverse("edit_atlas", kwargs={"atlas_id": atlas.id}),
+            {"display_name": "Denied", "notes": "", "is_active": "on"},
+        )
+        delete_atlas_response = self.client_for(self.user).post(
+            reverse("delete_atlas", kwargs={"atlas_id": atlas.id}),
+        )
+        edit_render_response = self.client_for(self.user).post(
+            reverse("edit_render", kwargs={"render_id": render.id}),
+            {
+                "display_name": "Denied",
+                "dimension": Render.Dimension.OVERWORLD,
+                "custom_dimension": "",
+                "perspective_preset": Render.PerspectivePreset.DAY,
+                "sorting": 0,
+                "is_enabled": "on",
+            },
+        )
+        delete_render_response = self.client_for(self.user).post(
+            reverse("delete_render", kwargs={"render_id": render.id}),
+        )
+
+        self.assertEqual(edit_atlas_response.status_code, 403)
+        self.assertEqual(delete_atlas_response.status_code, 403)
+        self.assertEqual(edit_render_response.status_code, 403)
+        self.assertEqual(delete_render_response.status_code, 403)
+        atlas.refresh_from_db()
+        render.refresh_from_db()
+        self.assertEqual(atlas.display_name, "Overworld")
+        self.assertEqual(render.display_name, "Standard")
 
     def test_project_admin_can_add_existing_user_as_project_user_by_username(self):
         response = self.client_for(self.admin).post(

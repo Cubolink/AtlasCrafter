@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }} - BlueMap Web UI Panel{% endblock %}
+
+{% block content %}
+  <div class="row">
+    <h1>{{ title }}</h1>
+    <a href="{{ render.project.get_absolute_url }}">Back to Project</a>
+  </div>
+
+  <section class="panel">
+    <p class="muted">{{ render.project.name }} / {{ render.atlas.display_name }}</p>
+    <dl>
+      <dt>BlueMap map id</dt>
+      <dd>{{ render.bluemap_map_id }}</dd>
+    </dl>
+    <form method="post">
+      {% csrf_token %}
+      {{ form.as_p }}
+      <button type="submit">{{ submit_label }}</button>
+    </form>
+  </section>
+{% endblock %}

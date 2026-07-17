@@ -5,8 +5,15 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
 from accounts.models import ProjectMembership
-from .forms import AtlasCreateForm, ProjectUserAddForm, RenderCreateForm
-from .models import Atlas, Project
+from renders.models import RenderJob
+from .forms import (
+    AtlasCreateForm,
+    AtlasEditForm,
+    ProjectUserAddForm,
+    RenderCreateForm,
+    RenderEditForm,
+)
+from .models import Atlas, Project, Render
 from .permissions import can_manage_project
 
 
@@ -89,6 +96,53 @@ def create_render(request, atlas_id: int):
 
 
 @login_required
+def edit_render(request, render_id: int):
+    render_obj = get_object_or_404(
+        Render.objects.select_related("atlas__project", "atlas__world_folder"),
+        id=render_id,
+    )
+    if not can_manage_project(request.user, render_obj.project):
+        raise PermissionDenied("You do not have permission to edit this Render.")
+
+    form = RenderEditForm(instance=render_obj)
+    if request.method == "POST":
+        form = RenderEditForm(request.POST, instance=render_obj)
+        if form.is_valid():
+            render_obj = form.save()
+            messages.success(request, f"Render '{render_obj.display_name}' updated.")
+            return redirect(render_obj.project.get_absolute_url())
+
+    return render(
+        request,
+        "projects/render_form.html",
+        {
+            "render": render_obj,
+            "form": form,
+            "title": "Edit Render",
+            "submit_label": "Save Render",
+        },
+    )
+
+
+@login_required
+@require_POST
+def delete_render(request, render_id: int):
+    render_obj = get_object_or_404(Render.objects.select_related("atlas__project"), id=render_id)
+    if not can_manage_project(request.user, render_obj.project):
+        raise PermissionDenied("You do not have permission to delete this Render.")
+
+    if render_has_active_jobs(render_obj):
+        messages.error(request, "This Render has a queued or running job and cannot be deleted yet.")
+        return redirect(render_obj.project.get_absolute_url())
+
+    project = render_obj.project
+    display_name = render_obj.display_name
+    render_obj.delete()
+    messages.success(request, f"Render '{display_name}' deleted.")
+    return redirect(project.get_absolute_url())
+
+
+@login_required
 @require_POST
 def add_project_user(request, slug: str):
     project = get_object_or_404(Project, slug=slug)
@@ -105,6 +159,50 @@ def add_project_user(request, slug: str):
     else:
         for error in form.errors.values():
             messages.error(request, error)
+    return redirect(project.get_absolute_url())
+
+
+@login_required
+def edit_atlas(request, atlas_id: int):
+    atlas = get_object_or_404(Atlas.objects.select_related("project", "world_folder"), id=atlas_id)
+    if not can_manage_project(request.user, atlas.project):
+        raise PermissionDenied("You do not have permission to edit this Atlas.")
+
+    form = AtlasEditForm(instance=atlas)
+    if request.method == "POST":
+        form = AtlasEditForm(request.POST, instance=atlas)
+        if form.is_valid():
+            atlas = form.save()
+            messages.success(request, f"Atlas '{atlas.display_name}' updated.")
+            return redirect(atlas.project.get_absolute_url())
+
+    return render(
+        request,
+        "projects/atlas_form.html",
+        {
+            "atlas": atlas,
+            "form": form,
+            "title": "Edit Atlas",
+            "submit_label": "Save Atlas",
+        },
+    )
+
+
+@login_required
+@require_POST
+def delete_atlas(request, atlas_id: int):
+    atlas = get_object_or_404(Atlas.objects.select_related("project"), id=atlas_id)
+    if not can_manage_project(request.user, atlas.project):
+        raise PermissionDenied("You do not have permission to delete this Atlas.")
+
+    if atlas_has_active_jobs(atlas):
+        messages.error(request, "This Atlas has queued or running render jobs and cannot be deleted yet.")
+        return redirect(atlas.project.get_absolute_url())
+
+    project = atlas.project
+    display_name = atlas.display_name
+    atlas.delete()
+    messages.success(request, f"Atlas '{display_name}' deleted.")
     return redirect(project.get_absolute_url())
 
 
@@ -127,3 +225,16 @@ def remove_project_membership(request, slug: str, membership_id: int):
     membership.delete()
     messages.success(request, f"Removed {username} from this Project.")
     return redirect(project.get_absolute_url())
+
+
+def render_has_active_jobs(render_obj: Render) -> bool:
+    return render_obj.jobs.filter(
+        status__in=[RenderJob.Status.QUEUED, RenderJob.Status.RUNNING],
+    ).exists()
+
+
+def atlas_has_active_jobs(atlas: Atlas) -> bool:
+    return RenderJob.objects.filter(
+        render__atlas=atlas,
+        status__in=[RenderJob.Status.QUEUED, RenderJob.Status.RUNNING],
+    ).exists()

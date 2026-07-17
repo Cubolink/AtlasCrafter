@@ -24,6 +24,12 @@ class AtlasCreateForm(forms.ModelForm):
         return atlas
 
 
+class AtlasEditForm(forms.ModelForm):
+    class Meta:
+        model = Atlas
+        fields = ["display_name", "notes", "is_active"]
+
+
 class RenderCreateForm(forms.ModelForm):
     class Meta:
         model = Render
@@ -47,6 +53,19 @@ class RenderCreateForm(forms.ModelForm):
         if commit:
             render.save()
         return render
+
+
+class RenderEditForm(forms.ModelForm):
+    class Meta:
+        model = Render
+        fields = [
+            "display_name",
+            "dimension",
+            "custom_dimension",
+            "perspective_preset",
+            "sorting",
+            "is_enabled",
+        ]
 
 
 class ProjectUserAddForm(forms.Form):
