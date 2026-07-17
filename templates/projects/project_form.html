@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }} - BlueMap Web UI Panel{% endblock %}
+
+{% block content %}
+  <div class="row">
+    <h1>{{ title }}</h1>
+    <a href="{% url 'manage_projects' %}">Back to Projects</a>
+  </div>
+
+  <section class="panel">
+    <form method="post">
+      {% csrf_token %}
+      <p>
+        {{ form.name.label_tag }}
+        {{ form.name }}
+        {{ form.name.errors }}
+      </p>
+      <p>
+        {{ form.description.label_tag }}
+        {{ form.description }}
+        {{ form.description.errors }}
+      </p>
+      <p>
+        {{ form.owner_team.label_tag }}
+        {{ form.owner_team }}
+        {{ form.owner_team.errors }}
+      </p>
+      <p>
+        {{ form.default_bluemap_profile.label_tag }}
+        {{ form.default_bluemap_profile }}
+        {{ form.default_bluemap_profile.errors }}
+      </p>
+
+      <section>
+        <h2>Visible World Folders</h2>
+        {% if worlds %}
+          <ul>
+            {% include "projects/visible_world_tree_node.html" with node=tree form=form only %}
+          </ul>
+        {% else %}
+          <p class="muted">No active world folders are available yet.</p>
+        {% endif %}
+        {{ form.visible_worlds.errors }}
+      </section>
+
+      {{ form.non_field_errors }}
+      <button type="submit">{{ submit_label }}</button>
+    </form>
+  </section>
+
+  <script>
+    document.addEventListener("change", function (event) {
+      if (!event.target.matches("[data-world-folder-toggle]")) return;
+      var item = event.target.closest("li");
+      if (!item) return;
+      item.querySelectorAll("input[name='visible_worlds']").forEach(function (checkbox) {
+        checkbox.checked = event.target.checked;
+      });
+    });
+  </script>
+{% endblock %}

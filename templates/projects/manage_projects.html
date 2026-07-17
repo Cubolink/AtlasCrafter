@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+
+{% block title %}Projects - BlueMap Web UI Panel{% endblock %}
+
+{% block content %}
+  <div class="row">
+    <h1>Projects</h1>
+    <a href="{% url 'create_project' %}">Create Project</a>
+  </div>
+
+  <section class="panel">
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Visible Worlds</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for project in projects %}
+          <tr>
+            <td>{{ project.name }}</td>
+            <td>{{ project.visible_worlds.count }}</td>
+            <td><a href="{% url 'edit_project' project.id %}">Edit</a></td>
+          </tr>
+        {% empty %}
+          <tr>
+            <td colspan="3">No Projects have been created.</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+{% endblock %}

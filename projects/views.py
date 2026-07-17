@@ -11,6 +11,7 @@ from renders.models import RenderJob
 from .forms import (
     AtlasCreateForm,
     AtlasEditForm,
+    ProjectManageForm,
     ProjectUserAddForm,
     RENDER_ADVANCED_FIELDS,
     RENDER_BASIC_FIELDS,
@@ -73,6 +74,50 @@ def scan_world_folders(request):
 
 @login_required
 @user_passes_test(superuser_required)
+def manage_projects(request):
+    projects = Project.objects.prefetch_related("visible_worlds").all()
+    return render(
+        request,
+        "projects/manage_projects.html",
+        {
+            "projects": projects,
+        },
+    )
+
+
+@login_required
+@user_passes_test(superuser_required)
+def create_project(request):
+    form = ProjectManageForm()
+    worlds = WorldFolder.objects.filter(is_active=True).order_by("display_name")
+    if request.method == "POST":
+        form = ProjectManageForm(request.POST)
+        if form.is_valid():
+            project = form.save()
+            messages.success(request, f"Project '{project.name}' created.")
+            return redirect("edit_project", project_id=project.id)
+
+    return render_project_form(request, form, worlds, "Create Project", "Create Project")
+
+
+@login_required
+@user_passes_test(superuser_required)
+def edit_project(request, project_id: int):
+    project = get_object_or_404(Project, id=project_id)
+    form = ProjectManageForm(instance=project)
+    worlds = WorldFolder.objects.filter(is_active=True).order_by("display_name")
+    if request.method == "POST":
+        form = ProjectManageForm(request.POST, instance=project)
+        if form.is_valid():
+            project = form.save()
+            messages.success(request, f"Project '{project.name}' updated.")
+            return redirect("manage_projects")
+
+    return render_project_form(request, form, worlds, "Edit Project", "Save Project", project)
+
+
+@login_required
+@user_passes_test(superuser_required)
 def create_world_folder(request):
     form = WorldFolderForm()
     if request.method == "POST":
@@ -89,6 +134,21 @@ def create_world_folder(request):
             "form": form,
             "title": "Add World Folder",
             "submit_label": "Add World Folder",
+        },
+    )
+
+
+def render_project_form(request, form, worlds, title, submit_label, project=None):
+    return render(
+        request,
+        "projects/project_form.html",
+        {
+            "form": form,
+            "project": project,
+            "tree": build_world_tree(worlds),
+            "worlds": worlds,
+            "title": title,
+            "submit_label": submit_label,
         },
     )
 

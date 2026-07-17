@@ -1,0 +1,32 @@
+{% load project_form_tags %}
+<li>
+  <label>
+    <input type="checkbox" data-world-folder-toggle>
+    <strong>{{ node.name }}</strong>
+  </label>
+  {% if node.worlds %}
+    <ul>
+      {% for world in node.worlds %}
+        <li>
+          <label>
+            <input
+              type="checkbox"
+              name="visible_worlds"
+              value="{{ world.id }}"
+              {% if form.visible_worlds.value|contains_world_id:world.id %}checked{% endif %}
+            >
+            {{ world.display_name }}
+          </label>
+          <span class="muted">{{ world.source_path }}</span>
+        </li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+  {% if node.children %}
+    <ul>
+      {% for child in node.children.values %}
+        {% include "projects/visible_world_tree_node.html" with node=child form=form only %}
+      {% endfor %}
+    </ul>
+  {% endif %}
+</li>

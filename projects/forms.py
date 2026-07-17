@@ -54,6 +54,33 @@ class AtlasCreateForm(forms.ModelForm):
         return atlas
 
 
+class ProjectManageForm(forms.ModelForm):
+    visible_worlds = forms.ModelMultipleChoiceField(
+        queryset=WorldFolder.objects.none(),
+        required=False,
+        widget=forms.CheckboxSelectMultiple,
+    )
+
+    class Meta:
+        model = Project
+        fields = ["name", "description", "owner_team", "default_bluemap_profile", "visible_worlds"]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["visible_worlds"].queryset = WorldFolder.objects.filter(
+            is_active=True,
+        ).order_by("display_name")
+        if self.instance.pk:
+            self.fields["visible_worlds"].initial = self.instance.visible_worlds.all()
+
+    def save(self, commit=True):
+        if commit:
+            project = super().save(commit=True)
+            project.visible_worlds.set(self.cleaned_data["visible_worlds"])
+            return project
+        return super().save(commit=False)
+
+
 class WorldFolderForm(forms.ModelForm):
     class Meta:
         model = WorldFolder

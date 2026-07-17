@@ -10,6 +10,12 @@
 
   {% if request.user.is_superuser %}
     <section class="panel">
+      <h2>Projects</h2>
+      <p class="muted">Create Projects and control which world folders are visible to them.</p>
+      <a href="{% url 'manage_projects' %}">Manage Projects</a>
+    </section>
+
+    <section class="panel">
       <h2>World Folders</h2>
       <p class="muted">Discover and manage Minecraft world folders available to Projects.</p>
       <a href="{% url 'world_folders' %}">Manage World Folders</a>
