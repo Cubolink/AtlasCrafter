@@ -192,4 +192,8 @@
   .table-wrap {
     @apply overflow-x-auto rounded-lg border border-base-300 bg-base-100;
   }
+
+  .menu form button {
+    @apply btn btn-ghost btn-sm w-full justify-start font-normal;
+  }
 }

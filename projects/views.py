@@ -332,6 +332,7 @@ def project_worlds(request, slug: str):
 def atlas_detail(request, atlas_id: int):
     atlas = get_visible_atlas_or_404(request, atlas_id)
     can_manage = can_manage_project(request.user, atlas.project)
+    renders = atlas.renders.filter(is_enabled=True).prefetch_related("jobs")
     return render(
         request,
         "projects/atlas_detail.html",
@@ -339,7 +340,13 @@ def atlas_detail(request, atlas_id: int):
             "atlas": atlas,
             "project": atlas.project,
             "can_manage_project": can_manage,
-            "renders": atlas.renders.filter(is_enabled=True),
+            "render_sections": [
+                {
+                    "render": render,
+                    "latest_job": render.jobs.first(),
+                }
+                for render in renders
+            ],
             "archived_render_count": atlas.renders.filter(is_enabled=False).count() if can_manage else 0,
             "render_form": RenderCreateForm(atlas=atlas) if can_manage else None,
         },

@@ -50,11 +50,18 @@
             <div class="mt-3 flex flex-wrap gap-2">
               <a class="btn btn-primary btn-sm" href="{% url 'atlas_detail' atlas.id %}">View Atlas</a>
               {% if can_manage_project %}
-                <a class="action-link" href="{% url 'edit_atlas' atlas.id %}">Edit Atlas</a>
-                <form class="inline-block" method="post" action="{% url 'archive_atlas' atlas.id %}">
-                  {% csrf_token %}
-                  <button class="action-danger" type="submit">Archive Atlas</button>
-                </form>
+                <div class="dropdown dropdown-end">
+                  <button class="btn btn-ghost btn-sm" tabindex="0" type="button">Manage</button>
+                  <ul class="dropdown-content menu z-10 w-48 rounded-lg border border-base-300 bg-base-100 p-2 shadow">
+                    <li><a href="{% url 'edit_atlas' atlas.id %}">Edit Atlas</a></li>
+                    <li>
+                      <form method="post" action="{% url 'archive_atlas' atlas.id %}">
+                        {% csrf_token %}
+                        <button class="text-error" type="submit">Archive Atlas</button>
+                      </form>
+                    </li>
+                  </ul>
+                </div>
               {% endif %}
             </div>
           </article>

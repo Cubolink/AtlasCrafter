@@ -447,6 +447,28 @@ class ProjectSetupViewTests(TestCase):
         archived_render.refresh_from_db()
         self.assertTrue(archived_render.is_enabled)
 
+    def test_atlas_detail_shows_latest_render_job_summary(self):
+        atlas = Atlas.objects.create(
+            project=self.project,
+            world_folder=self.world,
+            display_name="Overworld",
+        )
+        render = Render.objects.create(
+            atlas=atlas,
+            display_name="Standard",
+            dimension=Render.Dimension.OVERWORLD,
+        )
+        old_job = RenderJob.objects.create(render=render, status=RenderJob.Status.FAILED)
+        latest_job = RenderJob.objects.create(render=render, status=RenderJob.Status.SUCCEEDED)
+
+        response = self.client_for(self.admin).get(
+            reverse("atlas_detail", kwargs={"atlas_id": atlas.id}),
+        )
+
+        self.assertContains(response, f"#{latest_job.id}")
+        self.assertContains(response, latest_job.get_status_display())
+        self.assertNotContains(response, f"#{old_job.id}")
+
     def test_project_user_cannot_view_archived_renders(self):
         atlas = Atlas.objects.create(
             project=self.project,

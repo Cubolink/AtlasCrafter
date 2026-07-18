@@ -19,12 +19,17 @@
       {% endif %}
     </div>
     {% if can_manage_project %}
-      <div class="flex flex-wrap gap-2">
-        <a class="btn btn-outline btn-sm" href="{% url 'edit_atlas' atlas.id %}">Edit Atlas</a>
-        <form class="inline-block" method="post" action="{% url 'archive_atlas' atlas.id %}">
-          {% csrf_token %}
-          <button class="action-danger" type="submit">Archive Atlas</button>
-        </form>
+      <div class="dropdown dropdown-end">
+        <button class="btn btn-outline btn-sm" tabindex="0" type="button">Manage</button>
+        <ul class="dropdown-content menu z-10 w-48 rounded-lg border border-base-300 bg-base-100 p-2 shadow">
+          <li><a href="{% url 'edit_atlas' atlas.id %}">Edit Atlas</a></li>
+          <li>
+            <form method="post" action="{% url 'archive_atlas' atlas.id %}">
+              {% csrf_token %}
+              <button class="text-error" type="submit">Archive Atlas</button>
+            </form>
+          </li>
+        </ul>
       </div>
     {% endif %}
   </div>
@@ -39,26 +44,46 @@
       {% endif %}
     </div>
     <div class="list">
-      {% for render in renders %}
+      {% for section in render_sections %}
+        {% with render=section.render latest_job=section.latest_job %}
         <article class="rounded-lg border border-base-300 p-4">
           <div class="row">
             <div>
               <h3><a href="{% url 'render_viewer' render.id %}">{{ render.display_name }}</a></h3>
               <p class="muted">{{ render.bluemap_map_id }}</p>
+              <p class="muted">
+                {% if latest_job %}
+                  Last job:
+                  <a href="{% url 'render_job_detail' latest_job.id %}">#{{ latest_job.id }}</a>
+                  <span class="status-{{ latest_job.status }}">{{ latest_job.get_status_display }}</span>
+                  <span>{{ latest_job.updated_at }}</span>
+                {% else %}
+                  No render jobs yet.
+                {% endif %}
+              </p>
             </div>
             <span class="badge badge-outline">{{ render.get_dimension_display }}</span>
           </div>
           <div class="mt-3 flex flex-wrap gap-2">
             <a class="btn btn-primary btn-sm" href="{% url 'render_viewer' render.id %}">Open Render</a>
             {% if can_manage_project %}
-              <a class="action-link" href="{% url 'edit_render' render.id %}">Edit</a>
-              <form class="inline-block" method="post" action="{% url 'archive_render' render.id %}">
-                {% csrf_token %}
-                <button class="action-danger" type="submit">Archive</button>
-              </form>
+              <div class="dropdown dropdown-end">
+                <button class="btn btn-ghost btn-sm" tabindex="0" type="button">Manage</button>
+                <ul class="dropdown-content menu z-10 w-48 rounded-lg border border-base-300 bg-base-100 p-2 shadow">
+                  <li><a href="{% url 'edit_render' render.id %}">Edit Render</a></li>
+                  <li><a href="{% url 'render_config_preview' render.id %}">Preview Config</a></li>
+                  <li>
+                    <form method="post" action="{% url 'archive_render' render.id %}">
+                      {% csrf_token %}
+                      <button class="text-error" type="submit">Archive Render</button>
+                    </form>
+                  </li>
+                </ul>
+              </div>
             {% endif %}
           </div>
         </article>
+        {% endwith %}
       {% empty %}
         <p>No Renders defined.</p>
       {% endfor %}

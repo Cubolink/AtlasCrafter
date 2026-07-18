@@ -35,13 +35,20 @@
             </td>
             <td>{{ project.visible_worlds.count }}</td>
             <td>
-              <a class="action-link" href="{% url 'edit_project' project.id %}">Edit</a>
-              {% if project.is_active %}
-                <form class="inline-block" method="post" action="{% url 'archive_project' project.id %}">
-                  {% csrf_token %}
-                  <button class="action-danger" type="submit">Archive</button>
-                </form>
-              {% endif %}
+              <div class="dropdown dropdown-end">
+                <button class="btn btn-ghost btn-sm" tabindex="0" type="button">Manage</button>
+                <ul class="dropdown-content menu z-10 w-48 rounded-lg border border-base-300 bg-base-100 p-2 shadow">
+                  <li><a href="{% url 'edit_project' project.id %}">Edit Project</a></li>
+                  {% if project.is_active %}
+                    <li>
+                      <form method="post" action="{% url 'archive_project' project.id %}">
+                        {% csrf_token %}
+                        <button class="text-error" type="submit">Archive Project</button>
+                      </form>
+                    </li>
+                  {% endif %}
+                </ul>
+              </div>
             </td>
           </tr>
         {% empty %}

@@ -45,9 +45,32 @@
         <h1>{{ render.display_name }}</h1>
         <p class="muted">{{ render.project.name }} / {{ render.atlas.display_name }}</p>
       </div>
-      <span class="{% if has_active_job %}status-running{% else %}status-active{% endif %}">
-        {% if has_active_job %}Running{% else %}Ready{% endif %}
-      </span>
+      <div class="flex flex-wrap items-center gap-2">
+        <span class="{% if has_active_job %}status-running{% else %}status-active{% endif %}">
+          {% if has_active_job %}Running{% else %}Ready{% endif %}
+        </span>
+        {% if can_manage_render or can_trigger_render %}
+          <div class="dropdown dropdown-end">
+            <button class="btn btn-outline btn-sm" tabindex="0" type="button">Manage</button>
+            <ul class="dropdown-content menu z-10 w-52 rounded-lg border border-base-300 bg-base-100 p-2 shadow">
+              {% if can_manage_render %}
+                <li><a href="{% url 'edit_render' render.id %}">Edit Render</a></li>
+              {% endif %}
+              {% if can_trigger_render %}
+                <li><a href="{% url 'render_config_preview' render.id %}">Preview Config</a></li>
+              {% endif %}
+              {% if can_manage_render %}
+                <li>
+                  <form method="post" action="{% url 'archive_render' render.id %}">
+                    {% csrf_token %}
+                    <button class="text-error" type="submit">Archive Render</button>
+                  </form>
+                </li>
+              {% endif %}
+            </ul>
+          </div>
+        {% endif %}
+      </div>
     </div>
     <dl>
       <dt>BlueMap map id</dt>
@@ -69,7 +92,6 @@
       </dd>
     </dl>
     {% if can_trigger_render %}
-      <p><a class="btn btn-outline btn-sm" href="{% url 'render_config_preview' render.id %}">Preview generated config</a></p>
       {% if not source_available %}
         <p class="muted">This World Folder is archived or missing. Restore it before triggering new render jobs.</p>
       {% endif %}
