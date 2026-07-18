@@ -22,9 +22,9 @@
   {% include "projects/project_subnav.html" with active_project_tab="worlds" %}
 
   <section class="panel">
-    <h2>Visible World Folders</h2>
+    <h2>{{ worlds_title }}</h2>
     <div class="list">
-      {% for world in project.visible_worlds.all %}
+      {% for world in world_folders %}
         <article class="rounded-lg border border-base-300 p-4">
           <div class="row">
             <div>
@@ -37,7 +37,7 @@
           </div>
         </article>
       {% empty %}
-        <p>No world folders are visible to this Project.</p>
+        <p>{{ empty_message }}</p>
       {% endfor %}
     </div>
   </section>

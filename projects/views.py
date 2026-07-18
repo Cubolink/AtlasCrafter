@@ -281,16 +281,15 @@ def project_detail(request, slug: str):
 @login_required
 def project_members(request, slug: str):
     project = get_visible_project_or_404(request, slug)
-    if not can_manage_project(request.user, project):
-        raise PermissionDenied("You do not have permission to manage Project users.")
+    can_manage = can_manage_project(request.user, project)
 
     return render(
         request,
         "projects/project_members.html",
         {
             "project": project,
-            "can_manage_project": True,
-            "project_user_add_form": ProjectUserAddForm(project=project),
+            "can_manage_project": can_manage,
+            "project_user_add_form": ProjectUserAddForm(project=project) if can_manage else None,
             "memberships": project.memberships.select_related("user").all(),
         },
     )
@@ -303,15 +302,28 @@ def project_worlds(request, slug: str):
         slug,
         Project.objects.prefetch_related("visible_worlds"),
     )
-    if not can_manage_project(request.user, project):
-        raise PermissionDenied("You do not have permission to view Project world folders.")
+    can_manage = can_manage_project(request.user, project)
+    if can_manage:
+        world_folders = project.visible_worlds.all()
+        worlds_title = "Visible World Folders"
+        empty_message = "No world folders are visible to this Project."
+    else:
+        world_folders = WorldFolder.objects.filter(
+            atlases__project=project,
+            atlases__is_active=True,
+        ).distinct().order_by("display_name")
+        worlds_title = "Atlas World Folders"
+        empty_message = "No world folders are in use by this Project's Atlases yet."
 
     return render(
         request,
         "projects/project_worlds.html",
         {
             "project": project,
-            "can_manage_project": True,
+            "can_manage_project": can_manage,
+            "world_folders": world_folders,
+            "worlds_title": worlds_title,
+            "empty_message": empty_message,
         },
     )
 

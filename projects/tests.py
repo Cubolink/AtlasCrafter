@@ -208,6 +208,42 @@ class ProjectSetupViewTests(TestCase):
         self.assertFalse(self.project.atlases.filter(display_name="Denied").exists())
         self.assertFalse(atlas.renders.filter(bluemap_map_id="denied").exists())
 
+    def test_project_user_sees_project_section_tabs(self):
+        response = self.client_for(self.user).get(
+            reverse("project_detail", kwargs={"slug": self.project.slug}),
+        )
+
+        self.assertContains(response, reverse("project_members", kwargs={"slug": self.project.slug}))
+        self.assertContains(response, reverse("project_worlds", kwargs={"slug": self.project.slug}))
+
+    def test_project_user_can_view_members_without_manage_actions(self):
+        response = self.client_for(self.user).get(
+            reverse("project_members", kwargs={"slug": self.project.slug}),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, self.admin.username)
+        self.assertContains(response, self.user.username)
+        self.assertNotContains(response, "Add Project User")
+        self.assertNotContains(response, "Remove")
+
+    def test_project_user_can_view_only_worlds_used_by_atlases(self):
+        ProjectVisibleWorld.objects.create(project=self.project, world_folder=self.other_world)
+        Atlas.objects.create(
+            project=self.project,
+            world_folder=self.world,
+            display_name="Overworld",
+        )
+
+        response = self.client_for(self.user).get(
+            reverse("project_worlds", kwargs={"slug": self.project.slug}),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Atlas World Folders")
+        self.assertContains(response, self.world.display_name)
+        self.assertNotContains(response, self.other_world.display_name)
+
     def test_project_admin_can_edit_atlas(self):
         atlas = Atlas.objects.create(
             project=self.project,
