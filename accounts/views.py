@@ -52,6 +52,12 @@ def profile_settings(request):
 @login_required
 @user_passes_test(can_access_panel_settings)
 def panel_settings(request):
+    return render(request, "accounts/panel_settings.html")
+
+
+@login_required
+@user_passes_test(can_access_panel_settings)
+def panel_users(request):
     query = request.GET.get("q", "").strip()
     users = get_user_model().objects.order_by("username")
     if query:
@@ -62,7 +68,7 @@ def panel_settings(request):
 
     return render(
         request,
-        "accounts/panel_settings.html",
+        "accounts/panel_users.html",
         {
             "query": query,
             "users": users,
@@ -79,7 +85,7 @@ def panel_user_create(request):
         if form.is_valid():
             user = form.save()
             messages.success(request, f"User '{user.username}' created.")
-            return redirect("panel_settings")
+            return redirect("panel_users")
 
     return render(
         request,
@@ -102,7 +108,7 @@ def panel_user_edit(request, user_id: int):
         if form.is_valid():
             form.save()
             messages.success(request, f"User '{user.username}' updated.")
-            return redirect("panel_settings")
+            return redirect("panel_users")
 
     return render(
         request,

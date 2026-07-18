@@ -3,72 +3,51 @@
 {% block title %}Panel Settings - BlueMap Web UI Panel{% endblock %}
 
 {% block breadcrumbs %}
-  <li><a href="{% url 'dashboard' %}">Projects</a></li>
   <li>Panel Settings</li>
 {% endblock %}
 
 {% block content %}
-  <div class="row">
-    <h1>Panel Settings</h1>
-    <a class="btn btn-primary btn-sm" href="{% url 'panel_user_create' %}">Add New User</a>
+  <div class="page-heading">
+    <div>
+      <p class="page-kicker">Administration</p>
+      <h1>Panel Settings</h1>
+      <p class="mt-2 max-w-3xl text-base-content/70">
+        Manage users, project visibility, and discovered world folders from one place.
+      </p>
+    </div>
   </div>
 
+  <section class="grid gap-4 lg:grid-cols-3">
+    <article class="panel">
+      <div>
+        <h2>Users</h2>
+        <p class="muted">Search users, edit account details, and assign project access.</p>
+        <div class="mt-4">
+          <a class="btn btn-outline btn-sm" href="{% url 'panel_users' %}">Manage Users</a>
+        </div>
+      </div>
+    </article>
+
   {% if request.user.is_superuser %}
-    <section class="panel">
-      <h2>Projects</h2>
-      <p class="muted">Create Projects and control which world folders are visible to them.</p>
-      <a class="btn btn-outline btn-sm" href="{% url 'manage_projects' %}">Manage Projects</a>
-    </section>
+    <article class="panel">
+      <div>
+        <h2>Projects</h2>
+        <p class="muted">Create Projects and control which world folders are visible to them.</p>
+        <div class="mt-4">
+          <a class="btn btn-outline btn-sm" href="{% url 'manage_projects' %}">Manage Projects</a>
+        </div>
+      </div>
+    </article>
 
-    <section class="panel">
-      <h2>World Folders</h2>
-      <p class="muted">Discover and manage Minecraft world folders available to Projects.</p>
-      <a class="btn btn-outline btn-sm" href="{% url 'world_folders' %}">Manage World Folders</a>
-    </section>
+    <article class="panel">
+      <div>
+        <h2>World Folders</h2>
+        <p class="muted">Discover and manage Minecraft world folders available to Projects.</p>
+        <div class="mt-4">
+          <a class="btn btn-outline btn-sm" href="{% url 'world_folders' %}">Manage World Folders</a>
+        </div>
+      </div>
+    </article>
   {% endif %}
-
-  <section class="panel">
-    <h2>Users</h2>
-    <form method="get">
-      <label for="user-search">Search users</label>
-      <input id="user-search" type="search" name="q" value="{{ query }}" placeholder="Username or email">
-      <button type="submit">Search</button>
-      {% if query %}
-        <a href="{% url 'panel_settings' %}">Clear</a>
-      {% endif %}
-    </form>
-  </section>
-
-  <section class="panel">
-    <div class="table-wrap">
-    <table>
-      <thead>
-        <tr>
-          <th>Username</th>
-          <th>Email</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for user in users %}
-          <tr>
-            <td>{{ user.username }}</td>
-            <td>
-              {% if user.email %}
-                {{ user.email }}
-              {% else %}
-                <span class="muted">No email</span>
-              {% endif %}
-            </td>
-            <td><a class="action-link" href="{% url 'panel_user_edit' user.id %}">Edit</a></td>
-          </tr>
-        {% empty %}
-          <tr>
-            <td colspan="3">No users found.</td>
-          </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-    </div>
   </section>
 {% endblock %}

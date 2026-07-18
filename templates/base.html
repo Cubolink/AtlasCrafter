@@ -78,12 +78,13 @@
               </li>
               {% if request.user.is_staff or request.user.is_superuser %}
                 <li>
-                  <details {% if request.resolver_match.url_name == 'panel_settings' or request.resolver_match.url_name == 'manage_projects' or request.resolver_match.url_name == 'world_folders' %}open{% endif %}>
+                  <details {% if request.resolver_match.url_name == 'panel_settings' or request.resolver_match.url_name == 'panel_users' or request.resolver_match.url_name == 'panel_user_create' or request.resolver_match.url_name == 'panel_user_edit' or request.resolver_match.url_name == 'manage_projects' or request.resolver_match.url_name == 'create_project' or request.resolver_match.url_name == 'edit_project' or request.resolver_match.url_name == 'world_folders' or request.resolver_match.url_name == 'create_world_folder' or request.resolver_match.url_name == 'edit_world_folder' %}open{% endif %}>
                     <summary class="{% if request.resolver_match.url_name == 'panel_settings' %}active{% endif %}">
                       Panel Settings
                     </summary>
                     <ul>
-                      <li><a href="{% url 'panel_settings' %}">Users</a></li>
+                      <li><a href="{% url 'panel_settings' %}">Overview</a></li>
+                      <li><a href="{% url 'panel_users' %}">Users</a></li>
                       {% if request.user.is_superuser %}
                         <li><a href="{% url 'manage_projects' %}">Manage Projects</a></li>
                         <li><a href="{% url 'world_folders' %}">World Folders</a></li>

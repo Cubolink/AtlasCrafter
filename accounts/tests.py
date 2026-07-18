@@ -107,12 +107,18 @@ class PanelSettingsTests(TestCase):
         self.assertEqual(response.status_code, 302)
         self.assertIn(reverse("login"), response["Location"])
 
-    def test_panel_settings_lists_and_searches_users(self):
-        response = self.client.get(reverse("panel_settings"), {"q": "project"})
+    def test_panel_users_lists_and_searches_users(self):
+        response = self.client.get(reverse("panel_users"), {"q": "project"})
 
         self.assertContains(response, "project-user")
         self.assertContains(response, "user@example.com")
         self.assertNotContains(response, "<td>staff-admin</td>", html=True)
+
+    def test_panel_settings_links_to_users_page(self):
+        response = self.client.get(reverse("panel_settings"))
+
+        self.assertContains(response, reverse("panel_users"))
+        self.assertContains(response, "Manage Users")
 
     def test_staff_user_can_create_user(self):
         response = self.client.post(

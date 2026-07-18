@@ -4,6 +4,7 @@ from django.urls import path
 
 from accounts.views import (
     panel_settings,
+    panel_users,
     panel_user_create,
     panel_user_edit,
     panel_user_project_access_add,
@@ -63,6 +64,7 @@ urlpatterns = [
     path('settings/world-folders/<int:world_id>/edit/', edit_world_folder, name='edit_world_folder'),
     path('settings/world-folders/<int:world_id>/archive/', archive_world_folder, name='archive_world_folder'),
     path('settings/world-folders/<int:world_id>/restore/', restore_world_folder, name='restore_world_folder'),
+    path('settings/users/', panel_users, name='panel_users'),
     path('settings/users/create/', panel_user_create, name='panel_user_create'),
     path('settings/users/<int:user_id>/edit/', panel_user_edit, name='panel_user_edit'),
     path(

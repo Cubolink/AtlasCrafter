@@ -3,15 +3,15 @@
 {% block title %}{{ title }} - BlueMap Web UI Panel{% endblock %}
 
 {% block breadcrumbs %}
-  <li><a href="{% url 'dashboard' %}">Projects</a></li>
   <li><a href="{% url 'panel_settings' %}">Panel Settings</a></li>
+  <li><a href="{% url 'panel_users' %}">Users</a></li>
   <li>{{ title }}</li>
 {% endblock %}
 
 {% block content %}
   <div class="row">
     <h1>{{ title }}</h1>
-    <a class="btn btn-ghost btn-sm" href="{% url 'panel_settings' %}">Back to Panel Settings</a>
+    <a class="btn btn-ghost btn-sm" href="{% url 'panel_users' %}">Back to Users</a>
   </div>
 
   <section class="panel">
