@@ -5,13 +5,13 @@
 {% block breadcrumbs %}
   <li><a href="{% url 'dashboard' %}">Projects</a></li>
   <li><a href="{{ project.get_absolute_url }}">{{ project.name }}</a></li>
-  <li>{{ atlas.display_name }}</li>
+  <li><a href="{% url 'atlas_detail' atlas.id %}">{{ atlas.display_name }}</a></li>
   <li>Archived Renders</li>
 {% endblock %}
 
 {% block content %}
   <h1>Archived Renders</h1>
-  <p><a class="btn btn-ghost btn-sm" href="{{ project.get_absolute_url }}">Back to {{ project.name }}</a></p>
+  <p><a class="btn btn-ghost btn-sm" href="{% url 'atlas_detail' atlas.id %}">Back to {{ atlas.display_name }}</a></p>
 
   <section class="panel">
     <h2>{{ atlas.display_name }}</h2>

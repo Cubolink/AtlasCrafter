@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+
+{% block title %}Members - {{ project.name }}{% endblock %}
+
+{% block breadcrumbs %}
+  <li><a href="{% url 'dashboard' %}">Projects</a></li>
+  <li><a href="{{ project.get_absolute_url }}">{{ project.name }}</a></li>
+  <li>Members</li>
+{% endblock %}
+
+{% block content %}
+  <div class="page-heading">
+    <div>
+      <p class="page-kicker">Project</p>
+      <h1>{{ project.name }}</h1>
+      {% if project.description %}
+        <p class="mt-2 max-w-3xl text-base-content/70">{{ project.description }}</p>
+      {% endif %}
+    </div>
+  </div>
+
+  {% include "projects/project_subnav.html" with active_project_tab="members" %}
+
+  <section class="panel">
+    <h2>Members</h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Username</th>
+            <th>Email</th>
+            <th>Role</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for membership in memberships %}
+            <tr>
+              <td>{{ membership.user.username }}</td>
+              <td>
+                {% if membership.user.email %}
+                  {{ membership.user.email }}
+                {% else %}
+                  <span class="muted">No email</span>
+                {% endif %}
+              </td>
+              <td>{{ membership.get_role_display }}</td>
+              <td>
+                {% if request.user.is_superuser or membership.role == "project_user" %}
+                  <form method="post" action="{% url 'remove_project_membership' project.slug membership.id %}">
+                    {% csrf_token %}
+                    <button class="action-danger" type="submit">Remove</button>
+                  </form>
+                {% endif %}
+              </td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="4">No users are assigned to this Project.</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>Add Project User</h2>
+    <form method="post" action="{% url 'add_project_user' project.slug %}">
+      {% csrf_token %}
+      {{ project_user_add_form.as_p }}
+      <button type="submit">Add User</button>
+    </form>
+  </section>
+{% endblock %}

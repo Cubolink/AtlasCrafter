@@ -395,7 +395,7 @@ class ProjectSetupViewTests(TestCase):
         )
 
         detail_response = self.client_for(self.admin).get(
-            reverse("project_detail", kwargs={"slug": self.project.slug}),
+            reverse("atlas_detail", kwargs={"atlas_id": atlas.id}),
         )
         archive_response = self.client_for(self.admin).get(
             reverse("archived_renders", kwargs={"atlas_id": atlas.id}),

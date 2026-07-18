@@ -5,6 +5,7 @@
 {% block breadcrumbs %}
   <li><a href="{% url 'dashboard' %}">Projects</a></li>
   <li><a href="{{ render.project.get_absolute_url }}">{{ render.project.name }}</a></li>
+  <li><a href="{% url 'atlas_detail' render.atlas.id %}">{{ render.atlas.display_name }}</a></li>
   <li><a href="{% url 'render_viewer' render.id %}">{{ render.display_name }}</a></li>
   <li>Job #{{ job.id }}</li>
 {% endblock %}

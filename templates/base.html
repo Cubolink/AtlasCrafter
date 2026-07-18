@@ -63,7 +63,7 @@
             <ul class="menu gap-1">
               <li>
                 <details open>
-                  <summary class="{% if request.resolver_match.url_name == 'dashboard' or request.resolver_match.url_name == 'project_detail' %}active{% endif %}">
+                  <summary class="{% if request.resolver_match.url_name == 'dashboard' or request.resolver_match.url_name == 'project_detail' or request.resolver_match.url_name == 'project_members' or request.resolver_match.url_name == 'project_worlds' or request.resolver_match.url_name == 'atlas_detail' %}active{% endif %}">
                     Projects
                   </summary>
                   <ul>

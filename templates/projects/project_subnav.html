@@ -1,0 +1,7 @@
+<div class="tabs tabs-bordered mb-5">
+  <a class="tab {% if active_project_tab == 'atlases' %}tab-active{% endif %}" href="{{ project.get_absolute_url }}">Atlases</a>
+  {% if can_manage_project %}
+    <a class="tab {% if active_project_tab == 'members' %}tab-active{% endif %}" href="{% url 'project_members' project.slug %}">Members</a>
+    <a class="tab {% if active_project_tab == 'worlds' %}tab-active{% endif %}" href="{% url 'project_worlds' project.slug %}">Worlds</a>
+  {% endif %}
+</div>
