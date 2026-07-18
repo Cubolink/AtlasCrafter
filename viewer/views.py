@@ -26,6 +26,8 @@ def get_visible_render_or_404(request, render_id: int):
         Render.objects.select_related("atlas__project", "atlas__world_folder"),
         id=render_id,
         is_enabled=True,
+        atlas__is_active=True,
+        atlas__project__is_active=True,
     )
     if not request.user.is_superuser:
         get_object_or_404(ProjectMembership, user=request.user, project=render_obj.project)

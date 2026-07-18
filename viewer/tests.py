@@ -57,6 +57,22 @@ class RenderViewerStateTests(TestCase):
         self.assertContains(response, "No render output has been generated for this Render yet.")
         self.assertNotContains(response, "<iframe", html=False)
 
+    def test_archived_project_render_page_returns_not_found(self):
+        self.project.is_active = False
+        self.project.save(update_fields=["is_active"])
+
+        response = self.client.get(reverse("render_viewer", kwargs={"render_id": self.render.id}))
+
+        self.assertEqual(response.status_code, 404)
+
+    def test_archived_atlas_render_page_returns_not_found(self):
+        self.atlas.is_active = False
+        self.atlas.save(update_fields=["is_active"])
+
+        response = self.client.get(reverse("render_viewer", kwargs={"render_id": self.render.id}))
+
+        self.assertEqual(response.status_code, 404)
+
     def test_render_page_shows_viewer_when_render_output_exists(self):
         self.render.bluemap_map_id = "overworld-render"
         self.render.save(update_fields=["bluemap_map_id"])

@@ -113,6 +113,48 @@ class ProjectSetupViewTests(TestCase):
         self.assertEqual(response.status_code, 302)
         self.assertFalse(self.project.atlases.filter(display_name="Archive").exists())
 
+    def test_project_user_cannot_open_archived_project(self):
+        self.project.is_active = False
+        self.project.save(update_fields=["is_active"])
+
+        response = self.client_for(self.user).get(
+            reverse("project_detail", kwargs={"slug": self.project.slug}),
+        )
+
+        self.assertEqual(response.status_code, 403)
+
+    def test_project_admin_cannot_manage_children_of_archived_project(self):
+        atlas = Atlas.objects.create(
+            project=self.project,
+            world_folder=self.world,
+            display_name="Overworld",
+        )
+        render = Render.objects.create(
+            atlas=atlas,
+            display_name="Standard",
+            dimension=Render.Dimension.OVERWORLD,
+        )
+        self.project.is_active = False
+        self.project.save(update_fields=["is_active"])
+
+        edit_atlas_response = self.client_for(self.admin).get(
+            reverse("edit_atlas", kwargs={"atlas_id": atlas.id}),
+        )
+        archive_atlas_response = self.client_for(self.admin).post(
+            reverse("archive_atlas", kwargs={"atlas_id": atlas.id}),
+        )
+        edit_render_response = self.client_for(self.admin).get(
+            reverse("edit_render", kwargs={"render_id": render.id}),
+        )
+        archive_render_response = self.client_for(self.admin).post(
+            reverse("archive_render", kwargs={"render_id": render.id}),
+        )
+
+        self.assertEqual(edit_atlas_response.status_code, 404)
+        self.assertEqual(archive_atlas_response.status_code, 404)
+        self.assertEqual(edit_render_response.status_code, 404)
+        self.assertEqual(archive_render_response.status_code, 404)
+
     def test_project_admin_can_create_render_for_atlas(self):
         atlas = Atlas.objects.create(
             project=self.project,
@@ -187,7 +229,7 @@ class ProjectSetupViewTests(TestCase):
         self.assertEqual(atlas.display_name, "Renamed Atlas")
         self.assertEqual(atlas.notes, "Updated notes")
 
-    def test_project_admin_can_delete_atlas(self):
+    def test_project_admin_can_archive_atlas(self):
         atlas = Atlas.objects.create(
             project=self.project,
             world_folder=self.world,
@@ -195,13 +237,14 @@ class ProjectSetupViewTests(TestCase):
         )
 
         response = self.client_for(self.admin).post(
-            reverse("delete_atlas", kwargs={"atlas_id": atlas.id}),
+            reverse("archive_atlas", kwargs={"atlas_id": atlas.id}),
         )
 
         self.assertEqual(response.status_code, 302)
-        self.assertFalse(Atlas.objects.filter(id=atlas.id).exists())
+        atlas.refresh_from_db()
+        self.assertFalse(atlas.is_active)
 
-    def test_project_admin_cannot_delete_atlas_with_active_render_job(self):
+    def test_project_admin_cannot_archive_atlas_with_active_render_job(self):
         atlas = Atlas.objects.create(
             project=self.project,
             world_folder=self.world,
@@ -215,11 +258,12 @@ class ProjectSetupViewTests(TestCase):
         RenderJob.objects.create(render=render, status=RenderJob.Status.QUEUED)
 
         response = self.client_for(self.admin).post(
-            reverse("delete_atlas", kwargs={"atlas_id": atlas.id}),
+            reverse("archive_atlas", kwargs={"atlas_id": atlas.id}),
         )
 
         self.assertEqual(response.status_code, 302)
-        self.assertTrue(Atlas.objects.filter(id=atlas.id).exists())
+        atlas.refresh_from_db()
+        self.assertTrue(atlas.is_active)
 
     def test_project_admin_can_edit_render_without_changing_bluemap_id(self):
         atlas = Atlas.objects.create(
@@ -274,7 +318,7 @@ class ProjectSetupViewTests(TestCase):
         self.assertEqual(render.edge_light_strength, 12)
         self.assertTrue(render.ignore_missing_light_data)
 
-    def test_project_admin_can_delete_render(self):
+    def test_project_admin_can_archive_render(self):
         atlas = Atlas.objects.create(
             project=self.project,
             world_folder=self.world,
@@ -287,13 +331,14 @@ class ProjectSetupViewTests(TestCase):
         )
 
         response = self.client_for(self.admin).post(
-            reverse("delete_render", kwargs={"render_id": render.id}),
+            reverse("archive_render", kwargs={"render_id": render.id}),
         )
 
         self.assertEqual(response.status_code, 302)
-        self.assertFalse(Render.objects.filter(id=render.id).exists())
+        render.refresh_from_db()
+        self.assertFalse(render.is_enabled)
 
-    def test_project_admin_cannot_delete_render_with_active_job(self):
+    def test_project_admin_cannot_archive_render_with_active_job(self):
         atlas = Atlas.objects.create(
             project=self.project,
             world_folder=self.world,
@@ -307,13 +352,14 @@ class ProjectSetupViewTests(TestCase):
         RenderJob.objects.create(render=render, status=RenderJob.Status.RUNNING)
 
         response = self.client_for(self.admin).post(
-            reverse("delete_render", kwargs={"render_id": render.id}),
+            reverse("archive_render", kwargs={"render_id": render.id}),
         )
 
         self.assertEqual(response.status_code, 302)
-        self.assertTrue(Render.objects.filter(id=render.id).exists())
+        render.refresh_from_db()
+        self.assertTrue(render.is_enabled)
 
-    def test_project_user_cannot_edit_or_delete_atlas_or_render(self):
+    def test_project_user_cannot_edit_or_archive_atlas_or_render(self):
         atlas = Atlas.objects.create(
             project=self.project,
             world_folder=self.world,
@@ -329,8 +375,8 @@ class ProjectSetupViewTests(TestCase):
             reverse("edit_atlas", kwargs={"atlas_id": atlas.id}),
             {"display_name": "Denied", "notes": "", "is_active": "on"},
         )
-        delete_atlas_response = self.client_for(self.user).post(
-            reverse("delete_atlas", kwargs={"atlas_id": atlas.id}),
+        archive_atlas_response = self.client_for(self.user).post(
+            reverse("archive_atlas", kwargs={"atlas_id": atlas.id}),
         )
         edit_render_response = self.client_for(self.user).post(
             reverse("edit_render", kwargs={"render_id": render.id}),
@@ -357,14 +403,14 @@ class ProjectSetupViewTests(TestCase):
                 "enable_hires": "on",
             },
         )
-        delete_render_response = self.client_for(self.user).post(
-            reverse("delete_render", kwargs={"render_id": render.id}),
+        archive_render_response = self.client_for(self.user).post(
+            reverse("archive_render", kwargs={"render_id": render.id}),
         )
 
         self.assertEqual(edit_atlas_response.status_code, 403)
-        self.assertEqual(delete_atlas_response.status_code, 403)
+        self.assertEqual(archive_atlas_response.status_code, 403)
         self.assertEqual(edit_render_response.status_code, 403)
-        self.assertEqual(delete_render_response.status_code, 403)
+        self.assertEqual(archive_render_response.status_code, 403)
         atlas.refresh_from_db()
         render.refresh_from_db()
         self.assertEqual(atlas.display_name, "Overworld")

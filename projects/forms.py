@@ -63,10 +63,18 @@ class ProjectManageForm(forms.ModelForm):
 
     class Meta:
         model = Project
-        fields = ["name", "description", "owner_team", "default_bluemap_profile", "visible_worlds"]
+        fields = [
+            "name",
+            "description",
+            "owner_team",
+            "is_active",
+            "default_bluemap_profile",
+            "visible_worlds",
+        ]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fields["is_active"].label = "Active (not archived)"
         self.fields["visible_worlds"].queryset = WorldFolder.objects.filter(
             is_active=True,
         ).order_by("display_name")

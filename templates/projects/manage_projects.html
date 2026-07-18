@@ -13,6 +13,7 @@
       <thead>
         <tr>
           <th>Name</th>
+          <th>Status</th>
           <th>Visible Worlds</th>
           <th></th>
         </tr>
@@ -21,12 +22,21 @@
         {% for project in projects %}
           <tr>
             <td>{{ project.name }}</td>
+            <td>{{ project.is_active|yesno:"Active,Archived" }}</td>
             <td>{{ project.visible_worlds.count }}</td>
-            <td><a href="{% url 'edit_project' project.id %}">Edit</a></td>
+            <td>
+              <a href="{% url 'edit_project' project.id %}">Edit</a>
+              {% if project.is_active %}
+                <form method="post" action="{% url 'archive_project' project.id %}" style="display:inline">
+                  {% csrf_token %}
+                  <button type="submit">Archive</button>
+                </form>
+              {% endif %}
+            </td>
           </tr>
         {% empty %}
           <tr>
-            <td colspan="3">No Projects have been created.</td>
+            <td colspan="4">No Projects have been created.</td>
           </tr>
         {% endfor %}
       </tbody>

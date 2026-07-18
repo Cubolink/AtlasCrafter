@@ -5,7 +5,9 @@ from django.contrib.auth.models import User
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 
-from .models import Project, ProjectVisibleWorld, WorldFolder
+from renders.models import RenderJob
+
+from .models import Atlas, Project, ProjectVisibleWorld, Render, WorldFolder
 
 
 class ProjectManagementTests(TestCase):
@@ -46,6 +48,7 @@ class ProjectManagementTests(TestCase):
                 "name": "Survival Project",
                 "description": "Main worlds",
                 "owner_team": "Ops",
+                "is_active": "on",
                 "default_bluemap_profile": "",
                 "visible_worlds": [world_a.id, world_b.id],
             },
@@ -55,6 +58,7 @@ class ProjectManagementTests(TestCase):
         project = Project.objects.get(name="Survival Project")
         self.assertEqual(project.description, "Main worlds")
         self.assertEqual(project.owner_team, "Ops")
+        self.assertTrue(project.is_active)
         self.assertEqual(set(project.visible_worlds.all()), {world_a, world_b})
 
     def test_superuser_can_edit_project_visible_worlds(self):
@@ -76,6 +80,7 @@ class ProjectManagementTests(TestCase):
                 "name": "Renamed Project",
                 "description": "Updated",
                 "owner_team": "",
+                "is_active": "on",
                 "default_bluemap_profile": "",
                 "visible_worlds": [world_b.id],
             },
@@ -84,7 +89,50 @@ class ProjectManagementTests(TestCase):
         self.assertEqual(response.status_code, 302)
         project.refresh_from_db()
         self.assertEqual(project.name, "Renamed Project")
+        self.assertTrue(project.is_active)
         self.assertEqual(list(project.visible_worlds.all()), [world_b])
+
+    def test_superuser_can_archive_project(self):
+        project = Project.objects.create(name="Survival Project")
+        self.client.force_login(self.superuser)
+
+        response = self.client.post(reverse("archive_project", kwargs={"project_id": project.id}))
+
+        self.assertEqual(response.status_code, 302)
+        project.refresh_from_db()
+        self.assertFalse(project.is_active)
+
+    def test_superuser_cannot_archive_project_with_active_render_job(self):
+        project = Project.objects.create(name="Survival Project")
+        world = WorldFolder.objects.create(
+            display_name="World A",
+            source_path="/srv/worlds/World_A",
+        )
+        ProjectVisibleWorld.objects.create(project=project, world_folder=world)
+        atlas = Atlas.objects.create(
+            project=project,
+            world_folder=world,
+            display_name="World A",
+        )
+        render = Render.objects.create(atlas=atlas, display_name="Standard")
+        RenderJob.objects.create(render=render, status=RenderJob.Status.RUNNING)
+        self.client.force_login(self.superuser)
+
+        response = self.client.post(reverse("archive_project", kwargs={"project_id": project.id}))
+
+        self.assertEqual(response.status_code, 302)
+        project.refresh_from_db()
+        self.assertTrue(project.is_active)
+
+    def test_dashboard_hides_archived_projects(self):
+        active_project = Project.objects.create(name="Active Project")
+        archived_project = Project.objects.create(name="Archived Project", is_active=False)
+        self.client.force_login(self.superuser)
+
+        response = self.client.get(reverse("dashboard"))
+
+        self.assertContains(response, active_project.name)
+        self.assertNotContains(response, archived_project.name)
 
     def test_project_form_tree_groups_worlds_by_parent_folder(self):
         with TemporaryDirectory() as source_dir:
@@ -123,6 +171,7 @@ class ProjectManagementTests(TestCase):
                 "name": "Survival Project",
                 "description": "",
                 "owner_team": "",
+                "is_active": "on",
                 "default_bluemap_profile": "",
                 "visible_worlds": [active_world.id, inactive_world.id],
             },

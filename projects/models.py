@@ -45,6 +45,7 @@ class Project(TimeStampedModel):
     slug = models.SlugField(max_length=180, unique=True, blank=True)
     description = models.TextField(blank=True)
     owner_team = models.CharField(max_length=160, blank=True)
+    is_active = models.BooleanField(default=True)
     default_bluemap_profile = models.ForeignKey(
         "bluemap_configs.BlueMapProfile",
         on_delete=models.SET_NULL,

@@ -31,13 +31,16 @@ def superuser_required(user):
 @login_required
 def dashboard(request):
     if request.user.is_superuser:
-        projects = Project.objects.prefetch_related("atlases__renders").all()
+        projects = Project.objects.filter(is_active=True).prefetch_related("atlases__renders")
     else:
         project_ids = ProjectMembership.objects.filter(user=request.user).values_list(
             "project_id",
             flat=True,
         )
-        projects = Project.objects.filter(id__in=project_ids).prefetch_related("atlases__renders")
+        projects = Project.objects.filter(
+            id__in=project_ids,
+            is_active=True,
+        ).prefetch_related("atlases__renders")
 
     return render(request, "projects/dashboard.html", {"projects": projects})
 
@@ -118,6 +121,21 @@ def edit_project(request, project_id: int):
 
 @login_required
 @user_passes_test(superuser_required)
+@require_POST
+def archive_project(request, project_id: int):
+    project = get_object_or_404(Project, id=project_id)
+    if project_has_active_jobs(project):
+        messages.error(request, "This Project has queued or running render jobs and cannot be archived yet.")
+        return redirect("manage_projects")
+
+    project.is_active = False
+    project.save(update_fields=["is_active", "updated_at"])
+    messages.success(request, f"Project '{project.name}' archived.")
+    return redirect("manage_projects")
+
+
+@login_required
+@user_passes_test(superuser_required)
 def create_world_folder(request):
     form = WorldFolderForm()
     if request.method == "POST":
@@ -183,6 +201,8 @@ def project_detail(request, slug: str):
         Project.objects.prefetch_related("atlases__renders", "visible_worlds"),
         slug=slug,
     )
+    if not project.is_active and not request.user.is_superuser:
+        raise PermissionDenied("This Project is archived.")
     if not request.user.is_superuser:
         get_object_or_404(ProjectMembership, user=request.user, project=project)
 
@@ -199,9 +219,10 @@ def project_detail(request, slug: str):
             "atlas_sections": [
                 {
                     "atlas": atlas,
+                    "renders": atlas.renders.filter(is_enabled=True),
                     "render_form": RenderCreateForm(atlas=atlas) if can_manage else None,
                 }
-                for atlas in project.atlases.all()
+                for atlas in project.atlases.filter(is_active=True)
             ],
         },
     )
@@ -210,7 +231,7 @@ def project_detail(request, slug: str):
 @login_required
 @require_POST
 def create_atlas(request, slug: str):
-    project = get_object_or_404(Project, slug=slug)
+    project = get_object_or_404(Project, slug=slug, is_active=True)
     if not can_manage_project(request.user, project):
         raise PermissionDenied("You do not have permission to create Atlases.")
 
@@ -227,7 +248,12 @@ def create_atlas(request, slug: str):
 @login_required
 @require_POST
 def create_render(request, atlas_id: int):
-    atlas = get_object_or_404(Atlas.objects.select_related("project"), id=atlas_id)
+    atlas = get_object_or_404(
+        Atlas.objects.select_related("project"),
+        id=atlas_id,
+        is_active=True,
+        project__is_active=True,
+    )
     if not can_manage_project(request.user, atlas.project):
         raise PermissionDenied("You do not have permission to create Renders.")
 
@@ -246,6 +272,9 @@ def edit_render(request, render_id: int):
     render_obj = get_object_or_404(
         Render.objects.select_related("atlas__project", "atlas__world_folder"),
         id=render_id,
+        is_enabled=True,
+        atlas__is_active=True,
+        atlas__project__is_active=True,
     )
     if not can_manage_project(request.user, render_obj.project):
         raise PermissionDenied("You do not have permission to edit this Render.")
@@ -274,26 +303,33 @@ def edit_render(request, render_id: int):
 
 @login_required
 @require_POST
-def delete_render(request, render_id: int):
-    render_obj = get_object_or_404(Render.objects.select_related("atlas__project"), id=render_id)
+def archive_render(request, render_id: int):
+    render_obj = get_object_or_404(
+        Render.objects.select_related("atlas__project"),
+        id=render_id,
+        is_enabled=True,
+        atlas__is_active=True,
+        atlas__project__is_active=True,
+    )
     if not can_manage_project(request.user, render_obj.project):
-        raise PermissionDenied("You do not have permission to delete this Render.")
+        raise PermissionDenied("You do not have permission to archive this Render.")
 
     if render_has_active_jobs(render_obj):
-        messages.error(request, "This Render has a queued or running job and cannot be deleted yet.")
+        messages.error(request, "This Render has a queued or running job and cannot be archived yet.")
         return redirect(render_obj.project.get_absolute_url())
 
     project = render_obj.project
     display_name = render_obj.display_name
-    render_obj.delete()
-    messages.success(request, f"Render '{display_name}' deleted.")
+    render_obj.is_enabled = False
+    render_obj.save(update_fields=["is_enabled", "updated_at"])
+    messages.success(request, f"Render '{display_name}' archived.")
     return redirect(project.get_absolute_url())
 
 
 @login_required
 @require_POST
 def add_project_user(request, slug: str):
-    project = get_object_or_404(Project, slug=slug)
+    project = get_object_or_404(Project, slug=slug, is_active=True)
     if not can_manage_project(request.user, project):
         raise PermissionDenied("You do not have permission to add Project users.")
 
@@ -312,7 +348,12 @@ def add_project_user(request, slug: str):
 
 @login_required
 def edit_atlas(request, atlas_id: int):
-    atlas = get_object_or_404(Atlas.objects.select_related("project", "world_folder"), id=atlas_id)
+    atlas = get_object_or_404(
+        Atlas.objects.select_related("project", "world_folder"),
+        id=atlas_id,
+        is_active=True,
+        project__is_active=True,
+    )
     if not can_manage_project(request.user, atlas.project):
         raise PermissionDenied("You do not have permission to edit this Atlas.")
 
@@ -338,26 +379,32 @@ def edit_atlas(request, atlas_id: int):
 
 @login_required
 @require_POST
-def delete_atlas(request, atlas_id: int):
-    atlas = get_object_or_404(Atlas.objects.select_related("project"), id=atlas_id)
+def archive_atlas(request, atlas_id: int):
+    atlas = get_object_or_404(
+        Atlas.objects.select_related("project"),
+        id=atlas_id,
+        is_active=True,
+        project__is_active=True,
+    )
     if not can_manage_project(request.user, atlas.project):
-        raise PermissionDenied("You do not have permission to delete this Atlas.")
+        raise PermissionDenied("You do not have permission to archive this Atlas.")
 
     if atlas_has_active_jobs(atlas):
-        messages.error(request, "This Atlas has queued or running render jobs and cannot be deleted yet.")
+        messages.error(request, "This Atlas has queued or running render jobs and cannot be archived yet.")
         return redirect(atlas.project.get_absolute_url())
 
     project = atlas.project
     display_name = atlas.display_name
-    atlas.delete()
-    messages.success(request, f"Atlas '{display_name}' deleted.")
+    atlas.is_active = False
+    atlas.save(update_fields=["is_active", "updated_at"])
+    messages.success(request, f"Atlas '{display_name}' archived.")
     return redirect(project.get_absolute_url())
 
 
 @login_required
 @require_POST
 def remove_project_membership(request, slug: str, membership_id: int):
-    project = get_object_or_404(Project, slug=slug)
+    project = get_object_or_404(Project, slug=slug, is_active=True)
     if not can_manage_project(request.user, project):
         raise PermissionDenied("You do not have permission to remove Project users.")
 
@@ -384,5 +431,12 @@ def render_has_active_jobs(render_obj: Render) -> bool:
 def atlas_has_active_jobs(atlas: Atlas) -> bool:
     return RenderJob.objects.filter(
         render__atlas=atlas,
+        status__in=[RenderJob.Status.QUEUED, RenderJob.Status.RUNNING],
+    ).exists()
+
+
+def project_has_active_jobs(project: Project) -> bool:
+    return RenderJob.objects.filter(
+        render__atlas__project=project,
         status__in=[RenderJob.Status.QUEUED, RenderJob.Status.RUNNING],
     ).exists()

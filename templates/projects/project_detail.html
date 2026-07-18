@@ -19,24 +19,24 @@
             {% if can_manage_project %}
               <div>
                 <a href="{% url 'edit_atlas' atlas.id %}">Edit Atlas</a>
-                <form method="post" action="{% url 'delete_atlas' atlas.id %}" style="display:inline">
+                <form method="post" action="{% url 'archive_atlas' atlas.id %}" style="display:inline">
                   {% csrf_token %}
-                  <button type="submit">Delete Atlas</button>
+                  <button type="submit">Archive Atlas</button>
                 </form>
               </div>
             {% endif %}
           </div>
           <p class="muted">{{ atlas.world_folder.source_path }}</p>
           <ul>
-            {% for render in atlas.renders.all %}
+            {% for render in section.renders %}
               <li>
                 <a href="{% url 'render_viewer' render.id %}">{{ render.display_name }}</a>
                 <span class="muted">({{ render.bluemap_map_id }})</span>
                 {% if can_manage_project %}
                   <a href="{% url 'edit_render' render.id %}">Edit</a>
-                  <form method="post" action="{% url 'delete_render' render.id %}" style="display:inline">
+                  <form method="post" action="{% url 'archive_render' render.id %}" style="display:inline">
                     {% csrf_token %}
-                    <button type="submit">Delete</button>
+                    <button type="submit">Archive</button>
                   </form>
                 {% endif %}
               </li>

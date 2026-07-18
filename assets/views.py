@@ -17,6 +17,8 @@ def protected_render_asset(request, render_id: int, asset_path: str):
         Render.objects.select_related("atlas__project"),
         id=render_id,
         is_enabled=True,
+        atlas__is_active=True,
+        atlas__project__is_active=True,
     )
     if not request.user.is_superuser:
         get_object_or_404(ProjectMembership, user=request.user, project=render_obj.project)
