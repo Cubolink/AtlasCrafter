@@ -3,6 +3,7 @@
 import os
 
 from pathlib import Path
+from urllib.parse import unquote, urlparse
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -103,14 +104,40 @@ TEMPLATES = [
 WSGI_APPLICATION = 'config.wsgi.application'
 
 
+def database_config() -> dict:
+    database_url = os.getenv("DATABASE_URL")
+    if not database_url:
+        return {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": os.getenv("SQLITE_DB_PATH", BASE_DIR / "db.sqlite3"),
+        }
+
+    parsed = urlparse(database_url)
+    if parsed.scheme in {"postgres", "postgresql"}:
+        return {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": unquote(parsed.path.lstrip("/")),
+            "USER": unquote(parsed.username or ""),
+            "PASSWORD": unquote(parsed.password or ""),
+            "HOST": parsed.hostname or "",
+            "PORT": str(parsed.port or ""),
+        }
+    if parsed.scheme == "sqlite":
+        db_path = unquote(parsed.path)
+        if parsed.netloc and parsed.netloc != ".":
+            db_path = f"//{parsed.netloc}{db_path}"
+        return {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": db_path,
+        }
+    raise ValueError(f"Unsupported DATABASE_URL scheme: {parsed.scheme}")
+
+
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': os.getenv('SQLITE_DB_PATH', BASE_DIR / 'db.sqlite3'),
-    }
+    "default": database_config(),
 }
 
 AUTHENTICATION_BACKENDS = [
