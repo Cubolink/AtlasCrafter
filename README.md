@@ -20,20 +20,18 @@ Instead, the panel owns:
 - protected viewer entry points;
 - protected static asset delivery for BlueMap output.
 
-## Recommended Stack
+## Current Stack
 
 - **Django** as the backend framework.
-- **PostgreSQL** for production data.
-- **Django templates + HTMX + Alpine.js** for the first UI.
-- **Django Admin** for early internal administration.
-- **django-guardian** for object-level RBAC.
-- **Django Ninja** for typed JSON APIs where needed.
-- **Celery + Redis** for render jobs.
-- **Celery Beat** or APScheduler for scheduled renders.
-- **Nginx X-Accel-Redirect** for efficient protected BlueMap asset serving.
-- **BlueMap CLI** for rendering.
+- **Django templates** for the current UI.
+- **SQLite** by default for local development.
+- **Django auth** plus `ProjectMembership` rows for RBAC.
+- **Database-backed render queue** through `RenderJob`.
+- **`renderworker` management command** for asynchronous BlueMap execution.
+- **BlueMap CLI or standalone CLI jar** for rendering.
+- **Protected Django asset route** in local development; **Nginx X-Accel-Redirect** is the intended production serving model.
 
-Vue is not required for the MVP. BlueMap already provides the heavy 3D frontend. Add Vue later only if the panel grows into a rich interactive workspace with drag/drop region editing, planning overlays, complex dashboards, or advanced client-side state.
+Future production deployments will likely add PostgreSQL and a containerized web/worker split. Celery, Redis, HTMX, Alpine.js, and Django Ninja remain optional future additions rather than current requirements.
 
 ## Domain Model
 
@@ -49,6 +47,29 @@ To avoid confusing BlueMap's map config entries with physical Minecraft worlds, 
 | **Physical disk** | **Minecraft World** or **World Folder** | The actual save folder on disk. It is only referenced when creating or editing an Atlas. |
 
 A superadministrator defines which physical Minecraft world folders are visible to a Project. Visibility does not automatically create Atlases. A Project Administrator must explicitly create an Atlas inside the Project by selecting from the visible world folders, then define one or more Renders for that Atlas.
+
+Archive flags are soft lifecycle controls:
+
+- `Project.is_active = false` archives a Project and hides it from the main Projects page. It still appears in the superadmin Project management page.
+- `Atlas.is_active = false` archives an Atlas. Admins can view and restore archived Atlases from the Project archive page.
+- `Render.is_enabled = false` archives a Render. Admins can view and restore archived Renders from the active Atlas archive page.
+- `WorldFolder.is_active = false` archives a source world folder for new setup and new render jobs. Existing Atlases, Renders, and previously generated viewer output remain visible unless their Project, Atlas, or Render is archived.
+
+Current model relationships:
+
+```text
+User
+  |-- ProjectMembership -- Project -- ProjectVisibleWorld -- WorldFolder
+                              |             ^
+                              v             |
+                            Atlas ----------+
+                              |
+                              v
+                            Render -- BlueMapRenderConfig -- BlueMapProfile
+                              |
+                              v
+                            RenderJob -- RenderLogChunk
+```
 
 Example sidebar:
 
@@ -83,11 +104,11 @@ Django
   |-- Auth / RBAC
   |-- Project, Atlas, and Render config UI
   |-- BlueMap .conf generation
-  |-- Render queue API
+  |-- Database render queue
   |-- Viewer wrapper pages
   |
   v
-Celery worker
+renderworker management command
   |
   v
 BlueMap CLI
@@ -131,14 +152,6 @@ The app should support:
 - preserving unknown config fields where possible;
 - explicit tracking of generated vs manually edited config files.
 
-## Repository Documents
-
-- [Product Spec](docs/PRODUCT_SPEC.md)
-- [Technical Spec](docs/TECHNICAL_SPEC.md)
-- [RBAC and Security Spec](docs/RBAC_SECURITY_SPEC.md)
-- [BlueMap Config UI Spec](docs/BLUEMAP_CONFIG_UI_SPEC.md)
-- [Deployment Spec](docs/DEPLOYMENT_SPEC.md)
-
 ## Local Development
 
 ```powershell
@@ -168,7 +181,7 @@ data/tmp/                Temporary files for BlueMap/Java subprocesses
 
 ## BlueMap Connection
 
-The MVP integration expects BlueMap to be available as a local command or standalone CLI jar. Configure:
+The current integration expects BlueMap to be available as a local command or standalone CLI jar. Configure:
 
 - `BLUEMAP_CLI_PATH`: executable path or BlueMap standalone CLI `.jar` path.
 - `BLUEMAP_JAVA_PATH`: Java executable used when `BLUEMAP_CLI_PATH` points to a `.jar`; defaults to `java`.
@@ -199,11 +212,13 @@ java -jar "<BLUEMAP_CLI_PATH>" -c "<BLUEMAP_CONFIG_DIR>" -r
 
 If BlueMap is not installed or `BLUEMAP_CLI_PATH` is wrong, the render job fails with a log explaining what needs to be configured.
 
+If a World Folder is archived, new render jobs for its existing Renders are blocked and a direct trigger attempt creates a failed job explaining that the World Folder must be restored first. If the physical folder disappears from disk, scan and render-time checks archive the World Folder and record a job log explaining the missing `level.dat`.
+
 In local `DEBUG` mode, the app serves BlueMap viewer files directly from `BLUEMAP_WEBROOT_DIR` through the authenticated Render asset route. In production this route should return `X-Accel-Redirect` and let Nginx serve the files.
 
 On the first BlueMap CLI run, BlueMap may generate `core.conf` and ask you to set `accept-download: true`. Only do this after confirming you accept Mojang's resource download terms and own a Minecraft Java Edition license.
 
-## MVP Scope
+## Current Functional Scope
 
 1. Login/logout and user management.
 2. Superadministrator, Project Administrator, and Project User roles.
@@ -214,7 +229,7 @@ On the first BlueMap CLI run, BlueMap may generate `core.conf` and ask you to se
 7. Create and edit BlueMap Render configs through forms.
 8. Generate BlueMap `.conf` files.
 9. Trigger BlueMap CLI render jobs.
-10. Store render logs, status, exit code, timestamps, duration, and parsed progress.
+10. Store render logs, status, exit code, timestamps, and progress fields.
 11. Serve viewer pages and Render assets behind RBAC.
 12. Docker deployment with read-only source worlds.
 
