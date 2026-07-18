@@ -21,7 +21,7 @@ from .forms import (
 )
 from .models import Atlas, Project, Render, WorldFolder
 from .permissions import can_manage_project
-from .world_discovery import build_world_tree, scan_source_worlds
+from .world_discovery import build_world_tree, scan_source_worlds, world_folder_exists
 
 
 def superuser_required(user):
@@ -69,6 +69,7 @@ def scan_world_folders(request):
         request,
         (
             f"Scan complete. Added {len(result.created)}, updated {len(result.updated)}, "
+            f"restored {len(result.restored)}, archived missing {len(result.archived)}, "
             f"already known {len(result.unchanged)}."
         ),
     )
@@ -193,6 +194,35 @@ def edit_world_folder(request, world_id: int):
             "submit_label": "Save World Folder",
         },
     )
+
+
+@login_required
+@user_passes_test(superuser_required)
+@require_POST
+def archive_world_folder(request, world_id: int):
+    world = get_object_or_404(WorldFolder, id=world_id, is_active=True)
+    world.is_active = False
+    world.save(update_fields=["is_active", "updated_at"])
+    messages.success(request, f"World folder '{world.display_name}' archived.")
+    return redirect("world_folders")
+
+
+@login_required
+@user_passes_test(superuser_required)
+@require_POST
+def restore_world_folder(request, world_id: int):
+    world = get_object_or_404(WorldFolder, id=world_id, is_active=False)
+    if not world_folder_exists(world):
+        messages.error(
+            request,
+            f"World folder '{world.display_name}' cannot be restored because level.dat was not found.",
+        )
+        return redirect("world_folders")
+
+    world.is_active = True
+    world.save(update_fields=["is_active", "updated_at"])
+    messages.success(request, f"World folder '{world.display_name}' restored.")
+    return redirect("world_folders")
 
 
 @login_required

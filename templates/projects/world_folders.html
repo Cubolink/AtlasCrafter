@@ -46,9 +46,22 @@
           <tr>
             <td>{{ world.display_name }}</td>
             <td>{{ world.source_path }}</td>
-            <td>{{ world.is_active|yesno:"Yes,No" }}</td>
+            <td>{{ world.is_active|yesno:"Active,Archived" }}</td>
             <td>{{ world.detected_dimensions|join:", " }}</td>
-            <td><a href="{% url 'edit_world_folder' world.id %}">Edit</a></td>
+            <td>
+              <a href="{% url 'edit_world_folder' world.id %}">Edit</a>
+              {% if world.is_active %}
+                <form method="post" action="{% url 'archive_world_folder' world.id %}" style="display:inline">
+                  {% csrf_token %}
+                  <button type="submit">Archive</button>
+                </form>
+              {% else %}
+                <form method="post" action="{% url 'restore_world_folder' world.id %}" style="display:inline">
+                  {% csrf_token %}
+                  <button type="submit">Restore</button>
+                </form>
+              {% endif %}
+            </td>
           </tr>
         {% empty %}
           <tr>

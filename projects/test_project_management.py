@@ -180,3 +180,28 @@ class ProjectManagementTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Select a valid choice")
         self.assertFalse(Project.objects.filter(name="Survival Project").exists())
+
+    def test_edit_project_preserves_existing_inactive_visible_world(self):
+        inactive_world = WorldFolder.objects.create(
+            display_name="Archived World",
+            source_path="/srv/worlds/Archived",
+            is_active=False,
+        )
+        project = Project.objects.create(name="Survival Project")
+        ProjectVisibleWorld.objects.create(project=project, world_folder=inactive_world)
+        self.client.force_login(self.superuser)
+
+        response = self.client.post(
+            reverse("edit_project", kwargs={"project_id": project.id}),
+            {
+                "name": "Survival Project",
+                "description": "",
+                "owner_team": "",
+                "is_active": "on",
+                "default_bluemap_profile": "",
+                "visible_worlds": [inactive_world.id],
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(list(project.visible_worlds.all()), [inactive_world])

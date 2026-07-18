@@ -22,6 +22,7 @@ from projects.views import (
     archive_atlas,
     archive_project,
     archive_render,
+    archive_world_folder,
     dashboard,
     edit_atlas,
     edit_project,
@@ -32,6 +33,7 @@ from projects.views import (
     remove_project_membership,
     restore_atlas,
     restore_render,
+    restore_world_folder,
     scan_world_folders,
     world_folders,
 )
@@ -59,6 +61,8 @@ urlpatterns = [
     path('settings/world-folders/scan/', scan_world_folders, name='scan_world_folders'),
     path('settings/world-folders/create/', create_world_folder, name='create_world_folder'),
     path('settings/world-folders/<int:world_id>/edit/', edit_world_folder, name='edit_world_folder'),
+    path('settings/world-folders/<int:world_id>/archive/', archive_world_folder, name='archive_world_folder'),
+    path('settings/world-folders/<int:world_id>/restore/', restore_world_folder, name='restore_world_folder'),
     path('settings/users/create/', panel_user_create, name='panel_user_create'),
     path('settings/users/<int:user_id>/edit/', panel_user_edit, name='panel_user_edit'),
     path(

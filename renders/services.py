@@ -17,6 +17,7 @@ from bluemap_configs.models import (
     GeneratedConfigFile,
 )
 from projects.models import Render
+from projects.world_discovery import world_folder_exists
 from .models import RenderJob, RenderLogChunk
 
 
@@ -190,6 +191,16 @@ def enqueue_render(render: Render, requested_by=None) -> RenderJob:
     if requested_by is not None and not user_can_trigger_render(requested_by, render):
         raise PermissionDenied("You do not have permission to trigger this Render.")
 
+    if not render_world_folder_is_available(render):
+        job = RenderJob.objects.create(
+            render=render,
+            requested_by=requested_by,
+            status=RenderJob.Status.FAILED,
+            finished_at=timezone.now(),
+        )
+        log_world_folder_unavailable(render, job)
+        return job
+
     with transaction.atomic():
         if RenderJob.objects.select_for_update().filter(
             render=render,
@@ -239,6 +250,12 @@ def execute_render_job(job: RenderJob) -> RenderJob:
     render = job.render
     command = []
     try:
+        if not render_world_folder_is_available(render):
+            log_world_folder_unavailable(render, job)
+            job.status = RenderJob.Status.FAILED
+            job.exit_code = None
+            return job
+
         render_config = get_or_create_render_config(render)
         write_render_config(render_config, job.requested_by)
         command = build_command(render_config)
@@ -307,3 +324,39 @@ def execute_render_job(job: RenderJob) -> RenderJob:
         job.save(update_fields=["status", "exit_code", "finished_at", "updated_at"])
 
     return job
+
+
+def render_world_folder_is_available(render: Render) -> bool:
+    return render.atlas.world_folder.is_active and world_folder_exists(render.atlas.world_folder)
+
+
+def log_world_folder_unavailable(render: Render, job: RenderJob) -> None:
+    world = render.atlas.world_folder
+    if not world.is_active:
+        RenderLogChunk.objects.create(
+            job=job,
+            stream="stderr",
+            content=(
+                "The Minecraft world folder for this Render is archived. "
+                "Restore the World Folder before triggering new render jobs."
+            ),
+        )
+        return
+
+    mark_world_folder_missing(render, job)
+
+
+def mark_world_folder_missing(render: Render, job: RenderJob) -> None:
+    world = render.atlas.world_folder
+    if world.is_active:
+        world.is_active = False
+        world.save(update_fields=["is_active", "updated_at"])
+    RenderLogChunk.objects.create(
+        job=job,
+        stream="stderr",
+        content=(
+            "The Minecraft world folder for this Render was not found on disk. "
+            f"Expected level.dat at: {Path(world.source_path) / 'level.dat'}\n"
+            "The World Folder has been archived so it cannot be selected for new Atlases."
+        ),
+    )

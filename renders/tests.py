@@ -11,6 +11,7 @@ from .services import (
     build_command,
     claim_next_queued_job,
     enqueue_render,
+    execute_render_job,
     get_or_create_render_config,
     run_render,
 )
@@ -19,6 +20,11 @@ from .services import (
 class RenderRunnerTests(TestCase):
     def create_render(self):
         suffix = BlueMapProfile.objects.count() + 1
+        temp_dir = TemporaryDirectory()
+        self.addCleanup(temp_dir.cleanup)
+        world_path = Path(temp_dir.name) / f"world-{suffix}"
+        world_path.mkdir()
+        (world_path / "level.dat").write_bytes(b"")
         profile = BlueMapProfile.objects.create(
             name=f"Default {suffix}",
             slug=f"default-{suffix}",
@@ -29,7 +35,7 @@ class RenderRunnerTests(TestCase):
         )
         world = WorldFolder.objects.create(
             display_name=f"Overworld {suffix}",
-            source_path=f"/srv/minecraft/world-{suffix}",
+            source_path=str(world_path.resolve()),
         )
         ProjectVisibleWorld.objects.create(project=project, world_folder=world)
         atlas = Atlas.objects.create(
@@ -110,6 +116,56 @@ class RenderRunnerTests(TestCase):
 
         self.assertEqual(job.status, RenderJob.Status.QUEUED)
         self.assertIsNone(job.started_at)
+
+    def test_enqueue_render_fails_and_archives_world_when_world_folder_is_missing(self):
+        render = self.create_render()
+        world = render.atlas.world_folder
+        (Path(world.source_path) / "level.dat").unlink()
+
+        job = enqueue_render(render)
+
+        self.assertEqual(job.status, RenderJob.Status.FAILED)
+        self.assertTrue(job.log_chunks.filter(content__contains="not found on disk").exists())
+        world.refresh_from_db()
+        self.assertFalse(world.is_active)
+
+    def test_enqueue_render_fails_when_world_folder_is_archived(self):
+        render = self.create_render()
+        world = render.atlas.world_folder
+        world.is_active = False
+        world.save(update_fields=["is_active"])
+
+        job = enqueue_render(render)
+
+        self.assertEqual(job.status, RenderJob.Status.FAILED)
+        self.assertTrue(job.log_chunks.filter(content__contains="world folder for this Render is archived").exists())
+        world.refresh_from_db()
+        self.assertFalse(world.is_active)
+
+    def test_execute_render_job_fails_and_archives_world_when_world_folder_disappears(self):
+        render = self.create_render()
+        world = render.atlas.world_folder
+        job = RenderJob.objects.create(render=render, status=RenderJob.Status.RUNNING)
+        (Path(world.source_path) / "level.dat").unlink()
+
+        job = execute_render_job(job)
+
+        self.assertEqual(job.status, RenderJob.Status.FAILED)
+        self.assertTrue(job.log_chunks.filter(content__contains="World Folder has been archived").exists())
+        world.refresh_from_db()
+        self.assertFalse(world.is_active)
+
+    def test_execute_render_job_fails_when_world_folder_is_archived(self):
+        render = self.create_render()
+        world = render.atlas.world_folder
+        world.is_active = False
+        world.save(update_fields=["is_active"])
+        job = RenderJob.objects.create(render=render, status=RenderJob.Status.RUNNING)
+
+        job = execute_render_job(job)
+
+        self.assertEqual(job.status, RenderJob.Status.FAILED)
+        self.assertTrue(job.log_chunks.filter(content__contains="Restore the World Folder").exists())
 
     def test_claim_next_queued_job_respects_global_running_limit(self):
         first_render = self.create_render()

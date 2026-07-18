@@ -97,6 +97,26 @@ class RenderViewerStateTests(TestCase):
         self.assertEqual(response.status_code, 302)
         self.assertEqual(self.render.jobs.count(), 1)
 
+    def test_render_page_disables_trigger_button_for_archived_world_folder(self):
+        self.world.is_active = False
+        self.world.save(update_fields=["is_active"])
+
+        response = self.client.get(reverse("render_viewer", kwargs={"render_id": self.render.id}))
+
+        self.assertContains(response, "World folder unavailable")
+        self.assertContains(response, "Restore it before triggering new render jobs")
+        self.assertContains(response, "disabled")
+
+    def test_trigger_fails_for_archived_world_folder(self):
+        self.world.is_active = False
+        self.world.save(update_fields=["is_active"])
+
+        response = self.client.post(reverse("trigger_render", kwargs={"render_id": self.render.id}))
+
+        self.assertEqual(response.status_code, 302)
+        job = self.render.jobs.get()
+        self.assertEqual(job.status, RenderJob.Status.FAILED)
+
     def test_render_status_reports_active_job(self):
         job = RenderJob.objects.create(render=self.render, status=RenderJob.Status.RUNNING)
 

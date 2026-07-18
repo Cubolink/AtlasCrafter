@@ -54,6 +54,40 @@ class WorldDiscoveryTests(TestCase):
             existing.refresh_from_db()
             self.assertEqual(existing.detected_dimensions, [DIMENSION_OVERWORLD])
 
+    def test_scan_source_worlds_archives_missing_known_worlds_under_source_root(self):
+        with TemporaryDirectory() as source_dir:
+            source_root = Path(source_dir)
+            missing_world = source_root / "MissingWorld"
+            existing = WorldFolder.objects.create(
+                display_name="Missing World",
+                source_path=str(missing_world.resolve()),
+                is_active=True,
+            )
+
+            result = scan_source_worlds(source_root)
+
+            existing.refresh_from_db()
+            self.assertFalse(existing.is_active)
+            self.assertEqual(result.archived, [existing])
+
+    def test_scan_source_worlds_restores_rediscovered_world(self):
+        with TemporaryDirectory() as source_dir:
+            source_root = Path(source_dir)
+            world = source_root / "Survival"
+            world.mkdir()
+            (world / "level.dat").write_bytes(b"")
+            existing = WorldFolder.objects.create(
+                display_name="Survival",
+                source_path=str(world.resolve()),
+                is_active=False,
+            )
+
+            result = scan_source_worlds(source_root)
+
+            existing.refresh_from_db()
+            self.assertTrue(existing.is_active)
+            self.assertEqual(result.restored, [existing])
+
     def test_build_world_tree_groups_worlds_by_parent_folder(self):
         with TemporaryDirectory() as source_dir:
             source_root = Path(source_dir)
@@ -150,6 +184,52 @@ class WorldFolderViewsTests(TestCase):
             self.assertEqual(response.status_code, 302)
             world = WorldFolder.objects.get(display_name="Manual World")
             self.assertEqual(world.detected_dimensions, [DIMENSION_OVERWORLD])
+
+    def test_superuser_can_archive_world_folder(self):
+        world = WorldFolder.objects.create(
+            display_name="Archive Me",
+            source_path="/srv/worlds/archive-me",
+            is_active=True,
+        )
+        self.client.force_login(self.superuser)
+
+        response = self.client.post(reverse("archive_world_folder", kwargs={"world_id": world.id}))
+
+        self.assertEqual(response.status_code, 302)
+        world.refresh_from_db()
+        self.assertFalse(world.is_active)
+
+    def test_superuser_can_restore_world_folder_when_path_exists(self):
+        with TemporaryDirectory() as source_dir:
+            world_path = Path(source_dir) / "ArchivedWorld"
+            world_path.mkdir()
+            (world_path / "level.dat").write_bytes(b"")
+            world = WorldFolder.objects.create(
+                display_name="Archived World",
+                source_path=str(world_path.resolve()),
+                is_active=False,
+            )
+            self.client.force_login(self.superuser)
+
+            response = self.client.post(reverse("restore_world_folder", kwargs={"world_id": world.id}))
+
+            self.assertEqual(response.status_code, 302)
+            world.refresh_from_db()
+            self.assertTrue(world.is_active)
+
+    def test_superuser_cannot_restore_world_folder_when_path_is_missing(self):
+        world = WorldFolder.objects.create(
+            display_name="Missing World",
+            source_path="/srv/worlds/missing",
+            is_active=False,
+        )
+        self.client.force_login(self.superuser)
+
+        response = self.client.post(reverse("restore_world_folder", kwargs={"world_id": world.id}))
+
+        self.assertEqual(response.status_code, 302)
+        world.refresh_from_db()
+        self.assertFalse(world.is_active)
 
     def test_manual_world_folder_requires_level_dat(self):
         with TemporaryDirectory() as source_dir:

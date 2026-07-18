@@ -15,21 +15,32 @@ DIMENSION_END = "minecraft:the_end"
 class WorldScanResult:
     created: list[WorldFolder] = field(default_factory=list)
     updated: list[WorldFolder] = field(default_factory=list)
+    restored: list[WorldFolder] = field(default_factory=list)
+    archived: list[WorldFolder] = field(default_factory=list)
     unchanged: list[WorldFolder] = field(default_factory=list)
 
     @property
     def total(self) -> int:
-        return len(self.created) + len(self.updated) + len(self.unchanged)
+        return (
+            len(self.created)
+            + len(self.updated)
+            + len(self.restored)
+            + len(self.archived)
+            + len(self.unchanged)
+        )
 
 
 def scan_source_worlds(source_root: Path | None = None) -> WorldScanResult:
     source_root = Path(source_root or settings.SOURCE_WORLDS_DIR).resolve()
     result = WorldScanResult()
     if not source_root.exists():
+        archive_missing_worlds(source_root, set(), result)
         return result
 
+    discovered_paths = set()
     for level_dat in sorted(source_root.rglob("level.dat")):
         world_path = level_dat.parent.resolve()
+        discovered_paths.add(str(world_path))
         dimensions = detect_dimensions(world_path)
         world, created = WorldFolder.objects.get_or_create(
             source_path=str(world_path),
@@ -42,14 +53,50 @@ def scan_source_worlds(source_root: Path | None = None) -> WorldScanResult:
             result.created.append(world)
             continue
 
-        if world.detected_dimensions != dimensions:
+        was_inactive = not world.is_active
+        if world.detected_dimensions != dimensions or was_inactive:
             world.detected_dimensions = dimensions
-            world.save(update_fields=["detected_dimensions", "updated_at"])
-            result.updated.append(world)
+            world.is_active = True
+            world.save(update_fields=["detected_dimensions", "is_active", "updated_at"])
+            if was_inactive:
+                result.restored.append(world)
+            else:
+                result.updated.append(world)
         else:
             result.unchanged.append(world)
 
+    archive_missing_worlds(source_root, discovered_paths, result)
     return result
+
+
+def archive_missing_worlds(
+    source_root: Path,
+    discovered_paths: set[str],
+    result: WorldScanResult,
+) -> None:
+    for world in WorldFolder.objects.filter(is_active=True):
+        world_path = Path(world.source_path)
+        if not is_path_inside_source_root(world_path, source_root):
+            continue
+        if str(world_path.resolve()) in discovered_paths:
+            continue
+        if world_folder_exists(world):
+            continue
+        world.is_active = False
+        world.save(update_fields=["is_active", "updated_at"])
+        result.archived.append(world)
+
+
+def is_path_inside_source_root(world_path: Path, source_root: Path) -> bool:
+    try:
+        world_path.resolve().relative_to(source_root)
+    except ValueError:
+        return False
+    return True
+
+
+def world_folder_exists(world: WorldFolder) -> bool:
+    return (Path(world.source_path) / "level.dat").is_file()
 
 
 def detect_dimensions(world_path: Path) -> list[str]:

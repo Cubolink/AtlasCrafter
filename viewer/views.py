@@ -14,6 +14,7 @@ from renders.services import (
     enqueue_render,
     has_active_render_job,
     preview_render_config,
+    render_world_folder_is_available,
     user_can_trigger_render,
 )
 
@@ -51,6 +52,7 @@ def render_viewer(request, render_id: int):
 
     jobs = render_obj.jobs.prefetch_related("log_chunks").all()[:10]
     active_job = render_obj.jobs.filter(status__in=ACTIVE_JOB_STATUSES).first()
+    source_available = render_world_folder_is_available(render_obj)
     return render(
         request,
         "viewer/render_viewer.html",
@@ -58,6 +60,7 @@ def render_viewer(request, render_id: int):
             "render": render_obj,
             "jobs": jobs,
             "can_trigger_render": user_can_trigger_render(request.user, render_obj),
+            "source_available": source_available,
             "active_job": active_job,
             "has_active_job": active_job is not None,
             "render_output_exists": render_output_exists(render_obj),
@@ -95,7 +98,16 @@ def trigger_render(request, render_id: int):
         return redirect("render_viewer", render_id=render_obj.id)
 
     job = enqueue_render(render_obj, requested_by=request.user)
-    messages.success(request, f"Render job #{job.id} queued.")
+    if job.status == RenderJob.Status.FAILED:
+        messages.error(
+            request,
+            (
+                f"Render job #{job.id} failed before queueing because the Minecraft "
+                "world folder is archived or missing."
+            ),
+        )
+    else:
+        messages.success(request, f"Render job #{job.id} queued.")
     return redirect("render_viewer", render_id=render_obj.id)
 
 

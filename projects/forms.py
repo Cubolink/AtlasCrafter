@@ -1,10 +1,11 @@
 from django import forms
 from django.contrib.auth import get_user_model
+from django.db.models import Q
 from pathlib import Path
 
 from accounts.models import ProjectMembership
 from .models import Atlas, Project, Render, WorldFolder
-from .world_discovery import detect_dimensions
+from .world_discovery import detect_dimensions, world_folder_exists
 
 
 RENDER_BASIC_FIELDS = [
@@ -75,11 +76,15 @@ class ProjectManageForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["is_active"].label = "Active (not archived)"
-        self.fields["visible_worlds"].queryset = WorldFolder.objects.filter(
-            is_active=True,
-        ).order_by("display_name")
         if self.instance.pk:
+            self.fields["visible_worlds"].queryset = WorldFolder.objects.filter(
+                Q(is_active=True) | Q(visible_in_projects=self.instance),
+            ).distinct().order_by("display_name")
             self.fields["visible_worlds"].initial = self.instance.visible_worlds.all()
+        else:
+            self.fields["visible_worlds"].queryset = WorldFolder.objects.filter(
+                is_active=True,
+            ).order_by("display_name")
 
     def save(self, commit=True):
         if commit:
@@ -96,13 +101,14 @@ class WorldFolderForm(forms.ModelForm):
 
     def clean_source_path(self):
         source_path = Path(self.cleaned_data["source_path"]).expanduser().resolve()
-        if not (source_path / "level.dat").is_file():
+        if self.cleaned_data.get("is_active", True) and not (source_path / "level.dat").is_file():
             raise forms.ValidationError("This folder does not contain level.dat.")
         return str(source_path)
 
     def save(self, commit=True):
         world = super().save(commit=False)
-        world.detected_dimensions = detect_dimensions(Path(world.source_path))
+        if world_folder_exists(world):
+            world.detected_dimensions = detect_dimensions(Path(world.source_path))
         if commit:
             world.save()
         return world

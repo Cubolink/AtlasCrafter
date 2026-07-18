@@ -55,10 +55,13 @@
     </dl>
     {% if can_trigger_render %}
       <p><a href="{% url 'render_config_preview' render.id %}">Preview generated config</a></p>
+      {% if not source_available %}
+        <p class="muted">This World Folder is archived or missing. Restore it before triggering new render jobs.</p>
+      {% endif %}
       <form method="post" action="{% url 'trigger_render' render.id %}">
         {% csrf_token %}
-        <button type="submit" {% if has_active_job %}disabled{% endif %}>
-          {% if has_active_job %}Render in progress{% else %}Trigger render{% endif %}
+        <button type="submit" {% if has_active_job or not source_available %}disabled{% endif %}>
+          {% if has_active_job %}Render in progress{% elif not source_available %}World folder unavailable{% else %}Trigger render{% endif %}
         </button>
       </form>
       {% if has_active_job %}
