@@ -216,14 +216,58 @@ def project_detail(request, slug: str):
             "atlas_form": AtlasCreateForm(project=project) if can_manage else None,
             "project_user_add_form": ProjectUserAddForm(project=project) if can_manage else None,
             "memberships": project.memberships.select_related("user").all(),
+            "archived_atlas_count": (
+                project.atlases.filter(is_active=False).count() if can_manage else 0
+            ),
             "atlas_sections": [
                 {
                     "atlas": atlas,
                     "renders": atlas.renders.filter(is_enabled=True),
+                    "archived_render_count": atlas.renders.filter(is_enabled=False).count(),
                     "render_form": RenderCreateForm(atlas=atlas) if can_manage else None,
                 }
                 for atlas in project.atlases.filter(is_active=True)
             ],
+        },
+    )
+
+
+@login_required
+def archived_atlases(request, slug: str):
+    project = get_object_or_404(Project, slug=slug, is_active=True)
+    if not can_manage_project(request.user, project):
+        raise PermissionDenied("You do not have permission to view archived Atlases.")
+
+    atlases = project.atlases.filter(is_active=False).select_related("world_folder")
+    return render(
+        request,
+        "projects/archived_atlases.html",
+        {
+            "project": project,
+            "atlases": atlases,
+        },
+    )
+
+
+@login_required
+def archived_renders(request, atlas_id: int):
+    atlas = get_object_or_404(
+        Atlas.objects.select_related("project", "world_folder"),
+        id=atlas_id,
+        is_active=True,
+        project__is_active=True,
+    )
+    if not can_manage_project(request.user, atlas.project):
+        raise PermissionDenied("You do not have permission to view archived Renders.")
+
+    renders = atlas.renders.filter(is_enabled=False)
+    return render(
+        request,
+        "projects/archived_renders.html",
+        {
+            "atlas": atlas,
+            "project": atlas.project,
+            "renders": renders,
         },
     )
 
@@ -328,6 +372,25 @@ def archive_render(request, render_id: int):
 
 @login_required
 @require_POST
+def restore_render(request, render_id: int):
+    render_obj = get_object_or_404(
+        Render.objects.select_related("atlas__project"),
+        id=render_id,
+        is_enabled=False,
+        atlas__is_active=True,
+        atlas__project__is_active=True,
+    )
+    if not can_manage_project(request.user, render_obj.project):
+        raise PermissionDenied("You do not have permission to restore this Render.")
+
+    render_obj.is_enabled = True
+    render_obj.save(update_fields=["is_enabled", "updated_at"])
+    messages.success(request, f"Render '{render_obj.display_name}' restored.")
+    return redirect("archived_renders", atlas_id=render_obj.atlas_id)
+
+
+@login_required
+@require_POST
 def add_project_user(request, slug: str):
     project = get_object_or_404(Project, slug=slug, is_active=True)
     if not can_manage_project(request.user, project):
@@ -399,6 +462,24 @@ def archive_atlas(request, atlas_id: int):
     atlas.save(update_fields=["is_active", "updated_at"])
     messages.success(request, f"Atlas '{display_name}' archived.")
     return redirect(project.get_absolute_url())
+
+
+@login_required
+@require_POST
+def restore_atlas(request, atlas_id: int):
+    atlas = get_object_or_404(
+        Atlas.objects.select_related("project"),
+        id=atlas_id,
+        is_active=False,
+        project__is_active=True,
+    )
+    if not can_manage_project(request.user, atlas.project):
+        raise PermissionDenied("You do not have permission to restore this Atlas.")
+
+    atlas.is_active = True
+    atlas.save(update_fields=["is_active", "updated_at"])
+    messages.success(request, f"Atlas '{atlas.display_name}' restored.")
+    return redirect("archived_atlases", slug=atlas.project.slug)
 
 
 @login_required

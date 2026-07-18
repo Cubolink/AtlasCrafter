@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+
+{% block title %}Archived Atlases - {{ project.name }}{% endblock %}
+
+{% block content %}
+  <h1>Archived Atlases</h1>
+  <p><a href="{{ project.get_absolute_url }}">Back to {{ project.name }}</a></p>
+
+  <section class="panel">
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>World Folder</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for atlas in atlases %}
+          <tr>
+            <td>{{ atlas.display_name }}</td>
+            <td>{{ atlas.world_folder.source_path }}</td>
+            <td>
+              <form method="post" action="{% url 'restore_atlas' atlas.id %}">
+                {% csrf_token %}
+                <button type="submit">Restore</button>
+              </form>
+            </td>
+          </tr>
+        {% empty %}
+          <tr>
+            <td colspan="3">No archived Atlases.</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+{% endblock %}

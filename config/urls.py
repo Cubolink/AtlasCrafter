@@ -13,6 +13,8 @@ from accounts.views import (
 from assets.views import protected_render_asset
 from projects.views import (
     add_project_user,
+    archived_atlases,
+    archived_renders,
     create_atlas,
     create_project,
     create_render,
@@ -28,6 +30,8 @@ from projects.views import (
     manage_projects,
     project_detail,
     remove_project_membership,
+    restore_atlas,
+    restore_render,
     scan_world_folders,
     world_folders,
 )
@@ -68,6 +72,7 @@ urlpatterns = [
         name='panel_user_project_access_remove',
     ),
     path('projects/<slug:slug>/', project_detail, name='project_detail'),
+    path('projects/<slug:slug>/atlases/archived/', archived_atlases, name='archived_atlases'),
     path('projects/<slug:slug>/atlases/create/', create_atlas, name='create_atlas'),
     path('projects/<slug:slug>/users/add/', add_project_user, name='add_project_user'),
     path(
@@ -77,9 +82,12 @@ urlpatterns = [
     ),
     path('atlases/<int:atlas_id>/edit/', edit_atlas, name='edit_atlas'),
     path('atlases/<int:atlas_id>/archive/', archive_atlas, name='archive_atlas'),
+    path('atlases/<int:atlas_id>/restore/', restore_atlas, name='restore_atlas'),
+    path('atlases/<int:atlas_id>/renders/archived/', archived_renders, name='archived_renders'),
     path('atlases/<int:atlas_id>/renders/create/', create_render, name='create_render'),
     path('renders/<int:render_id>/edit/', edit_render, name='edit_render'),
     path('renders/<int:render_id>/archive/', archive_render, name='archive_render'),
+    path('renders/<int:render_id>/restore/', restore_render, name='restore_render'),
     path('renders/<int:render_id>/', render_viewer, name='render_viewer'),
     path('renders/<int:render_id>/config-preview/', render_config_preview, name='render_config_preview'),
     path('renders/<int:render_id>/status/', render_status, name='render_status'),

@@ -244,6 +244,43 @@ class ProjectSetupViewTests(TestCase):
         atlas.refresh_from_db()
         self.assertFalse(atlas.is_active)
 
+    def test_project_admin_can_view_and_restore_archived_atlases(self):
+        active_atlas = Atlas.objects.create(
+            project=self.project,
+            world_folder=self.world,
+            display_name="Current Nether",
+        )
+        archived_atlas = Atlas.objects.create(
+            project=self.project,
+            world_folder=self.world,
+            display_name="Old Overworld",
+            is_active=False,
+        )
+
+        detail_response = self.client_for(self.admin).get(
+            reverse("project_detail", kwargs={"slug": self.project.slug}),
+        )
+        archive_response = self.client_for(self.admin).get(
+            reverse("archived_atlases", kwargs={"slug": self.project.slug}),
+        )
+        restore_response = self.client_for(self.admin).post(
+            reverse("restore_atlas", kwargs={"atlas_id": archived_atlas.id}),
+        )
+
+        self.assertContains(detail_response, reverse("archived_atlases", kwargs={"slug": self.project.slug}))
+        self.assertContains(archive_response, archived_atlas.display_name)
+        self.assertNotContains(archive_response, active_atlas.display_name)
+        self.assertEqual(restore_response.status_code, 302)
+        archived_atlas.refresh_from_db()
+        self.assertTrue(archived_atlas.is_active)
+
+    def test_project_user_cannot_view_archived_atlases(self):
+        response = self.client_for(self.user).get(
+            reverse("archived_atlases", kwargs={"slug": self.project.slug}),
+        )
+
+        self.assertEqual(response.status_code, 403)
+
     def test_project_admin_cannot_archive_atlas_with_active_render_job(self):
         atlas = Atlas.objects.create(
             project=self.project,
@@ -337,6 +374,55 @@ class ProjectSetupViewTests(TestCase):
         self.assertEqual(response.status_code, 302)
         render.refresh_from_db()
         self.assertFalse(render.is_enabled)
+
+    def test_project_admin_can_view_and_restore_archived_renders(self):
+        atlas = Atlas.objects.create(
+            project=self.project,
+            world_folder=self.world,
+            display_name="Overworld",
+        )
+        active_render = Render.objects.create(
+            atlas=atlas,
+            display_name="Current HD",
+            dimension=Render.Dimension.OVERWORLD,
+            is_enabled=True,
+        )
+        archived_render = Render.objects.create(
+            atlas=atlas,
+            display_name="Old Standard",
+            dimension=Render.Dimension.OVERWORLD,
+            is_enabled=False,
+        )
+
+        detail_response = self.client_for(self.admin).get(
+            reverse("project_detail", kwargs={"slug": self.project.slug}),
+        )
+        archive_response = self.client_for(self.admin).get(
+            reverse("archived_renders", kwargs={"atlas_id": atlas.id}),
+        )
+        restore_response = self.client_for(self.admin).post(
+            reverse("restore_render", kwargs={"render_id": archived_render.id}),
+        )
+
+        self.assertContains(detail_response, reverse("archived_renders", kwargs={"atlas_id": atlas.id}))
+        self.assertContains(archive_response, archived_render.display_name)
+        self.assertNotContains(archive_response, active_render.display_name)
+        self.assertEqual(restore_response.status_code, 302)
+        archived_render.refresh_from_db()
+        self.assertTrue(archived_render.is_enabled)
+
+    def test_project_user_cannot_view_archived_renders(self):
+        atlas = Atlas.objects.create(
+            project=self.project,
+            world_folder=self.world,
+            display_name="Overworld",
+        )
+
+        response = self.client_for(self.user).get(
+            reverse("archived_renders", kwargs={"atlas_id": atlas.id}),
+        )
+
+        self.assertEqual(response.status_code, 403)
 
     def test_project_admin_cannot_archive_render_with_active_job(self):
         atlas = Atlas.objects.create(

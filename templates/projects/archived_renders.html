@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+
+{% block title %}Archived Renders - {{ atlas.display_name }}{% endblock %}
+
+{% block content %}
+  <h1>Archived Renders</h1>
+  <p><a href="{{ project.get_absolute_url }}">Back to {{ project.name }}</a></p>
+
+  <section class="panel">
+    <h2>{{ atlas.display_name }}</h2>
+    <p class="muted">{{ atlas.world_folder.source_path }}</p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>BlueMap Map ID</th>
+          <th>Dimension</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for render in renders %}
+          <tr>
+            <td>{{ render.display_name }}</td>
+            <td>{{ render.bluemap_map_id }}</td>
+            <td>{{ render.get_dimension_display }}</td>
+            <td>
+              <form method="post" action="{% url 'restore_render' render.id %}">
+                {% csrf_token %}
+                <button type="submit">Restore</button>
+              </form>
+            </td>
+          </tr>
+        {% empty %}
+          <tr>
+            <td colspan="4">No archived Renders.</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+{% endblock %}
