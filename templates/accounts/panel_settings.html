@@ -2,23 +2,28 @@
 
 {% block title %}Panel Settings - BlueMap Web UI Panel{% endblock %}
 
+{% block breadcrumbs %}
+  <li><a href="{% url 'dashboard' %}">Projects</a></li>
+  <li>Panel Settings</li>
+{% endblock %}
+
 {% block content %}
   <div class="row">
     <h1>Panel Settings</h1>
-    <a href="{% url 'panel_user_create' %}">Add New User</a>
+    <a class="btn btn-primary btn-sm" href="{% url 'panel_user_create' %}">Add New User</a>
   </div>
 
   {% if request.user.is_superuser %}
     <section class="panel">
       <h2>Projects</h2>
       <p class="muted">Create Projects and control which world folders are visible to them.</p>
-      <a href="{% url 'manage_projects' %}">Manage Projects</a>
+      <a class="btn btn-outline btn-sm" href="{% url 'manage_projects' %}">Manage Projects</a>
     </section>
 
     <section class="panel">
       <h2>World Folders</h2>
       <p class="muted">Discover and manage Minecraft world folders available to Projects.</p>
-      <a href="{% url 'world_folders' %}">Manage World Folders</a>
+      <a class="btn btn-outline btn-sm" href="{% url 'world_folders' %}">Manage World Folders</a>
     </section>
   {% endif %}
 
@@ -35,6 +40,7 @@
   </section>
 
   <section class="panel">
+    <div class="table-wrap">
     <table>
       <thead>
         <tr>
@@ -54,7 +60,7 @@
                 <span class="muted">No email</span>
               {% endif %}
             </td>
-            <td><a href="{% url 'panel_user_edit' user.id %}">Edit</a></td>
+            <td><a class="action-link" href="{% url 'panel_user_edit' user.id %}">Edit</a></td>
           </tr>
         {% empty %}
           <tr>
@@ -63,5 +69,6 @@
         {% endfor %}
       </tbody>
     </table>
+    </div>
   </section>
 {% endblock %}

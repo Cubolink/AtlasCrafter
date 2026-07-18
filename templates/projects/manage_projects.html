@@ -2,13 +2,20 @@
 
 {% block title %}Projects - BlueMap Web UI Panel{% endblock %}
 
+{% block breadcrumbs %}
+  <li><a href="{% url 'dashboard' %}">Projects</a></li>
+  <li><a href="{% url 'panel_settings' %}">Panel Settings</a></li>
+  <li>Manage Projects</li>
+{% endblock %}
+
 {% block content %}
   <div class="row">
     <h1>Projects</h1>
-    <a href="{% url 'create_project' %}">Create Project</a>
+    <a class="btn btn-primary btn-sm" href="{% url 'create_project' %}">Create Project</a>
   </div>
 
   <section class="panel">
+    <div class="table-wrap">
     <table>
       <thead>
         <tr>
@@ -22,14 +29,18 @@
         {% for project in projects %}
           <tr>
             <td>{{ project.name }}</td>
-            <td>{{ project.is_active|yesno:"Active,Archived" }}</td>
+            <td>
+              <span class="{% if project.is_active %}status-active{% else %}status-archived{% endif %}">
+                {{ project.is_active|yesno:"Active,Archived" }}
+              </span>
+            </td>
             <td>{{ project.visible_worlds.count }}</td>
             <td>
-              <a href="{% url 'edit_project' project.id %}">Edit</a>
+              <a class="action-link" href="{% url 'edit_project' project.id %}">Edit</a>
               {% if project.is_active %}
-                <form method="post" action="{% url 'archive_project' project.id %}" style="display:inline">
+                <form class="inline-block" method="post" action="{% url 'archive_project' project.id %}">
                   {% csrf_token %}
-                  <button type="submit">Archive</button>
+                  <button class="action-danger" type="submit">Archive</button>
                 </form>
               {% endif %}
             </td>
@@ -41,5 +52,6 @@
         {% endfor %}
       </tbody>
     </table>
+    </div>
   </section>
 {% endblock %}

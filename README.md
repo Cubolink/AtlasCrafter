@@ -24,6 +24,7 @@ Instead, the panel owns:
 
 - **Django** as the backend framework.
 - **Django templates** for the current UI.
+- **Tailwind CSS CLI** plus **DaisyUI** for the panel design system.
 - **SQLite** by default for local development.
 - **Django auth** plus `ProjectMembership` rows for RBAC.
 - **Database-backed render queue** through `RenderJob`.
@@ -157,12 +158,20 @@ The app should support:
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\python -m pip install -r requirements.txt
+npm.cmd install
+npm.cmd run build:css
 .\.venv\Scripts\python manage.py migrate
 .\.venv\Scripts\python manage.py createsuperuser
 .\.venv\Scripts\python manage.py runserver
 ```
 
 The development app uses SQLite by default. Configure paths and runtime settings by copying `.env.example` to `.env`. The app loads `.env` automatically on startup, and relative paths are resolved from the project root.
+
+While editing templates or Tailwind/DaisyUI styles, keep the CSS compiler running in another terminal:
+
+```powershell
+npm.cmd run watch:css
+```
 
 Render jobs are processed by a separate worker process. Start it in another terminal:
 
@@ -195,6 +204,8 @@ Start the stack:
 ```powershell
 docker compose up --build
 ```
+
+The Docker image builds the Tailwind/DaisyUI stylesheet in a Node stage and copies the compiled CSS into the Django image.
 
 Then create a superuser inside the web container:
 

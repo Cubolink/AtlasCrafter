@@ -2,10 +2,17 @@
 
 {% block title %}{{ title }} - BlueMap Web UI Panel{% endblock %}
 
+{% block breadcrumbs %}
+  <li><a href="{% url 'dashboard' %}">Projects</a></li>
+  <li><a href="{{ render.project.get_absolute_url }}">{{ render.project.name }}</a></li>
+  <li>{{ render.atlas.display_name }}</li>
+  <li>{{ title }}</li>
+{% endblock %}
+
 {% block content %}
   <div class="row">
     <h1>{{ title }}</h1>
-    <a href="{{ render.project.get_absolute_url }}">Back to Project</a>
+    <a class="btn btn-ghost btn-sm" href="{{ render.project.get_absolute_url }}">Back to Project</a>
   </div>
 
   <section class="panel">

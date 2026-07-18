@@ -1,14 +1,14 @@
 {% load project_form_tags %}
-<li>
-  <label>
+<li class="py-1">
+  <label class="flex items-center gap-2">
     <input type="checkbox" data-world-folder-toggle>
     <strong>{{ node.name }}</strong>
   </label>
   {% if node.worlds %}
-    <ul>
+    <ul class="ml-4 mt-1 border-l border-base-300 pl-4">
       {% for world in node.worlds %}
-        <li>
-          <label>
+        <li class="py-1">
+          <label class="flex items-center gap-2">
             <input
               type="checkbox"
               name="visible_worlds"
@@ -23,7 +23,7 @@
     </ul>
   {% endif %}
   {% if node.children %}
-    <ul>
+    <ul class="ml-4 mt-1 border-l border-base-300 pl-4">
       {% for child in node.children.values %}
         {% include "projects/visible_world_tree_node.html" with node=child form=form only %}
       {% endfor %}

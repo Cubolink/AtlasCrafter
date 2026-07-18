@@ -2,6 +2,13 @@
 
 {% block title %}{{ render.display_name }} - BlueMap Web UI Panel{% endblock %}
 
+{% block breadcrumbs %}
+  <li><a href="{% url 'dashboard' %}">Projects</a></li>
+  <li><a href="{{ render.project.get_absolute_url }}">{{ render.project.name }}</a></li>
+  <li>{{ render.atlas.display_name }}</li>
+  <li>{{ render.display_name }}</li>
+{% endblock %}
+
 {% block content %}
   {% if has_active_job %}
     <script>
@@ -32,8 +39,16 @@
   {% endif %}
 
   <section class="panel">
-    <h1>{{ render.display_name }}</h1>
-    <p class="muted">{{ render.project.name }} / {{ render.atlas.display_name }}</p>
+    <div class="row">
+      <div>
+        <p class="page-kicker">Render</p>
+        <h1>{{ render.display_name }}</h1>
+        <p class="muted">{{ render.project.name }} / {{ render.atlas.display_name }}</p>
+      </div>
+      <span class="{% if has_active_job %}status-running{% else %}status-active{% endif %}">
+        {% if has_active_job %}Running{% else %}Ready{% endif %}
+      </span>
+    </div>
     <dl>
       <dt>BlueMap map id</dt>
       <dd>{{ render.bluemap_map_id }}</dd>
@@ -54,13 +69,13 @@
       </dd>
     </dl>
     {% if can_trigger_render %}
-      <p><a href="{% url 'render_config_preview' render.id %}">Preview generated config</a></p>
+      <p><a class="btn btn-outline btn-sm" href="{% url 'render_config_preview' render.id %}">Preview generated config</a></p>
       {% if not source_available %}
         <p class="muted">This World Folder is archived or missing. Restore it before triggering new render jobs.</p>
       {% endif %}
       <form method="post" action="{% url 'trigger_render' render.id %}">
         {% csrf_token %}
-        <button type="submit" {% if has_active_job or not source_available %}disabled{% endif %}>
+        <button class="btn btn-primary" type="submit" {% if has_active_job or not source_available %}disabled{% endif %}>
           {% if has_active_job %}Render in progress{% elif not source_available %}World folder unavailable{% else %}Trigger render{% endif %}
         </button>
       </form>
@@ -79,7 +94,7 @@
       <iframe
         title="{{ render.display_name }} BlueMap viewer"
         src="{% url 'protected_render_asset' render.id 'index.html' %}"
-        style="width:100%; height:70vh; border:1px solid #d9e2ec; border-radius:8px;"
+        class="h-[70vh] w-full rounded-lg border border-base-300"
       ></iframe>
     </section>
   {% else %}
@@ -95,13 +110,16 @@
       {% for job in jobs %}
         <article>
           <div class="row">
-            <strong><a href="{% url 'render_job_detail' job.id %}">Job #{{ job.id }}</a> {{ job.get_status_display }}</strong>
+            <strong>
+              <a href="{% url 'render_job_detail' job.id %}">Job #{{ job.id }}</a>
+              <span class="status-{{ job.status }}">{{ job.get_status_display }}</span>
+            </strong>
             <span class="muted">{{ job.created_at }}</span>
           </div>
           {% if can_trigger_render and job.status == "queued" %}
             <form method="post" action="{% url 'cancel_render_job' job.id %}">
               {% csrf_token %}
-              <button type="submit">Cancel queued job</button>
+              <button class="action-danger" type="submit">Cancel queued job</button>
             </form>
           {% endif %}
           {% if job.command %}

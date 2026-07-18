@@ -2,8 +2,18 @@
 
 {% block title %}Profile Settings - BlueMap Web UI Panel{% endblock %}
 
+{% block breadcrumbs %}
+  <li><a href="{% url 'dashboard' %}">Projects</a></li>
+  <li>Profile</li>
+{% endblock %}
+
 {% block content %}
-  <h1>Profile Settings</h1>
+  <div class="page-heading">
+    <div>
+      <p class="page-kicker">Account</p>
+      <h1>Profile Settings</h1>
+    </div>
+  </div>
 
   <section class="panel">
     <h2>Account</h2>

@@ -1,9 +1,9 @@
-<li>
+<li class="py-1">
   <strong>{{ node.name }}</strong>
   {% if node.worlds %}
-    <ul>
+    <ul class="ml-4 mt-1 border-l border-base-300 pl-4">
       {% for world in node.worlds %}
-        <li>
+        <li class="py-1">
           {{ world.display_name }}
           <span class="muted">{{ world.source_path }}</span>
         </li>
@@ -11,7 +11,7 @@
     </ul>
   {% endif %}
   {% if node.children %}
-    <ul>
+    <ul class="ml-4 mt-1 border-l border-base-300 pl-4">
       {% for child in node.children.values %}
         {% include "projects/world_tree_node.html" with node=child only %}
       {% endfor %}

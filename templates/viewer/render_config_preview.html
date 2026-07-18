@@ -2,10 +2,17 @@
 
 {% block title %}Config Preview - {{ render.display_name }}{% endblock %}
 
+{% block breadcrumbs %}
+  <li><a href="{% url 'dashboard' %}">Projects</a></li>
+  <li><a href="{{ render.project.get_absolute_url }}">{{ render.project.name }}</a></li>
+  <li><a href="{% url 'render_viewer' render.id %}">{{ render.display_name }}</a></li>
+  <li>Config Preview</li>
+{% endblock %}
+
 {% block content %}
   <div class="row">
     <h1>Config Preview</h1>
-    <a href="{% url 'render_viewer' render.id %}">Back to Render</a>
+    <a class="btn btn-ghost btn-sm" href="{% url 'render_viewer' render.id %}">Back to Render</a>
   </div>
 
   <section class="panel">
