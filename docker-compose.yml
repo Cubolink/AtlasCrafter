@@ -1,0 +1,77 @@
+services:
+  web:
+    build: .
+    command: sh -c "python manage.py migrate && python manage.py runserver 0.0.0.0:8000"
+    environment:
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-change-me-for-docker}
+      DJANGO_DEBUG: ${DJANGO_DEBUG:-true}
+      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1,0.0.0.0,web}
+      DJANGO_TIME_ZONE: ${DJANGO_TIME_ZONE:-UTC}
+      DATABASE_URL: ${DATABASE_URL:-postgres://bluemap:bluemap@db:5432/bluemap}
+      SOURCE_WORLDS_DIR: /app/data/source-worlds
+      BLUEMAP_CONFIG_DIR: /app/data/bluemap/config
+      BLUEMAP_WEBROOT_DIR: /app/data/bluemap/web
+      BLUEMAP_TMP_DIR: /app/data/tmp
+      BLUEMAP_CLI_PATH: /app/bin/bluemap-cli.jar
+      BLUEMAP_JAVA_PATH: java
+      BLUEMAP_RENDER_TIMEOUT_SECONDS: ${BLUEMAP_RENDER_TIMEOUT_SECONDS:-3600}
+      BLUEMAP_RENDER_WORKER_CONCURRENCY: ${BLUEMAP_RENDER_WORKER_CONCURRENCY:-1}
+      BLUEMAP_RENDER_WORKER_POLL_SECONDS: ${BLUEMAP_RENDER_WORKER_POLL_SECONDS:-5}
+      INTERNAL_ACCEL_ROOT: ${INTERNAL_ACCEL_ROOT:-/_protected_bluemap/}
+    ports:
+      - "${DJANGO_PORT:-8000}:8000"
+    volumes:
+      - ./data/source-worlds:/app/data/source-worlds:ro
+      - ./data/bin:/app/bin:ro
+      - ./data/bluemap/config:/app/data/bluemap/config
+      - ./data/bluemap/web:/app/data/bluemap/web
+      - ./data/tmp:/app/data/tmp
+    depends_on:
+      db:
+        condition: service_healthy
+
+  renderworker:
+    build: .
+    command: sh -c "python manage.py migrate && python manage.py renderworker"
+    environment:
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-change-me-for-docker}
+      DJANGO_DEBUG: ${DJANGO_DEBUG:-true}
+      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1,0.0.0.0,web}
+      DJANGO_TIME_ZONE: ${DJANGO_TIME_ZONE:-UTC}
+      DATABASE_URL: ${DATABASE_URL:-postgres://bluemap:bluemap@db:5432/bluemap}
+      SOURCE_WORLDS_DIR: /app/data/source-worlds
+      BLUEMAP_CONFIG_DIR: /app/data/bluemap/config
+      BLUEMAP_WEBROOT_DIR: /app/data/bluemap/web
+      BLUEMAP_TMP_DIR: /app/data/tmp
+      BLUEMAP_CLI_PATH: /app/bin/bluemap-cli.jar
+      BLUEMAP_JAVA_PATH: java
+      BLUEMAP_RENDER_TIMEOUT_SECONDS: ${BLUEMAP_RENDER_TIMEOUT_SECONDS:-3600}
+      BLUEMAP_RENDER_WORKER_CONCURRENCY: ${BLUEMAP_RENDER_WORKER_CONCURRENCY:-1}
+      BLUEMAP_RENDER_WORKER_POLL_SECONDS: ${BLUEMAP_RENDER_WORKER_POLL_SECONDS:-5}
+      INTERNAL_ACCEL_ROOT: ${INTERNAL_ACCEL_ROOT:-/_protected_bluemap/}
+    volumes:
+      - ./data/source-worlds:/app/data/source-worlds:ro
+      - ./data/bin:/app/bin:ro
+      - ./data/bluemap/config:/app/data/bluemap/config
+      - ./data/bluemap/web:/app/data/bluemap/web
+      - ./data/tmp:/app/data/tmp
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-bluemap}
+      POSTGRES_USER: ${POSTGRES_USER:-bluemap}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-bluemap}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  postgres_data:

@@ -179,6 +179,47 @@ data/bluemap/web/        Generated BlueMap web viewer and map output
 data/tmp/                Temporary files for BlueMap/Java subprocesses
 ```
 
+## Docker Development
+
+The Docker setup uses one application image for both the web process and the render worker, plus Postgres. The BlueMap CLI jar is not committed or copied into the image; mount it from the host instead.
+
+Expected local layout:
+
+```text
+data/bin/bluemap-cli.jar       BlueMap standalone CLI jar
+data/source-worlds/            Minecraft world folders mounted read-only
+```
+
+Start the stack:
+
+```powershell
+docker compose up --build
+```
+
+Then create a superuser inside the web container:
+
+```powershell
+docker compose exec web python manage.py createsuperuser
+```
+
+Default container paths are:
+
+```text
+/app/data/source-worlds        read-only source worlds
+/app/bin/bluemap-cli.jar       mounted BlueMap CLI jar
+/app/data/bluemap/config       generated BlueMap config bind mount
+/app/data/bluemap/web          generated BlueMap web output bind mount
+/app/data/tmp                  Java/BlueMap temp bind mount
+```
+
+The compose file defaults to one render at a time:
+
+```text
+BLUEMAP_RENDER_WORKER_CONCURRENCY=1
+```
+
+Override compose settings with environment variables in your shell or a local `.env` file used by Docker Compose. Keep in mind that Django's own `.env` file is not copied into the image.
+
 ## BlueMap Connection
 
 The current integration expects BlueMap to be available as a local command or standalone CLI jar. Configure:
