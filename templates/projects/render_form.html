@@ -10,42 +10,63 @@
 {% endblock %}
 
 {% block content %}
-  <div class="row">
-    <h1>{{ title }}</h1>
+  <div class="page-heading">
+    <div>
+      <p class="page-kicker">Render Editor</p>
+      <h1>{{ title }}</h1>
+      <p class="muted">{{ render.project.name }} / {{ render.atlas.display_name }}</p>
+    </div>
     <a class="btn btn-ghost btn-sm" href="{% url 'atlas_detail' render.atlas.id %}">Back to Atlas</a>
   </div>
 
   <section class="panel">
-    <p class="muted">{{ render.project.name }} / {{ render.atlas.display_name }}</p>
     <dl>
       <dt>BlueMap map id</dt>
       <dd>{{ render.bluemap_map_id }}</dd>
     </dl>
-    <form method="post">
-      {% csrf_token %}
-      {% for field in basic_fields %}
-        <p>
-          {{ field.label_tag }}
-          {{ field }}
-          {% if field.help_text %}<span class="muted">{{ field.help_text }}</span>{% endif %}
-          {{ field.errors }}
-        </p>
-      {% endfor %}
-
-      <section>
-        <h2>Advanced Settings</h2>
-        {% for field in advanced_fields %}
-          <p>
-            {{ field.label_tag }}
-            {{ field }}
-            {% if field.help_text %}<span class="muted">{{ field.help_text }}</span>{% endif %}
-            {{ field.errors }}
-          </p>
-        {% endfor %}
-      </section>
-
-      {{ form.non_field_errors }}
-      <button type="submit">{{ submit_label }}</button>
-    </form>
   </section>
+
+  <div role="tablist" class="tabs tabs-bordered mb-5">
+    <input type="radio" name="render_editor_tabs" role="tab" class="tab" aria-label="Friendly Editor" checked>
+    <div role="tabpanel" class="tab-content pt-5">
+      <section class="panel">
+        <form method="post">
+          {% csrf_token %}
+          {% for field in basic_fields %}
+            <p>
+              {{ field.label_tag }}
+              {{ field }}
+              {% if field.help_text %}<span class="muted">{{ field.help_text }}</span>{% endif %}
+              {{ field.errors }}
+            </p>
+          {% endfor %}
+
+          <section>
+            <h2>Advanced Settings</h2>
+            {% for field in advanced_fields %}
+              <p>
+                {{ field.label_tag }}
+                {{ field }}
+                {% if field.help_text %}<span class="muted">{{ field.help_text }}</span>{% endif %}
+                {{ field.errors }}
+              </p>
+            {% endfor %}
+          </section>
+
+          {{ form.non_field_errors }}
+          <button type="submit">{{ submit_label }}</button>
+        </form>
+      </section>
+    </div>
+
+    <input type="radio" name="render_editor_tabs" role="tab" class="tab" aria-label="Raw Config">
+    <div role="tabpanel" class="tab-content pt-5">
+      <section class="panel">
+        <div class="alert alert-info mb-4">
+          <span>Raw config editing is coming next. For now this tab shows the generated config in read-only mode.</span>
+        </div>
+        <textarea class="textarea textarea-bordered min-h-[32rem] w-full font-mono text-sm" readonly>{{ config_content }}</textarea>
+      </section>
+    </div>
+  </div>
 {% endblock %}

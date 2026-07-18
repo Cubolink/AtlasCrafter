@@ -6,6 +6,7 @@ from django.test import Client, TestCase
 from django.urls import reverse
 
 from accounts.models import ProjectMembership
+from bluemap_configs.models import BlueMapProfile
 from renders.models import RenderJob
 from .models import Atlas, Project, ProjectVisibleWorld, Render, WorldFolder
 
@@ -390,6 +391,30 @@ class ProjectSetupViewTests(TestCase):
         self.assertTrue(render.cave_detection_uses_block_light)
         self.assertEqual(render.edge_light_strength, 12)
         self.assertTrue(render.ignore_missing_light_data)
+
+    def test_edit_render_shows_read_only_raw_config_tab(self):
+        BlueMapProfile.objects.create(name="Default", slug="default")
+        atlas = Atlas.objects.create(
+            project=self.project,
+            world_folder=self.world,
+            display_name="Overworld",
+        )
+        render = Render.objects.create(
+            atlas=atlas,
+            display_name="Standard",
+            dimension=Render.Dimension.OVERWORLD,
+        )
+
+        response = self.client_for(self.admin).get(
+            reverse("edit_render", kwargs={"render_id": render.id}),
+        )
+
+        self.assertContains(response, "Friendly Editor")
+        self.assertContains(response, "Raw Config")
+        self.assertContains(response, "Raw config editing is coming next")
+        self.assertContains(response, "readonly")
+        self.assertContains(response, "name:")
+        self.assertContains(response, "Standard")
 
     def test_project_admin_can_archive_render(self):
         atlas = Atlas.objects.create(

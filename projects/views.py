@@ -8,6 +8,7 @@ from django.views.decorators.http import require_POST
 
 from accounts.models import ProjectMembership
 from renders.models import RenderJob
+from renders.services import preview_render_config
 from .forms import (
     AtlasCreateForm,
     AtlasEditForm,
@@ -461,6 +462,7 @@ def edit_render(request, render_id: int):
             "form": form,
             "basic_fields": [form[field] for field in RENDER_BASIC_FIELDS],
             "advanced_fields": [form[field] for field in RENDER_ADVANCED_FIELDS],
+            "config_content": preview_render_config(render_obj)[1],
             "title": "Edit Render",
             "submit_label": "Save Render",
         },
