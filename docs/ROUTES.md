@@ -48,10 +48,14 @@ Superadministrator-only. World Folder archive blocks new Atlas selection and new
 
 | Method | Path | Name | Purpose |
 | :--- | :--- | :--- | :--- |
-| `GET` | `/settings/world-folders/` | `world_folders` | Show discovered tree and known World Folders. |
-| `POST` | `/settings/world-folders/scan/` | `scan_world_folders` | Scan `SOURCE_WORLDS_DIR`, create/update/restore worlds, and archive missing worlds. |
+| `GET` | `/settings/world-folders/` | `world_folders` | Show detected servers, resource sources, the source tree, and known World Folders. |
+| `POST` | `/settings/world-folders/scan/` | `scan_world_folders` | Scan `SOURCE_WORLDS_DIR`, detect servers/resources, create/update/restore worlds, and archive missing worlds. |
 | `GET` | `/settings/world-folders/create/` | `create_world_folder` | Manual World Folder form. |
 | `POST` | `/settings/world-folders/create/` | `create_world_folder` | Add manual World Folder. Active worlds require `level.dat`. |
+| `GET` | `/settings/resource-sources/create/` | `create_resource_source` | Manual Minecraft resource-source form. |
+| `POST` | `/settings/resource-sources/create/` | `create_resource_source` | Register a resource source from an allowed read-only root. |
+| `GET` | `/settings/resource-sources/<source_id>/edit/` | `edit_resource_source` | Edit a detected or manual resource source. |
+| `POST` | `/settings/resource-sources/<source_id>/edit/` | `edit_resource_source` | Save resource paths, version, loader, and default loading behavior. |
 | `GET` | `/settings/world-folders/<world_id>/edit/` | `edit_world_folder` | Edit World Folder metadata. |
 | `POST` | `/settings/world-folders/<world_id>/edit/` | `edit_world_folder` | Save World Folder metadata and active state. |
 | `POST` | `/settings/world-folders/<world_id>/archive/` | `archive_world_folder` | Archive World Folder. |

@@ -1,38 +1,127 @@
 {% extends "base.html" %}
 {% load icons %}
 
-{% block title %}World Folders - BlueMap Web UI Panel{% endblock %}
+{% block title %}Minecraft Sources - BlueMap Web UI Panel{% endblock %}
 
 {% block breadcrumbs %}
   <li><a href="{% url 'panel_settings' %}">{% icon "settings" %} Panel Settings</a></li>
-  <li>World Folders</li>
+  <li>Minecraft Sources</li>
 {% endblock %}
 
 {% block content %}
   <div class="row">
-    <h1>{% icon "globe-2" "icon-heading" %}World Folders</h1>
+    <h1>{% icon "database" "icon-heading" %}Minecraft Sources</h1>
     <a class="btn btn-ghost btn-sm" href="{% url 'panel_settings' %}">{% icon "arrow-left" %} Back to Panel Settings</a>
   </div>
 
   <section class="panel">
-    <h2>{% icon "folder-search" "icon-heading" %}Source Worlds</h2>
+    <h2>{% icon "folder-search" "icon-heading" %}Source Root</h2>
     <p class="muted flex items-center gap-2">{% icon "folder-open" %} {{ source_root }}</p>
-    <form class="inline-block" method="post" action="{% url 'scan_world_folders' %}">
-      {% csrf_token %}
-      <button type="submit">{% icon "scan-search" %} Scan Source Worlds</button>
-    </form>
-    <a class="btn btn-outline btn-sm" href="{% url 'create_world_folder' %}">{% icon "plus" %} Add World Folder Manually</a>
+    <div class="mt-4 flex flex-wrap items-center gap-2">
+      <form class="m-0 flex items-center" method="post" action="{% url 'scan_world_folders' %}">
+        {% csrf_token %}
+        <button class="inline-flex items-center justify-center gap-2" type="submit">{% icon "scan-search" %} Scan Minecraft Sources</button>
+      </form>
+      <a class="btn btn-outline btn-sm inline-flex items-center justify-center gap-2" href="{% url 'create_world_folder' %}">{% icon "plus" %} Add World Folder Manually</a>
+      <a class="btn btn-outline btn-sm inline-flex items-center justify-center gap-2" href="{% url 'create_resource_source' %}">{% icon "package-plus" %} Add Resource Source</a>
+    </div>
+    <p class="muted mt-3 flex items-center gap-2">{% icon "package-open" %} Additional resources: {{ resource_sources_root }}</p>
   </section>
 
   <section class="panel">
     <h2>{% icon "git-fork" "icon-heading" %}Discovered Tree</h2>
-    {% if worlds %}
+    {% if has_tree %}
       <ul>
         {% include "projects/world_tree_node.html" with node=tree only %}
       </ul>
     {% else %}
       <p class="muted flex items-center gap-2">{% icon "folder-x" %} No world folders have been discovered yet.</p>
     {% endif %}
+    {% if has_resource_tree %}
+      <h3 class="mt-5 flex items-center gap-2">{% icon "hard-drive" %} Additional Resource Root</h3>
+      <ul class="mt-2">
+        {% include "projects/world_tree_node.html" with node=resource_tree only %}
+      </ul>
+    {% endif %}
+  </section>
+
+  <section class="panel">
+    <h2>{% icon "server" "icon-heading" %}Detected Servers</h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Server</th>
+            <th>Version</th>
+            <th>Loader</th>
+            <th>Worlds</th>
+            <th>Resources</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for server in servers %}
+            <tr>
+              <td>
+                <span class="inline-flex items-center gap-2">{% icon "server" %} {{ server.display_name }}</span>
+                <span class="muted block">{{ server.root_path }}</span>
+              </td>
+              <td>{{ server.resource_source.minecraft_version|default:"Automatic" }}</td>
+              <td>{{ server.resource_source.get_mod_loader_display|default:"Unknown" }}</td>
+              <td>{{ server.worlds.count }}</td>
+              <td>
+                {% if server.resource_source %}
+                  <a class="action-link" href="{% url 'edit_resource_source' server.resource_source.id %}">
+                    {% icon "settings-2" %} Configure
+                  </a>
+                {% else %}
+                  <span class="muted">None detected</span>
+                {% endif %}
+              </td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="5">{% icon "server-off" %} No server folders detected.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="row">
+      <h2>{% icon "package-open" "icon-heading" %}Resource Sources</h2>
+      <a class="btn btn-outline btn-sm" href="{% url 'create_resource_source' %}">{% icon "plus" %} Add Source</a>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Minecraft</th>
+            <th>Mods</th>
+            <th>Default</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for source in resource_sources %}
+            <tr>
+              <td>
+                {{ source.display_name }}
+                <span class="muted block">{{ source.mods_path|default:source.root_path }}</span>
+              </td>
+              <td>{{ source.get_source_type_display }}</td>
+              <td>{{ source.get_mod_loader_display }} {{ source.minecraft_version|default:"Automatic" }}</td>
+              <td>{{ source.mod_file_count }}</td>
+              <td>{{ source.load_mod_resources_by_default|yesno:"Load mods,Vanilla only" }}</td>
+              <td><a class="action-link" href="{% url 'edit_resource_source' source.id %}">{% icon "pencil" %} Edit</a></td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="6">{% icon "package-x" %} No resource sources registered.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
   </section>
 
   <section class="panel">
@@ -45,6 +134,7 @@
           <th>Path</th>
           <th>Active</th>
           <th>Dimensions</th>
+          <th>Default resources</th>
           <th></th>
         </tr>
       </thead>
@@ -60,6 +150,7 @@
               </span>
             </td>
             <td>{{ world.detected_dimensions|join:", " }}</td>
+            <td>{{ world.default_resource_source|default:"Vanilla / automatic" }}</td>
             <td>
               <a class="action-link" href="{% url 'edit_world_folder' world.id %}">{% icon "pencil" %} Edit</a>
               {% if world.is_active %}
@@ -77,7 +168,7 @@
           </tr>
         {% empty %}
           <tr>
-            <td colspan="5">{% icon "folder-x" %} No world folders found.</td>
+            <td colspan="6">{% icon "folder-x" %} No world folders found.</td>
           </tr>
         {% endfor %}
       </tbody>

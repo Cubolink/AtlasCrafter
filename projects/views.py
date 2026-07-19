@@ -8,7 +8,7 @@ from django.views.decorators.http import require_POST
 
 from accounts.models import ProjectMembership
 from renders.models import RenderJob
-from renders.services import preview_render_config
+from renders.services import preview_render_config, resolve_render_resources
 from .forms import (
     AtlasCreateForm,
     AtlasEditForm,
@@ -16,13 +16,15 @@ from .forms import (
     ProjectUserAddForm,
     RENDER_ADVANCED_FIELDS,
     RENDER_BASIC_FIELDS,
+    RENDER_RESOURCE_FIELDS,
     RENDER_PRESET_DEFAULTS,
     RENDER_PRESET_SUMMARIES,
     RenderCreateForm,
     RenderEditForm,
+    MinecraftResourceSourceForm,
     WorldFolderForm,
 )
-from .models import Atlas, Project, Render, WorldFolder
+from .models import Atlas, MinecraftResourceSource, MinecraftServer, Project, Render, WorldFolder
 from .permissions import can_manage_project
 from .world_discovery import build_world_tree, scan_source_worlds, world_folder_exists
 
@@ -73,14 +75,32 @@ def dashboard(request):
 @login_required
 @user_passes_test(superuser_required)
 def world_folders(request):
-    worlds = WorldFolder.objects.all()
+    worlds = WorldFolder.objects.select_related(
+        "minecraft_server",
+        "default_resource_source",
+    ).all()
+    resource_sources = list(MinecraftResourceSource.objects.all())
+    tree = build_world_tree(worlds, resource_sources=resource_sources)
+    resource_tree = build_world_tree(
+        [],
+        settings.BLUEMAP_RESOURCE_SOURCES_DIR,
+        resource_sources=resource_sources,
+    )
     return render(
         request,
         "projects/world_folders.html",
         {
             "source_root": settings.SOURCE_WORLDS_DIR,
-            "tree": build_world_tree(worlds),
+            "tree": tree,
+            "has_tree": bool(tree["worlds"] or tree["children"] or tree["resource_sources"]),
+            "resource_tree": resource_tree,
+            "has_resource_tree": bool(
+                resource_tree["children"] or resource_tree["resource_sources"]
+            ),
             "worlds": worlds,
+            "servers": MinecraftServer.objects.select_related("resource_source").all(),
+            "resource_sources": resource_sources,
+            "resource_sources_root": settings.BLUEMAP_RESOURCE_SOURCES_DIR,
         },
     )
 
@@ -95,10 +115,59 @@ def scan_world_folders(request):
         (
             f"Scan complete. Added {len(result.created)}, updated {len(result.updated)}, "
             f"restored {len(result.restored)}, archived missing {len(result.archived)}, "
-            f"already known {len(result.unchanged)}."
+            f"already known {len(result.unchanged)}. Detected {len(result.servers)} server(s) "
+            f"and {len(result.resource_sources)} resource source(s)."
         ),
     )
     return redirect("world_folders")
+
+
+@login_required
+@user_passes_test(superuser_required)
+def create_resource_source(request):
+    form = MinecraftResourceSourceForm()
+    if request.method == "POST":
+        form = MinecraftResourceSourceForm(request.POST)
+        if form.is_valid():
+            source = form.save()
+            messages.success(request, f"Resource source '{source.display_name}' added.")
+            return redirect("world_folders")
+    return render_resource_source_form(request, form, "Add Resource Source", "Add Source")
+
+
+@login_required
+@user_passes_test(superuser_required)
+def edit_resource_source(request, source_id: int):
+    source = get_object_or_404(MinecraftResourceSource, id=source_id)
+    form = MinecraftResourceSourceForm(instance=source)
+    if request.method == "POST":
+        form = MinecraftResourceSourceForm(request.POST, instance=source)
+        if form.is_valid():
+            source = form.save()
+            messages.success(request, f"Resource source '{source.display_name}' updated.")
+            return redirect("world_folders")
+    return render_resource_source_form(
+        request,
+        form,
+        "Edit Resource Source",
+        "Save Source",
+        source,
+    )
+
+
+def render_resource_source_form(request, form, title, submit_label, source=None):
+    return render(
+        request,
+        "projects/resource_source_form.html",
+        {
+            "form": form,
+            "source": source,
+            "title": title,
+            "submit_label": submit_label,
+            "source_root": settings.SOURCE_WORLDS_DIR,
+            "resource_sources_root": settings.BLUEMAP_RESOURCE_SOURCES_DIR,
+        },
+    )
 
 
 @login_required
@@ -440,7 +509,12 @@ def create_render(request, atlas_id: int):
 @login_required
 def edit_render(request, render_id: int):
     render_obj = get_object_or_404(
-        Render.objects.select_related("atlas__project", "atlas__world_folder"),
+        Render.objects.select_related(
+            "atlas__project",
+            "atlas__world_folder__minecraft_server__resource_source",
+            "atlas__world_folder__default_resource_source",
+            "resource_source",
+        ),
         id=render_id,
         is_enabled=True,
         atlas__is_active=True,
@@ -449,9 +523,14 @@ def edit_render(request, render_id: int):
     if not can_manage_project(request.user, render_obj.project):
         raise PermissionDenied("You do not have permission to edit this Render.")
 
-    form = RenderEditForm(instance=render_obj)
+    allow_custom_paths = request.user.is_superuser
+    form = RenderEditForm(instance=render_obj, allow_custom_paths=allow_custom_paths)
     if request.method == "POST":
-        form = RenderEditForm(request.POST, instance=render_obj)
+        form = RenderEditForm(
+            request.POST,
+            instance=render_obj,
+            allow_custom_paths=allow_custom_paths,
+        )
         if form.is_valid():
             render_obj = form.save()
             messages.success(request, f"Render '{render_obj.display_name}' updated.")
@@ -464,7 +543,10 @@ def edit_render(request, render_id: int):
             "render": render_obj,
             "form": form,
             "basic_fields": [form[field] for field in RENDER_BASIC_FIELDS],
+            "resource_fields": [form[field] for field in RENDER_RESOURCE_FIELDS],
             "advanced_fields": [form[field] for field in RENDER_ADVANCED_FIELDS],
+            "effective_resource_summary": effective_resource_summary(render_obj),
+            "allow_custom_resource_paths": allow_custom_paths,
             "config_content": preview_render_config(render_obj)[1],
             "render_preset_defaults": RENDER_PRESET_DEFAULTS,
             "render_preset_summaries": RENDER_PRESET_SUMMARIES,
@@ -472,6 +554,15 @@ def edit_render(request, render_id: int):
             "submit_label": "Save Render",
         },
     )
+
+
+def effective_resource_summary(render_obj: Render) -> str:
+    mods_path, minecraft_version = resolve_render_resources(render_obj)
+    version_label = f"Minecraft {minecraft_version}" if minecraft_version else "Automatic Minecraft version"
+    if mods_path:
+        mod_count = len(list(mods_path.glob("*.jar")))
+        return f"{version_label}; loading {mod_count} mod file(s) from {mods_path}."
+    return f"{version_label}; mod resources disabled or unavailable."
 
 
 @login_required

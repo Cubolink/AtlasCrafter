@@ -1,12 +1,14 @@
+import re
 from decimal import Decimal
 from pathlib import Path
 
 from django import forms
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.db.models import Q
 
 from accounts.models import ProjectMembership
-from .models import Atlas, Project, Render, WorldFolder
+from .models import Atlas, MinecraftResourceSource, Project, Render, WorldFolder
 from .world_discovery import detect_dimensions, world_folder_exists
 
 
@@ -50,6 +52,12 @@ RENDER_ADVANCED_FIELDS = [
     "render_mask_center_z",
     "render_mask_radius",
     "marker_sets",
+]
+RENDER_RESOURCE_FIELDS = [
+    "resource_mode",
+    "resource_source",
+    "custom_mods_path",
+    "minecraft_version_override",
 ]
 
 RENDER_MASK_TYPES = [
@@ -201,7 +209,23 @@ class ProjectManageForm(forms.ModelForm):
 class WorldFolderForm(forms.ModelForm):
     class Meta:
         model = WorldFolder
-        fields = ["display_name", "source_path", "is_active", "notes"]
+        fields = [
+            "display_name",
+            "source_path",
+            "default_resource_source",
+            "is_active",
+            "notes",
+        ]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["default_resource_source"].queryset = MinecraftResourceSource.objects.filter(
+            is_active=True
+        )
+        self.fields["default_resource_source"].required = False
+        self.fields["default_resource_source"].help_text = (
+            "Optional mod resources used by default for Renders of this world."
+        )
 
     def clean_source_path(self):
         source_path = Path(self.cleaned_data["source_path"]).expanduser().resolve()
@@ -216,6 +240,63 @@ class WorldFolderForm(forms.ModelForm):
         if commit:
             world.save()
         return world
+
+
+class MinecraftResourceSourceForm(forms.ModelForm):
+    class Meta:
+        model = MinecraftResourceSource
+        fields = [
+            "display_name",
+            "root_path",
+            "mods_path",
+            "minecraft_version",
+            "mod_loader",
+            "load_mod_resources_by_default",
+            "auto_detect",
+            "is_active",
+            "notes",
+        ]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["root_path"].help_text = (
+            "Folder containing this server, modpack, or Minecraft instance."
+        )
+        self.fields["mods_path"].help_text = "Folder containing the mod JAR files."
+        self.fields["minecraft_version"].help_text = "Version passed to BlueMap, such as 1.20.1."
+        self.fields["auto_detect"].help_text = (
+            "Refresh detected paths, version, and loader during source scans."
+        )
+        for field_name in ["load_mod_resources_by_default", "auto_detect", "is_active"]:
+            self.fields[field_name].widget.attrs["class"] = "toggle toggle-primary"
+
+    def clean_root_path(self):
+        return validate_resource_path(self.cleaned_data["root_path"], "Resource root")
+
+    def clean_mods_path(self):
+        value = self.cleaned_data.get("mods_path", "").strip()
+        if not value:
+            return ""
+        path = validate_resource_path(value, "Mods folder")
+        if not any(Path(path).glob("*.jar")):
+            raise forms.ValidationError("This folder does not contain any mod JAR files.")
+        return path
+
+    def clean_minecraft_version(self):
+        version = self.cleaned_data.get("minecraft_version", "").strip()
+        if version and not re.fullmatch(r"\d+\.\d+(?:\.\d+)?", version):
+            raise forms.ValidationError("Enter a Minecraft version such as 1.20.1.")
+        return version
+
+    def save(self, commit=True):
+        source = super().save(commit=False)
+        if not source.pk:
+            source.source_type = MinecraftResourceSource.SourceType.CUSTOM
+            source.is_detected = False
+            source.auto_detect = False
+        if commit:
+            source.save()
+        return source
 
 
 class AtlasEditForm(forms.ModelForm):
@@ -278,6 +359,7 @@ class RenderEditForm(forms.ModelForm):
         model = Render
         fields = [
             *RENDER_BASIC_FIELDS,
+            *RENDER_RESOURCE_FIELDS,
             "storage_profile",
             "sky_color",
             "void_color",
@@ -300,9 +382,36 @@ class RenderEditForm(forms.ModelForm):
             "marker_sets": forms.Textarea(attrs={"rows": 8}),
         }
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, allow_custom_paths=False, **kwargs):
+        self.allow_custom_paths = allow_custom_paths
         super().__init__(*args, **kwargs)
         apply_render_form_attrs(self.fields)
+        self.fields["resource_source"].queryset = MinecraftResourceSource.objects.filter(
+            is_active=True
+        )
+        self.fields["resource_mode"].required = False
+        self.fields["resource_source"].required = False
+        self.fields["resource_mode"].widget.attrs["data-resource-mode"] = ""
+        self.fields["resource_source"].widget.attrs["data-resource-source"] = ""
+        self.fields["custom_mods_path"].widget.attrs["data-custom-mods-path"] = ""
+        self.fields["minecraft_version_override"].widget.attrs.update(
+            {"placeholder": "For example, 1.20.1"}
+        )
+        self.fields["resource_mode"].help_text = (
+            "Inherit the world default, disable mods, or choose another registered source."
+        )
+        self.fields["minecraft_version_override"].help_text = (
+            "Leave blank to use the selected or inherited source version."
+        )
+        if not allow_custom_paths and self.instance.resource_mode == Render.ResourceMode.CUSTOM:
+            self.fields["resource_mode"].disabled = True
+            self.fields["custom_mods_path"].disabled = True
+        elif not allow_custom_paths:
+            self.fields["resource_mode"].choices = [
+                choice
+                for choice in self.fields["resource_mode"].choices
+                if choice[0] != Render.ResourceMode.CUSTOM
+            ]
         self.set_config_initials()
         for field_name in ["sky_color", "void_color"]:
             self.fields[field_name].widget.attrs.update(
@@ -369,6 +478,36 @@ class RenderEditForm(forms.ModelForm):
 
     def clean(self):
         cleaned_data = super().clean()
+        resource_mode = cleaned_data.get("resource_mode") or Render.ResourceMode.INHERIT
+        cleaned_data["resource_mode"] = resource_mode
+        if resource_mode == Render.ResourceMode.SOURCE and not cleaned_data.get("resource_source"):
+            self.add_error("resource_source", "Choose a registered resource source.")
+        if resource_mode == Render.ResourceMode.CUSTOM:
+            if not self.allow_custom_paths:
+                self.add_error("resource_mode", "Only superadministrators can use custom paths.")
+            custom_path = cleaned_data.get("custom_mods_path", "").strip()
+            if not custom_path:
+                self.add_error("custom_mods_path", "Enter the folder containing the mod JAR files.")
+            else:
+                try:
+                    cleaned_data["custom_mods_path"] = validate_resource_path(
+                        custom_path,
+                        "Custom mods folder",
+                    )
+                except forms.ValidationError as exc:
+                    self.add_error("custom_mods_path", exc)
+                else:
+                    if not any(Path(cleaned_data["custom_mods_path"]).glob("*.jar")):
+                        self.add_error(
+                            "custom_mods_path",
+                            "This folder does not contain any mod JAR files.",
+                        )
+        version = cleaned_data.get("minecraft_version_override", "").strip()
+        if version and not re.fullmatch(r"\d+\.\d+(?:\.\d+)?", version):
+            self.add_error(
+                "minecraft_version_override",
+                "Enter a Minecraft version such as 1.20.1.",
+            )
         mask_type = cleaned_data.get("render_mask_type")
         if mask_type not in {"box", "circle"}:
             cleaned_data["render_mask_type"] = "none"
@@ -381,6 +520,10 @@ class RenderEditForm(forms.ModelForm):
 
     def save(self, commit=True):
         render = super().save(commit=False)
+        if render.resource_mode != Render.ResourceMode.SOURCE:
+            render.resource_source = None
+        if render.resource_mode != Render.ResourceMode.CUSTOM:
+            render.custom_mods_path = ""
         render.start_position = self.build_start_position()
         render.render_mask = self.build_render_mask()
         if commit:
@@ -429,6 +572,22 @@ class RenderEditForm(forms.ModelForm):
                     mask[key] = value
 
         return [mask]
+
+
+def validate_resource_path(value: str, label: str) -> str:
+    path = Path(value).expanduser().resolve()
+    if not path.is_dir():
+        raise forms.ValidationError(f"{label} does not exist or is not a folder.")
+
+    allowed_roots = [
+        Path(settings.SOURCE_WORLDS_DIR).resolve(),
+        Path(settings.BLUEMAP_RESOURCE_SOURCES_DIR).resolve(),
+    ]
+    if not any(path == root or path.is_relative_to(root) for root in allowed_roots):
+        raise forms.ValidationError(
+            f"{label} must be inside SOURCE_WORLDS_DIR or BLUEMAP_RESOURCE_SOURCES_DIR."
+        )
+    return str(path)
 
 
 def apply_render_form_attrs(fields):

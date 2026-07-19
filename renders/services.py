@@ -17,7 +17,7 @@ from bluemap_configs.models import (
     GeneratedConfigFile,
 )
 from projects.models import Render
-from projects.world_discovery import world_folder_exists
+from projects.world_discovery import detect_server_minecraft_version, world_folder_exists
 from .models import RenderJob, RenderLogChunk
 
 
@@ -158,6 +158,7 @@ def build_command(render_config: BlueMapRenderConfig) -> list[str]:
     command_string = render_config.profile.command_template.format(**render_config.context())
     command = shlex.split(command_string, posix=os.name != "nt")
     command = [argument.strip('"') for argument in command]
+    command = add_bluemap_render_options(command, render_config.render)
     if command and command[0].lower().endswith(".jar"):
         command = [
             settings.BLUEMAP_JAVA_PATH,
@@ -167,6 +168,88 @@ def build_command(render_config: BlueMapRenderConfig) -> list[str]:
             *command[1:],
         ]
     return command
+
+
+def add_bluemap_render_options(command: list[str], render: Render) -> list[str]:
+    command = list(command)
+    if not has_command_option(command, "-m", "--maps"):
+        command.extend(["--maps", render.bluemap_map_id.replace("-", "_")])
+
+    mods_path, minecraft_version = resolve_render_resources(render)
+    if mods_path is not None:
+        if not has_command_option(command, "-n", "--mods"):
+            command.extend(["--mods", mods_path.as_posix()])
+
+    if minecraft_version and not has_command_option(command, "-v", "--mc-version"):
+        command.extend(["--mc-version", minecraft_version])
+
+    return command
+
+
+def resolve_render_resources(render: Render) -> tuple[Path | None, str | None]:
+    world = render.world_folder
+    inherited_source = world.default_resource_source
+    if inherited_source is None and world.minecraft_server_id:
+        inherited_source = world.minecraft_server.resource_source
+
+    source = inherited_source
+    load_mods = False
+    if render.resource_mode == Render.ResourceMode.SOURCE:
+        source = render.resource_source
+        load_mods = source is not None
+    elif render.resource_mode == Render.ResourceMode.CUSTOM:
+        mods_path = Path(render.custom_mods_path) if render.custom_mods_path else None
+        return valid_mods_path(mods_path), render.minecraft_version_override or None
+    elif render.resource_mode == Render.ResourceMode.DISABLED:
+        load_mods = False
+    elif source is not None:
+        load_mods = source.load_mod_resources_by_default
+
+    minecraft_version = render.minecraft_version_override or (
+        source.minecraft_version if source else None
+    )
+    mods_path = valid_mods_path(Path(source.mods_path)) if source and load_mods else None
+    if source is not None or render.resource_mode == Render.ResourceMode.DISABLED:
+        return mods_path, minecraft_version
+
+    server_root = discover_server_root(Path(world.source_path))
+    if server_root is None:
+        return None, minecraft_version
+    return valid_mods_path(server_root / "mods"), (
+        minecraft_version or detect_server_minecraft_version(server_root)
+    )
+
+
+def valid_mods_path(path: Path | None) -> Path | None:
+    if path is None or not path.is_dir() or not any(path.glob("*.jar")):
+        return None
+    return path
+
+
+def has_command_option(command: list[str], *options: str) -> bool:
+    return any(
+        argument in options
+        or any(argument.startswith(f"{option}=") for option in options)
+        for argument in command
+    )
+
+
+def discover_server_root(world_path: Path) -> Path | None:
+    source_root = Path(settings.SOURCE_WORLDS_DIR).resolve()
+    current = world_path.resolve()
+
+    for _ in range(5):
+        has_mods = (current / "mods").is_dir()
+        has_minecraft_libraries = (
+            current / "libraries" / "net" / "minecraft" / "server"
+        ).is_dir()
+        if has_mods or has_minecraft_libraries:
+            return current
+        if current == source_root or current.parent == current:
+            break
+        current = current.parent
+
+    return None
 
 
 def has_active_render_job(render: Render) -> bool:

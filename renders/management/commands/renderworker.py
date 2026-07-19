@@ -78,7 +78,9 @@ def run_claimed_job(job_id: int) -> int:
     try:
         job = RenderJob.objects.select_related(
             "render__atlas__project",
-            "render__atlas__world_folder",
+            "render__atlas__world_folder__default_resource_source",
+            "render__atlas__world_folder__minecraft_server__resource_source",
+            "render__resource_source",
             "requested_by",
         ).get(id=job_id)
         execute_render_job(job)

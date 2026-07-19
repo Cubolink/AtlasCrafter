@@ -1,12 +1,39 @@
 {% load icons %}
 <li class="py-1">
-  <strong class="inline-flex items-center gap-2">{% icon "folder" %} {{ node.name }}</strong>
+  <strong class="inline-flex flex-wrap items-center gap-2">
+    {% if node.server %}
+      {% icon "server" %}
+    {% elif node.resource_sources %}
+      {% icon "package-open" %}
+    {% else %}
+      {% icon "folder" %}
+    {% endif %}
+    {{ node.name }}
+    {% if node.server %}
+      <span class="badge badge-outline gap-1">
+        {{ node.server.resource_source.get_mod_loader_display }}
+        {{ node.server.resource_source.minecraft_version|default:"version automatic" }}
+      </span>
+    {% endif %}
+    {% for source in node.resource_sources %}
+      <span class="badge badge-ghost gap-1">
+        {{ source.display_name }}
+        {% if source.minecraft_version %}- {{ source.minecraft_version }}{% endif %}
+      </span>
+    {% endfor %}
+  </strong>
+  {% for source in node.resource_sources %}
+    <span class="muted ml-6 flex items-center gap-2">{% icon "folder-open" %} {{ source.mods_path|default:source.root_path }}</span>
+  {% endfor %}
   {% if node.worlds %}
     <ul class="ml-4 mt-1 border-l border-base-300 pl-4">
       {% for world in node.worlds %}
         <li class="py-1">
           <span class="inline-flex items-center gap-2">{% icon "globe-2" %} {{ world.display_name }}</span>
           <span class="muted inline-flex items-center gap-2">{% icon "folder-open" %} {{ world.source_path }}</span>
+          {% if world.default_resource_source %}
+            <span class="badge badge-ghost gap-1">{% icon "package-open" %} {{ world.default_resource_source.display_name }}</span>
+          {% endif %}
         </li>
       {% endfor %}
     </ul>

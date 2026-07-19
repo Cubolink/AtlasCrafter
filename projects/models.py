@@ -1,5 +1,6 @@
 import uuid
 from decimal import Decimal
+from pathlib import Path
 
 from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator, RegexValidator
@@ -26,10 +27,96 @@ class TimeStampedModel(models.Model):
         abstract = True
 
 
+class MinecraftResourceSource(TimeStampedModel):
+    class SourceType(models.TextChoices):
+        SERVER = "server", "Server"
+        MODPACK = "modpack", "Modpack or client instance"
+        CUSTOM = "custom", "Custom path"
+
+    class ModLoader(models.TextChoices):
+        FORGE = "forge", "Forge"
+        NEOFORGE = "neoforge", "NeoForge"
+        FABRIC = "fabric", "Fabric"
+        QUILT = "quilt", "Quilt"
+        UNKNOWN = "unknown", "Unknown"
+
+    display_name = models.CharField(max_length=160)
+    root_path = models.CharField(max_length=1024, unique=True)
+    mods_path = models.CharField(max_length=1024, blank=True)
+    minecraft_version = models.CharField(max_length=40, blank=True)
+    mod_loader = models.CharField(
+        max_length=20,
+        choices=ModLoader.choices,
+        default=ModLoader.UNKNOWN,
+    )
+    source_type = models.CharField(
+        max_length=20,
+        choices=SourceType.choices,
+        default=SourceType.CUSTOM,
+    )
+    load_mod_resources_by_default = models.BooleanField(default=True)
+    is_active = models.BooleanField(default=True)
+    is_detected = models.BooleanField(default=False)
+    auto_detect = models.BooleanField(default=True)
+    last_scanned_at = models.DateTimeField(null=True, blank=True)
+    notes = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ["display_name"]
+
+    def __str__(self) -> str:
+        details = [self.get_mod_loader_display()]
+        if self.minecraft_version:
+            details.append(self.minecraft_version)
+        return f"{self.display_name} ({' '.join(details)})"
+
+    @property
+    def mod_file_count(self) -> int:
+        mods_path = Path(self.mods_path) if self.mods_path else None
+        if mods_path is None or not mods_path.is_dir():
+            return 0
+        return len(list(mods_path.glob("*.jar")))
+
+
+class MinecraftServer(TimeStampedModel):
+    display_name = models.CharField(max_length=160)
+    root_path = models.CharField(max_length=1024, unique=True)
+    resource_source = models.OneToOneField(
+        MinecraftResourceSource,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="minecraft_server",
+    )
+    is_active = models.BooleanField(default=True)
+    last_scanned_at = models.DateTimeField(null=True, blank=True)
+    notes = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ["display_name"]
+
+    def __str__(self) -> str:
+        return self.display_name
+
+
 class WorldFolder(TimeStampedModel):
     display_name = models.CharField(max_length=160)
     source_path = models.CharField(max_length=1024, unique=True)
     detected_dimensions = models.JSONField(default=list, blank=True)
+    minecraft_server = models.ForeignKey(
+        MinecraftServer,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="worlds",
+    )
+    default_resource_source = models.ForeignKey(
+        MinecraftResourceSource,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="worlds",
+    )
     is_active = models.BooleanField(default=True)
     notes = models.TextField(blank=True)
 
@@ -165,6 +252,12 @@ class Render(TimeStampedModel):
         FLAT = "flat", "Flat"
         CUSTOM = "custom", "Custom"
 
+    class ResourceMode(models.TextChoices):
+        INHERIT = "inherit", "Use world or server default"
+        DISABLED = "disabled", "Vanilla resources only"
+        SOURCE = "source", "Choose a resource source"
+        CUSTOM = "custom", "Use a custom mods path"
+
     atlas = models.ForeignKey(Atlas, on_delete=models.CASCADE, related_name="renders")
     bluemap_map_id = models.SlugField(
         max_length=180,
@@ -188,6 +281,20 @@ class Render(TimeStampedModel):
     cave_options = models.JSONField(default=dict, blank=True)
     region = models.ForeignKey(Region, on_delete=models.SET_NULL, null=True, blank=True)
     storage_profile = models.CharField(max_length=160, blank=True)
+    resource_mode = models.CharField(
+        max_length=20,
+        choices=ResourceMode.choices,
+        default=ResourceMode.INHERIT,
+    )
+    resource_source = models.ForeignKey(
+        MinecraftResourceSource,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="renders",
+    )
+    custom_mods_path = models.CharField(max_length=1024, blank=True)
+    minecraft_version_override = models.CharField(max_length=40, blank=True)
     sky_color = models.CharField(
         max_length=7,
         default="#7dabff",

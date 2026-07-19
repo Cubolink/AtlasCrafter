@@ -35,7 +35,7 @@ COPY . .
 COPY --from=frontend /app/assets/static/css/app.css /app/assets/static/css/app.css
 COPY --from=frontend /app/node_modules/lucide-static/icons /app/node_modules/lucide-static/icons
 
-RUN mkdir -p /app/data/source-worlds /app/data/bluemap/config /app/data/bluemap/web /app/data/tmp /app/bin
+RUN mkdir -p /app/data/source-worlds /app/data/resource-sources /app/data/bluemap/config /app/data/bluemap/web /app/data/tmp /app/bin
 
 EXPOSE 8000
 

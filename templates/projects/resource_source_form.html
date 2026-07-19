@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% load icons %}
+
+{% block title %}{{ title }} - BlueMap Web UI Panel{% endblock %}
+
+{% block breadcrumbs %}
+  <li><a href="{% url 'panel_settings' %}">{% icon "settings" %} Panel Settings</a></li>
+  <li><a href="{% url 'world_folders' %}">{% icon "database" %} Minecraft Sources</a></li>
+  <li>{{ title }}</li>
+{% endblock %}
+
+{% block content %}
+  <div class="page-heading">
+    <div>
+      <p class="page-kicker">Minecraft Resources</p>
+      <h1>{% icon "package-open" "icon-heading" %}{{ title }}</h1>
+    </div>
+    <a class="btn btn-ghost btn-sm" href="{% url 'world_folders' %}">{% icon "arrow-left" %} Back to Sources</a>
+  </div>
+
+  <section class="panel">
+    <div class="alert mb-5">
+      {% icon "folder-lock" "icon-lg" %}
+      <span>Paths must be inside <strong>{{ source_root }}</strong> or <strong>{{ resource_sources_root }}</strong>. Docker deployments must mount those folders read-only.</span>
+    </div>
+    <form method="post">
+      {% csrf_token %}
+      <div class="form-grid">
+        {% for field in form %}
+          <div class="form-field {% if field.name == 'root_path' or field.name == 'mods_path' or field.name == 'notes' %}form-field-wide{% endif %} {% if field.field.widget.input_type == 'checkbox' %}flex items-center justify-between gap-4{% endif %}">
+            {% if field.field.widget.input_type == 'checkbox' %}
+              <div>
+                {{ field.label_tag }}
+                {% if field.help_text %}<span class="form-help">{{ field.help_text }}</span>{% endif %}
+                {% if field.errors %}<div class="form-errors">{{ field.errors }}</div>{% endif %}
+              </div>
+              {{ field }}
+            {% else %}
+              {{ field.label_tag }}
+              {{ field }}
+              {% if field.help_text %}<span class="form-help">{{ field.help_text }}</span>{% endif %}
+              {% if field.errors %}<div class="form-errors">{{ field.errors }}</div>{% endif %}
+            {% endif %}
+          </div>
+        {% endfor %}
+      </div>
+      {{ form.non_field_errors }}
+      <div class="mt-5">
+        <button type="submit">{% icon "save" %} {{ submit_label }}</button>
+      </div>
+    </form>
+  </section>
+{% endblock %}

@@ -525,6 +525,10 @@ class ProjectSetupViewTests(TestCase):
         self.assertContains(response, "Render Mask")
         self.assertContains(response, "data-render-mask-type")
         self.assertContains(response, "marker-sets")
+        self.assertContains(response, "Minecraft Resources")
+        self.assertContains(response, "Use world or server default")
+        self.assertContains(response, "Vanilla resources only")
+        self.assertContains(response, "minecraft_version_override")
 
     def test_render_forms_hide_custom_dimension_until_custom_dimension_selected(self):
         BlueMapProfile.objects.create(name="Default", slug="default")

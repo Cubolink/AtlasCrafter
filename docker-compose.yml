@@ -9,6 +9,7 @@ services:
       DJANGO_TIME_ZONE: ${DJANGO_TIME_ZONE:-UTC}
       DATABASE_URL: ${DATABASE_URL:-postgres://bluemap:bluemap@db:5432/bluemap}
       SOURCE_WORLDS_DIR: /app/data/source-worlds
+      BLUEMAP_RESOURCE_SOURCES_DIR: /app/data/resource-sources
       BLUEMAP_CONFIG_DIR: /app/data/bluemap/config
       BLUEMAP_WEBROOT_DIR: /app/data/bluemap/web
       BLUEMAP_TMP_DIR: /app/data/tmp
@@ -22,6 +23,7 @@ services:
       - "${DJANGO_PORT:-8000}:8000"
     volumes:
       - ./data/source-worlds:/app/data/source-worlds:ro
+      - ./data/resource-sources:/app/data/resource-sources:ro
       - ./data/bin:/app/bin:ro
       - ./data/bluemap/config:/app/data/bluemap/config
       - ./data/bluemap/web:/app/data/bluemap/web
@@ -40,6 +42,7 @@ services:
       DJANGO_TIME_ZONE: ${DJANGO_TIME_ZONE:-UTC}
       DATABASE_URL: ${DATABASE_URL:-postgres://bluemap:bluemap@db:5432/bluemap}
       SOURCE_WORLDS_DIR: /app/data/source-worlds
+      BLUEMAP_RESOURCE_SOURCES_DIR: /app/data/resource-sources
       BLUEMAP_CONFIG_DIR: /app/data/bluemap/config
       BLUEMAP_WEBROOT_DIR: /app/data/bluemap/web
       BLUEMAP_TMP_DIR: /app/data/tmp
@@ -51,6 +54,7 @@ services:
       INTERNAL_ACCEL_ROOT: ${INTERNAL_ACCEL_ROOT:-/_protected_bluemap/}
     volumes:
       - ./data/source-worlds:/app/data/source-worlds:ro
+      - ./data/resource-sources:/app/data/resource-sources:ro
       - ./data/bin:/app/bin:ro
       - ./data/bluemap/config:/app/data/bluemap/config
       - ./data/bluemap/web:/app/data/bluemap/web

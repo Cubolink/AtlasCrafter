@@ -5,14 +5,14 @@
 
 {% block breadcrumbs %}
   <li><a href="{% url 'panel_settings' %}">{% icon "settings" %} Panel Settings</a></li>
-  <li><a href="{% url 'world_folders' %}">{% icon "globe-2" %} World Folders</a></li>
+  <li><a href="{% url 'world_folders' %}">{% icon "database" %} Minecraft Sources</a></li>
   <li>{{ title }}</li>
 {% endblock %}
 
 {% block content %}
   <div class="row">
     <h1>{% icon "globe-2" "icon-heading" %}{{ title }}</h1>
-    <a class="btn btn-ghost btn-sm" href="{% url 'world_folders' %}">{% icon "arrow-left" %} Back to World Folders</a>
+    <a class="btn btn-ghost btn-sm" href="{% url 'world_folders' %}">{% icon "arrow-left" %} Back to Sources</a>
   </div>
 
   <section class="panel">

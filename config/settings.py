@@ -191,6 +191,10 @@ LOGIN_REDIRECT_URL = 'dashboard'
 LOGOUT_REDIRECT_URL = 'login'
 
 SOURCE_WORLDS_DIR = env_path('SOURCE_WORLDS_DIR', BASE_DIR / 'data' / 'source-worlds')
+BLUEMAP_RESOURCE_SOURCES_DIR = env_path(
+    'BLUEMAP_RESOURCE_SOURCES_DIR',
+    BASE_DIR / 'data' / 'resource-sources',
+)
 BLUEMAP_CONFIG_DIR = env_path('BLUEMAP_CONFIG_DIR', BASE_DIR / 'data' / 'bluemap' / 'config')
 BLUEMAP_WEBROOT_DIR = env_path('BLUEMAP_WEBROOT_DIR', BASE_DIR / 'data' / 'bluemap' / 'web')
 BLUEMAP_TMP_DIR = env_path('BLUEMAP_TMP_DIR', BASE_DIR / 'data' / 'tmp')

@@ -12,6 +12,7 @@ Instead, the panel owns:
 
 - users, roles, permissions, and object-level access;
 - discovery of Minecraft world folders from configured source roots;
+- detection of Minecraft servers and reusable mod/resource sources;
 - UI-driven creation and editing of BlueMap config files;
 - Project, Atlas, and Render organization and metadata;
 - render execution through BlueMap CLI commands;
@@ -183,6 +184,7 @@ Local runtime data is kept under `data/` by default:
 
 ```text
 data/source-worlds/      Minecraft world folders for local development
+data/resource-sources/   Additional modpacks/resource sources
 data/bluemap/config/     Generated BlueMap config files
 data/bluemap/web/        Generated BlueMap web viewer and map output
 data/tmp/                Temporary files for BlueMap/Java subprocesses
@@ -197,6 +199,7 @@ Expected local layout:
 ```text
 data/bin/bluemap-cli.jar       BlueMap standalone CLI jar
 data/source-worlds/            Minecraft world folders mounted read-only
+data/resource-sources/         Additional mod resources mounted read-only
 ```
 
 Start the stack:
@@ -217,6 +220,7 @@ Default container paths are:
 
 ```text
 /app/data/source-worlds        read-only source worlds
+/app/data/resource-sources     read-only mod/resource sources
 /app/bin/bluemap-cli.jar       mounted BlueMap CLI jar
 /app/data/bluemap/config       generated BlueMap config bind mount
 /app/data/bluemap/web          generated BlueMap web output bind mount

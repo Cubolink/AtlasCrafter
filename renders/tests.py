@@ -4,7 +4,14 @@ from pathlib import Path
 from django.test import TestCase, override_settings
 
 from bluemap_configs.models import BlueMapProfile
-from projects.models import Atlas, Project, ProjectVisibleWorld, Render, WorldFolder
+from projects.models import (
+    Atlas,
+    MinecraftResourceSource,
+    Project,
+    ProjectVisibleWorld,
+    Render,
+    WorldFolder,
+)
 from .models import RenderJob
 from .services import (
     RenderConfigurationError,
@@ -99,6 +106,79 @@ class RenderRunnerTests(TestCase):
 
                 self.assertEqual(command[0], "C:/Java/bin/java.exe")
                 self.assertEqual(command[2:4], ["-jar", "C:/Tools/BlueMap-cli.jar"])
+
+    def test_build_command_discovers_forge_mods_and_minecraft_version(self):
+        with TemporaryDirectory() as config_dir, TemporaryDirectory() as webroot_dir:
+            with override_settings(
+                BLUEMAP_CLI_PATH="C:/Tools/BlueMap-cli.jar",
+                BLUEMAP_JAVA_PATH="java",
+                BLUEMAP_CONFIG_DIR=Path(config_dir),
+                BLUEMAP_WEBROOT_DIR=Path(webroot_dir),
+            ):
+                render = self.create_render()
+                world_path = Path(render.world_folder.source_path)
+                server_root = world_path.parent
+                mods_path = server_root / "mods"
+                mods_path.mkdir()
+                (mods_path / "create.jar").write_bytes(b"")
+                (server_root / "libraries" / "net" / "minecraft" / "server" / "1.20.1").mkdir(
+                    parents=True
+                )
+                render_config = get_or_create_render_config(render)
+
+                command = build_command(render_config)
+
+                self.assertEqual(command[command.index("--mods") + 1], mods_path.as_posix())
+                self.assertEqual(command[command.index("--mc-version") + 1], "1.20.1")
+                self.assertEqual(
+                    command[command.index("--maps") + 1],
+                    render.bluemap_map_id.replace("-", "_"),
+                )
+
+    def test_build_command_uses_registered_world_resource_source(self):
+        render = self.create_render()
+        world_path = Path(render.world_folder.source_path)
+        mods_path = world_path.parent / "registered-mods"
+        mods_path.mkdir()
+        (mods_path / "create.jar").write_bytes(b"")
+        source = MinecraftResourceSource.objects.create(
+            display_name="Create Pack",
+            root_path=str(world_path.parent),
+            mods_path=str(mods_path),
+            minecraft_version="1.20.1",
+            mod_loader=MinecraftResourceSource.ModLoader.FORGE,
+        )
+        render.world_folder.default_resource_source = source
+        render.world_folder.save(update_fields=["default_resource_source"])
+        render_config = get_or_create_render_config(render)
+
+        command = build_command(render_config)
+
+        self.assertEqual(command[command.index("--mods") + 1], mods_path.as_posix())
+        self.assertEqual(command[command.index("--mc-version") + 1], "1.20.1")
+
+    def test_build_command_can_disable_inherited_mod_resources(self):
+        render = self.create_render()
+        world_path = Path(render.world_folder.source_path)
+        mods_path = world_path.parent / "disabled-mods"
+        mods_path.mkdir()
+        (mods_path / "create.jar").write_bytes(b"")
+        source = MinecraftResourceSource.objects.create(
+            display_name="Create Pack",
+            root_path=str(world_path.parent),
+            mods_path=str(mods_path),
+            minecraft_version="1.20.1",
+        )
+        render.world_folder.default_resource_source = source
+        render.world_folder.save(update_fields=["default_resource_source"])
+        render.resource_mode = Render.ResourceMode.DISABLED
+        render.save(update_fields=["resource_mode"])
+        render_config = get_or_create_render_config(render)
+
+        command = build_command(render_config)
+
+        self.assertNotIn("--mods", command)
+        self.assertEqual(command[command.index("--mc-version") + 1], "1.20.1")
 
     def test_enqueue_render_rejects_existing_active_job(self):
         render = self.create_render()

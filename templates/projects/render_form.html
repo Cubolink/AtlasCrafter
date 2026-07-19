@@ -88,6 +88,43 @@
             {% endfor %}
           </div>
 
+          <fieldset class="mt-5 border-t border-base-300 pt-5" data-resource-settings>
+            <legend class="flex items-center gap-2 pr-3 text-lg font-semibold">{% icon "package-open" %} Minecraft Resources</legend>
+            <p class="form-help mb-4">Choose which Minecraft version and mod assets BlueMap loads for this Render.</p>
+            <div class="alert mb-4">
+              {% icon "info" "icon-lg" %}
+              <span>{{ effective_resource_summary }}</span>
+            </div>
+            <div class="form-grid">
+              <div class="form-field form-field-wide">
+                {{ form.resource_mode.label_tag }}
+                {{ form.resource_mode }}
+                {% if form.resource_mode.help_text %}<span class="form-help">{{ form.resource_mode.help_text }}</span>{% endif %}
+                {% if form.resource_mode.errors %}<div class="form-errors">{{ form.resource_mode.errors }}</div>{% endif %}
+              </div>
+              <div class="form-field form-field-wide hidden" data-resource-source-wrapper>
+                {{ form.resource_source.label_tag }}
+                {{ form.resource_source }}
+                <span class="form-help">Registered sources are managed under Panel Settings / Minecraft Sources.</span>
+                {% if form.resource_source.errors %}<div class="form-errors">{{ form.resource_source.errors }}</div>{% endif %}
+              </div>
+              {% if allow_custom_resource_paths %}
+                <div class="form-field form-field-wide hidden" data-custom-mods-wrapper>
+                  {{ form.custom_mods_path.label_tag }}
+                  {{ form.custom_mods_path }}
+                  <span class="form-help">The path must be inside a configured read-only source root.</span>
+                  {% if form.custom_mods_path.errors %}<div class="form-errors">{{ form.custom_mods_path.errors }}</div>{% endif %}
+                </div>
+              {% endif %}
+              <div class="form-field form-field-wide">
+                {{ form.minecraft_version_override.label_tag }}
+                {{ form.minecraft_version_override }}
+                {% if form.minecraft_version_override.help_text %}<span class="form-help">{{ form.minecraft_version_override.help_text }}</span>{% endif %}
+                {% if form.minecraft_version_override.errors %}<div class="form-errors">{{ form.minecraft_version_override.errors }}</div>{% endif %}
+              </div>
+            </div>
+          </fieldset>
+
           <details class="collapse collapse-arrow mt-5 rounded-lg border border-base-300 bg-base-100">
             <summary class="collapse-title text-lg font-semibold">{% icon "settings-2" "icon-heading" %}Advanced Settings</summary>
             <div class="collapse-content">
@@ -324,6 +361,29 @@
     }
 
     syncCustomDimensionField(document);
+
+    document.querySelectorAll("[data-resource-settings]").forEach(function (wrapper) {
+      var modeSelect = wrapper.querySelector("[data-resource-mode]");
+      var sourceWrapper = wrapper.querySelector("[data-resource-source-wrapper]");
+      var customWrapper = wrapper.querySelector("[data-custom-mods-wrapper]");
+      if (!modeSelect) return;
+
+      function setWrapperEnabled(container, enabled) {
+        if (!container) return;
+        container.classList.toggle("hidden", !enabled);
+        container.querySelectorAll("input, select, textarea").forEach(function (field) {
+          field.disabled = !enabled;
+        });
+      }
+
+      function updateResourceFields() {
+        setWrapperEnabled(sourceWrapper, modeSelect.value === "source");
+        setWrapperEnabled(customWrapper, modeSelect.value === "custom");
+      }
+
+      modeSelect.addEventListener("change", updateResourceFields);
+      updateResourceFields();
+    });
 
     document.querySelectorAll("[data-render-mask-wrapper]").forEach(function (wrapper) {
       var maskTypeSelect = wrapper.querySelector("[data-render-mask-type]");
