@@ -1,9 +1,16 @@
 from decimal import Decimal
 
+from django.contrib.auth import get_user_model
+from django.test import Client
 from django.test import TestCase
+from django.urls import reverse
 
 from projects.models import Atlas, Project, ProjectVisibleWorld, Render, WorldFolder
+from .forms import DEFAULT_PROFILE_COMMAND_TEMPLATE
 from .models import BlueMapProfile, BlueMapRenderConfig
+
+
+User = get_user_model()
 
 
 class BlueMapRenderConfigTests(TestCase):
@@ -116,3 +123,96 @@ class BlueMapRenderConfigTests(TestCase):
         return render
 
 # Create your tests here.
+
+
+class BlueMapProfilePanelTests(TestCase):
+    def setUp(self):
+        self.superuser = User.objects.create_superuser(
+            username="superadmin",
+            email="superadmin@example.com",
+            password="password-123",
+        )
+        self.staff = User.objects.create_user(
+            username="staff",
+            password="password-123",
+            is_staff=True,
+        )
+        self.client = Client(HTTP_HOST="localhost")
+        self.client.force_login(self.superuser)
+
+    def test_superuser_can_open_bluemap_profiles_page(self):
+        response = self.client.get(reverse("bluemap_profiles"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "BlueMap Profiles")
+        self.assertContains(response, "Create Default Profile")
+
+    def test_panel_settings_links_to_bluemap_profiles(self):
+        response = self.client.get(reverse("panel_settings"))
+
+        self.assertContains(response, reverse("bluemap_profiles"))
+        self.assertContains(response, "Manage BlueMap Profiles")
+
+    def test_staff_cannot_manage_bluemap_profiles(self):
+        self.client.force_login(self.staff)
+
+        response = self.client.get(reverse("bluemap_profiles"))
+
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(reverse("login"), response["Location"])
+
+    def test_create_default_profile_action(self):
+        response = self.client.post(reverse("create_default_bluemap_profile"))
+
+        self.assertRedirects(response, reverse("bluemap_profiles"))
+        profile = BlueMapProfile.objects.get(slug="default")
+        self.assertEqual(profile.name, "Default BlueMap CLI")
+        self.assertEqual(profile.command_template, DEFAULT_PROFILE_COMMAND_TEMPLATE)
+        self.assertTrue(profile.is_active)
+
+    def test_create_and_edit_bluemap_profile(self):
+        form_response = self.client.get(reverse("create_bluemap_profile"))
+
+        self.assertContains(form_response, 'rows="28"')
+        self.assertContains(form_response, "min-height: 34rem;")
+
+        create_response = self.client.post(
+            reverse("create_bluemap_profile"),
+            {
+                "name": "Custom CLI",
+                "slug": "custom-cli",
+                "description": "Custom render settings.",
+                "command_template": '"{bluemap_cli}" -c "{config_dir}" -r',
+                "config_template": 'world: "{world_path}"\nname: "{display_name}"\n',
+                "is_active": "on",
+            },
+        )
+
+        self.assertRedirects(create_response, reverse("bluemap_profiles"))
+        profile = BlueMapProfile.objects.get(slug="custom-cli")
+
+        edit_response = self.client.post(
+            reverse("edit_bluemap_profile", kwargs={"profile_id": profile.id}),
+            {
+                "name": "Custom CLI Updated",
+                "slug": "custom-cli",
+                "description": "Updated.",
+                "command_template": '"{bluemap_cli}" -c "{config_dir}" -r',
+                "config_template": 'world: "{world_path}"\ndimension: "{dimension}"\n',
+                "is_active": "on",
+            },
+        )
+
+        self.assertRedirects(edit_response, reverse("bluemap_profiles"))
+        profile.refresh_from_db()
+        self.assertEqual(profile.name, "Custom CLI Updated")
+        self.assertIn('dimension: "{dimension}"', profile.config_template)
+
+    def test_toggle_bluemap_profile_active_state(self):
+        profile = BlueMapProfile.objects.create(name="Default", slug="default")
+
+        response = self.client.post(reverse("toggle_bluemap_profile", kwargs={"profile_id": profile.id}))
+
+        self.assertRedirects(response, reverse("bluemap_profiles"))
+        profile.refresh_from_db()
+        self.assertFalse(profile.is_active)

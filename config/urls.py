@@ -12,6 +12,13 @@ from accounts.views import (
     panel_user_project_access_remove,
     profile_settings,
 )
+from bluemap_configs.views import (
+    bluemap_profiles,
+    create_bluemap_profile,
+    create_default_bluemap_profile,
+    edit_bluemap_profile,
+    toggle_bluemap_profile,
+)
 from assets.views import protected_render_asset
 from projects.views import (
     add_project_user,
@@ -62,6 +69,23 @@ urlpatterns = [
     path('profile/', profile_settings, name='profile_settings'),
     path('settings/', panel_settings, name='panel_settings'),
     path('settings/jobs/', panel_jobs, name='panel_jobs'),
+    path('settings/bluemap-profiles/', bluemap_profiles, name='bluemap_profiles'),
+    path('settings/bluemap-profiles/create/', create_bluemap_profile, name='create_bluemap_profile'),
+    path(
+        'settings/bluemap-profiles/default/',
+        create_default_bluemap_profile,
+        name='create_default_bluemap_profile',
+    ),
+    path(
+        'settings/bluemap-profiles/<int:profile_id>/edit/',
+        edit_bluemap_profile,
+        name='edit_bluemap_profile',
+    ),
+    path(
+        'settings/bluemap-profiles/<int:profile_id>/toggle/',
+        toggle_bluemap_profile,
+        name='toggle_bluemap_profile',
+    ),
     path('settings/projects/', manage_projects, name='manage_projects'),
     path('settings/projects/create/', create_project, name='create_project'),
     path('settings/projects/<int:project_id>/edit/', edit_project, name='edit_project'),

@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% load icons %}
+
+{% block title %}{{ title }} - AtlasCrafter{% endblock %}
+
+{% block breadcrumbs %}
+  <li><a href="{% url 'panel_settings' %}">{% icon "settings" %} Panel Settings</a></li>
+  <li><a href="{% url 'bluemap_profiles' %}">{% icon "file-cog" %} BlueMap Profiles</a></li>
+  <li>{{ title }}</li>
+{% endblock %}
+
+{% block content %}
+  <div class="page-heading">
+    <div>
+      <p class="page-kicker">Render Configuration</p>
+      <h1>{% icon "file-cog" "icon-heading" %}{{ title }}</h1>
+      <p class="mt-2 max-w-3xl text-base-content/70">
+        Profiles define how AtlasCrafter writes BlueMap map config files and invokes the BlueMap CLI.
+      </p>
+    </div>
+    <a class="btn btn-ghost btn-sm" href="{% url 'bluemap_profiles' %}">{% icon "arrow-left" %} Back to Profiles</a>
+  </div>
+
+  <section class="panel">
+    <form method="post">
+      {% csrf_token %}
+      <div class="form-grid">
+        {% for field in form %}
+          <div class="form-field {% if field.name == 'description' or field.name == 'command_template' or field.name == 'config_template' %}form-field-wide{% endif %} {% if field.field.widget.input_type == 'checkbox' %}flex items-center justify-between gap-4{% endif %}">
+            {% if field.field.widget.input_type == 'checkbox' %}
+              <div>
+                {{ field.label_tag }}
+                {% if field.help_text %}<span class="form-help">{{ field.help_text }}</span>{% endif %}
+                {% if field.errors %}<div class="form-errors">{{ field.errors }}</div>{% endif %}
+              </div>
+              {{ field }}
+            {% else %}
+              {{ field.label_tag }}
+              {{ field }}
+              {% if field.help_text %}<span class="form-help">{{ field.help_text }}</span>{% endif %}
+              {% if field.errors %}<div class="form-errors">{{ field.errors }}</div>{% endif %}
+            {% endif %}
+          </div>
+        {% endfor %}
+      </div>
+      {{ form.non_field_errors }}
+      <div class="mt-5">
+        <button type="submit">{% icon "save" %} {{ submit_label }}</button>
+      </div>
+    </form>
+  </section>
+{% endblock %}

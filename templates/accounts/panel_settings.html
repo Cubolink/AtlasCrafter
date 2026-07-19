@@ -42,6 +42,16 @@
   {% if request.user.is_superuser %}
     <article class="panel">
       <div>
+        <h2>{% icon "file-cog" "icon-heading" %}BlueMap Profiles</h2>
+        <p class="muted">Manage render command templates and generated BlueMap map config templates.</p>
+        <div class="mt-4">
+          <a class="btn btn-outline btn-sm" href="{% url 'bluemap_profiles' %}">{% icon "file-cog" %} Manage BlueMap Profiles</a>
+        </div>
+      </div>
+    </article>
+
+    <article class="panel">
+      <div>
         <h2>{% icon "folder-cog" "icon-heading" %}Projects</h2>
         <p class="muted">Create Projects and control which world folders are visible to them.</p>
         <div class="mt-4">

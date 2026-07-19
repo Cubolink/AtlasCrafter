@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% load icons %}
+
+{% block title %}BlueMap Profiles - AtlasCrafter{% endblock %}
+
+{% block breadcrumbs %}
+  <li><a href="{% url 'panel_settings' %}">{% icon "settings" %} Panel Settings</a></li>
+  <li>BlueMap Profiles</li>
+{% endblock %}
+
+{% block content %}
+  <div class="page-heading">
+    <div>
+      <p class="page-kicker">Render Configuration</p>
+      <h1>{% icon "file-cog" "icon-heading" %}BlueMap Profiles</h1>
+      <p class="mt-2 max-w-3xl text-base-content/70">
+        Manage the command and map config templates AtlasCrafter uses when generating BlueMap render jobs.
+      </p>
+    </div>
+    <div class="flex flex-wrap items-center gap-2">
+      {% if not has_default_profile %}
+        <form class="m-0" method="post" action="{% url 'create_default_bluemap_profile' %}">
+          {% csrf_token %}
+          <button class="btn btn-outline btn-sm" type="submit">{% icon "wand-sparkles" %} Create Default Profile</button>
+        </form>
+      {% endif %}
+      <a class="btn btn-primary btn-sm" href="{% url 'create_bluemap_profile' %}">{% icon "plus" %} Create Profile</a>
+    </div>
+  </div>
+
+  {% if not profiles %}
+    <section class="panel">
+      <div class="alert">
+        {% icon "circle-alert" "icon-lg" %}
+        <span>No BlueMap profiles exist yet. Create the default profile or add a custom profile before triggering renders.</span>
+      </div>
+    </section>
+  {% endif %}
+
+  <section class="panel">
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Slug</th>
+            <th>Status</th>
+            <th>Command</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for profile in profiles %}
+            <tr>
+              <td>
+                <span class="font-medium">{{ profile.name }}</span>
+                {% if profile.description %}<span class="muted block">{{ profile.description }}</span>{% endif %}
+              </td>
+              <td><code>{{ profile.slug }}</code></td>
+              <td>
+                <span class="{% if profile.is_active %}status-active{% else %}status-archived{% endif %}">
+                  {% if profile.is_active %}{% icon "circle-check" %}{% else %}{% icon "circle-pause" %}{% endif %}
+                  {{ profile.is_active|yesno:"Active,Inactive" }}
+                </span>
+              </td>
+              <td><code class="text-xs">{{ profile.command_template }}</code></td>
+              <td>
+                <div class="dropdown dropdown-end">
+                  <button class="btn btn-ghost btn-sm" tabindex="0" type="button">{% icon "more-horizontal" %} Manage</button>
+                  <ul class="dropdown-content menu z-10 w-52 rounded-lg border border-base-300 bg-base-100 p-2 shadow">
+                    <li><a href="{% url 'edit_bluemap_profile' profile.id %}">{% icon "pencil" %} Edit Profile</a></li>
+                    <li>
+                      <form method="post" action="{% url 'toggle_bluemap_profile' profile.id %}">
+                        {% csrf_token %}
+                        <button class="{% if profile.is_active %}text-error{% endif %}" type="submit">
+                          {% if profile.is_active %}
+                            {% icon "circle-pause" %} Deactivate Profile
+                          {% else %}
+                            {% icon "circle-play" %} Activate Profile
+                          {% endif %}
+                        </button>
+                      </form>
+                    </li>
+                  </ul>
+                </div>
+              </td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="5">{% icon "file-x" %} No BlueMap profiles have been created.</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+{% endblock %}

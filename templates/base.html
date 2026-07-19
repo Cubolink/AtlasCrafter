@@ -90,7 +90,7 @@
               </li>
               {% if request.user.is_staff or request.user.is_superuser %}
                 <li>
-                  <details {% if request.resolver_match.url_name == 'panel_settings' or request.resolver_match.url_name == 'panel_jobs' or request.resolver_match.url_name == 'panel_users' or request.resolver_match.url_name == 'panel_user_create' or request.resolver_match.url_name == 'panel_user_edit' or request.resolver_match.url_name == 'manage_projects' or request.resolver_match.url_name == 'create_project' or request.resolver_match.url_name == 'edit_project' or request.resolver_match.url_name == 'world_folders' or request.resolver_match.url_name == 'create_world_folder' or request.resolver_match.url_name == 'edit_world_folder' or request.resolver_match.url_name == 'create_resource_source' or request.resolver_match.url_name == 'edit_resource_source' %}open{% endif %}>
+                  <details {% if request.resolver_match.url_name == 'panel_settings' or request.resolver_match.url_name == 'panel_jobs' or request.resolver_match.url_name == 'panel_users' or request.resolver_match.url_name == 'panel_user_create' or request.resolver_match.url_name == 'panel_user_edit' or request.resolver_match.url_name == 'bluemap_profiles' or request.resolver_match.url_name == 'create_bluemap_profile' or request.resolver_match.url_name == 'edit_bluemap_profile' or request.resolver_match.url_name == 'manage_projects' or request.resolver_match.url_name == 'create_project' or request.resolver_match.url_name == 'edit_project' or request.resolver_match.url_name == 'world_folders' or request.resolver_match.url_name == 'create_world_folder' or request.resolver_match.url_name == 'edit_world_folder' or request.resolver_match.url_name == 'create_resource_source' or request.resolver_match.url_name == 'edit_resource_source' %}open{% endif %}>
                     <summary class="{% if request.resolver_match.url_name == 'panel_settings' %}active{% endif %}">
                       {% icon "settings" %} Panel Settings
                     </summary>
@@ -99,6 +99,7 @@
                       <li><a href="{% url 'panel_jobs' %}">{% icon "activity" %} Render Jobs</a></li>
                       <li><a href="{% url 'panel_users' %}">{% icon "users" %} Users</a></li>
                       {% if request.user.is_superuser %}
+                        <li><a href="{% url 'bluemap_profiles' %}">{% icon "file-cog" %} BlueMap Profiles</a></li>
                         <li><a href="{% url 'manage_projects' %}">{% icon "folder-cog" %} Manage Projects</a></li>
                         <li><a href="{% url 'world_folders' %}">{% icon "database" %} Minecraft Sources</a></li>
                       {% endif %}
