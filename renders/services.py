@@ -330,7 +330,7 @@ def claim_next_queued_job(max_running: int | None = None) -> RenderJob | None:
             return None
 
         job = (
-            RenderJob.objects.select_for_update()
+            RenderJob.objects.select_for_update(of=("self",))
             .select_related(
                 "render__atlas__project",
                 "render__atlas__world_folder",
