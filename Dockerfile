@@ -36,6 +36,7 @@ COPY --from=frontend /app/assets/static/css/app.css /app/assets/static/css/app.c
 COPY --from=frontend /app/node_modules/lucide-static/icons /app/node_modules/lucide-static/icons
 
 RUN mkdir -p /app/data/source-worlds /app/data/resource-sources /app/data/bluemap/config /app/data/bluemap/web /app/data/tmp /app/bin
+RUN python manage.py collectstatic --noinput
 
 EXPOSE 8000
 
