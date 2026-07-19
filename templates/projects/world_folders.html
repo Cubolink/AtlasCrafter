@@ -1,41 +1,42 @@
 {% extends "base.html" %}
+{% load icons %}
 
 {% block title %}World Folders - BlueMap Web UI Panel{% endblock %}
 
 {% block breadcrumbs %}
-  <li><a href="{% url 'panel_settings' %}">Panel Settings</a></li>
+  <li><a href="{% url 'panel_settings' %}">{% icon "settings" %} Panel Settings</a></li>
   <li>World Folders</li>
 {% endblock %}
 
 {% block content %}
   <div class="row">
-    <h1>World Folders</h1>
-    <a class="btn btn-ghost btn-sm" href="{% url 'panel_settings' %}">Back to Panel Settings</a>
+    <h1>{% icon "globe-2" "icon-heading" %}World Folders</h1>
+    <a class="btn btn-ghost btn-sm" href="{% url 'panel_settings' %}">{% icon "arrow-left" %} Back to Panel Settings</a>
   </div>
 
   <section class="panel">
-    <h2>Source Worlds</h2>
-    <p class="muted">{{ source_root }}</p>
+    <h2>{% icon "folder-search" "icon-heading" %}Source Worlds</h2>
+    <p class="muted flex items-center gap-2">{% icon "folder-open" %} {{ source_root }}</p>
     <form class="inline-block" method="post" action="{% url 'scan_world_folders' %}">
       {% csrf_token %}
-      <button type="submit">Scan Source Worlds</button>
+      <button type="submit">{% icon "scan-search" %} Scan Source Worlds</button>
     </form>
-    <a class="btn btn-outline btn-sm" href="{% url 'create_world_folder' %}">Add World Folder Manually</a>
+    <a class="btn btn-outline btn-sm" href="{% url 'create_world_folder' %}">{% icon "plus" %} Add World Folder Manually</a>
   </section>
 
   <section class="panel">
-    <h2>Discovered Tree</h2>
+    <h2>{% icon "git-fork" "icon-heading" %}Discovered Tree</h2>
     {% if worlds %}
       <ul>
         {% include "projects/world_tree_node.html" with node=tree only %}
       </ul>
     {% else %}
-      <p class="muted">No world folders have been discovered yet.</p>
+      <p class="muted flex items-center gap-2">{% icon "folder-x" %} No world folders have been discovered yet.</p>
     {% endif %}
   </section>
 
   <section class="panel">
-    <h2>Known World Folders</h2>
+    <h2>{% icon "globe-2" "icon-heading" %}Known World Folders</h2>
     <div class="table-wrap">
     <table>
       <thead>
@@ -54,28 +55,29 @@
             <td>{{ world.source_path }}</td>
             <td>
               <span class="{% if world.is_active %}status-active{% else %}status-archived{% endif %}">
+                {% if world.is_active %}{% icon "circle-check" %}{% else %}{% icon "archive" %}{% endif %}
                 {{ world.is_active|yesno:"Active,Archived" }}
               </span>
             </td>
             <td>{{ world.detected_dimensions|join:", " }}</td>
             <td>
-              <a class="action-link" href="{% url 'edit_world_folder' world.id %}">Edit</a>
+              <a class="action-link" href="{% url 'edit_world_folder' world.id %}">{% icon "pencil" %} Edit</a>
               {% if world.is_active %}
                 <form class="inline-block" method="post" action="{% url 'archive_world_folder' world.id %}">
                   {% csrf_token %}
-                  <button class="action-danger" type="submit">Archive</button>
+                  <button class="action-danger" type="submit">{% icon "archive" %} Archive</button>
                 </form>
               {% else %}
                 <form class="inline-block" method="post" action="{% url 'restore_world_folder' world.id %}">
                   {% csrf_token %}
-                  <button class="btn btn-secondary btn-sm" type="submit">Restore</button>
+                  <button class="btn btn-secondary btn-sm" type="submit">{% icon "rotate-ccw" %} Restore</button>
                 </form>
               {% endif %}
             </td>
           </tr>
         {% empty %}
           <tr>
-            <td colspan="5">No world folders found.</td>
+            <td colspan="5">{% icon "folder-x" %} No world folders found.</td>
           </tr>
         {% endfor %}
       </tbody>

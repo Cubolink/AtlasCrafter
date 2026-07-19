@@ -205,6 +205,11 @@
     @apply btn btn-ghost btn-sm w-full justify-start font-normal;
   }
 
+  .menu a,
+  .menu form button {
+    @apply whitespace-nowrap;
+  }
+
   .form-grid {
     @apply grid gap-4 lg:grid-cols-2;
   }
@@ -223,5 +228,27 @@
 
   .form-errors {
     @apply mt-2 text-sm text-error;
+  }
+
+  .icon {
+    @apply h-4 w-4 shrink-0 stroke-current;
+  }
+
+  .icon-lg {
+    @apply h-5 w-5 shrink-0 stroke-current;
+  }
+
+  .icon-xl {
+    @apply h-6 w-6 shrink-0 stroke-current;
+  }
+
+  .icon-heading {
+    @apply mr-2 inline-block h-5 w-5 align-[-0.2rem] text-primary;
+  }
+
+  .btn .icon,
+  .btn .icon-lg,
+  .menu .icon {
+    @apply pointer-events-none;
   }
 }

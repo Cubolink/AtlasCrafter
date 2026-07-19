@@ -1,11 +1,12 @@
 {% extends "base.html" %}
+{% load icons %}
 
 {% block title %}{{ title }} - BlueMap Web UI Panel{% endblock %}
 
 {% block breadcrumbs %}
-  <li><a href="{% url 'dashboard' %}">Projects</a></li>
-  <li><a href="{{ render.project.get_absolute_url }}">{{ render.project.name }}</a></li>
-  <li><a href="{% url 'atlas_detail' render.atlas.id %}">{{ render.atlas.display_name }}</a></li>
+  <li><a href="{% url 'dashboard' %}">{% icon "briefcase-business" %} Projects</a></li>
+  <li><a href="{{ render.project.get_absolute_url }}">{% icon "folder" %} {{ render.project.name }}</a></li>
+  <li><a href="{% url 'atlas_detail' render.atlas.id %}">{% icon "map" %} {{ render.atlas.display_name }}</a></li>
   <li>{{ title }}</li>
 {% endblock %}
 
@@ -13,23 +14,23 @@
   <div class="page-heading">
     <div>
       <p class="page-kicker">Render Editor</p>
-      <h1>{{ title }}</h1>
+      <h1>{% icon "pencil" "icon-heading" %}{{ title }}</h1>
       <p class="muted">{{ render.project.name }} / {{ render.atlas.display_name }}</p>
     </div>
-    <a class="btn btn-ghost btn-sm" href="{% url 'atlas_detail' render.atlas.id %}">Back to Atlas</a>
+    <a class="btn btn-ghost btn-sm" href="{% url 'atlas_detail' render.atlas.id %}">{% icon "arrow-left" %} Back to Atlas</a>
   </div>
 
   <section class="panel">
     <dl>
       <dt>BlueMap map id</dt>
-      <dd>{{ render.bluemap_map_id }}</dd>
+      <dd class="flex items-center gap-2">{% icon "fingerprint" %} {{ render.bluemap_map_id }}</dd>
     </dl>
   </section>
 
   <div class="mb-5">
     <div role="tablist" class="tabs tabs-bordered">
-      <a href="#friendly-editor" role="tab" class="tab tab-active" data-editor-tab="friendly">Friendly Editor</a>
-      <a href="#raw-config" role="tab" class="tab" data-editor-tab="raw">Raw Config</a>
+      <a href="#friendly-editor" role="tab" class="tab gap-2 tab-active" data-editor-tab="friendly">{% icon "sliders-horizontal" %} Friendly Editor</a>
+      <a href="#raw-config" role="tab" class="tab gap-2" data-editor-tab="raw">{% icon "file-code" %} Raw Config</a>
     </div>
 
     <div class="pt-5" data-editor-panel="friendly">
@@ -63,7 +64,7 @@
                       {% if field.errors %}<div class="form-errors">{{ field.errors }}</div>{% endif %}
                     </div>
                     <button class="btn btn-outline btn-sm mt-1" type="button" data-apply-render-preset>
-                      Apply Preset Settings
+                      {% icon "wand-sparkles" %} Apply Preset Settings
                     </button>
                   </div>
                 </div>
@@ -88,11 +89,11 @@
           </div>
 
           <details class="collapse collapse-arrow mt-5 rounded-lg border border-base-300 bg-base-100">
-            <summary class="collapse-title text-lg font-semibold">Advanced Settings</summary>
+            <summary class="collapse-title text-lg font-semibold">{% icon "settings-2" "icon-heading" %}Advanced Settings</summary>
             <div class="collapse-content">
               <div class="form-grid pt-2">
                 <div class="form-field form-field-wide">
-                  <h3>Start Position</h3>
+                  <h3>{% icon "crosshair" "icon-heading" %}Start Position</h3>
                   <p class="form-help">Optional map center when the render is opened. Leave blank to use the default start position.</p>
                   <div class="mt-4 grid gap-3 md:grid-cols-3">
                     <div>
@@ -120,7 +121,7 @@
                   {% if field.name == 'start_x' or field.name == 'start_y' or field.name == 'start_z' %}
                   {% elif field.name == 'render_mask_type' %}
                     <div class="form-field form-field-wide" data-render-mask-wrapper>
-                      <h3>Render Mask</h3>
+                      <h3>{% icon "scan" "icon-heading" %}Render Mask</h3>
                       <p class="form-help">Limit the rendered area or subtract a coordinate area from the map. This starts with one mask; use the raw config tab later for more complex multi-mask setups.</p>
                       <div class="mt-4 grid gap-4 lg:grid-cols-2">
                         <div>
@@ -266,7 +267,7 @@
 
           {{ form.non_field_errors }}
           <div class="mt-5">
-            <button type="submit">{{ submit_label }}</button>
+            <button type="submit">{% icon "save" %} {{ submit_label }}</button>
           </div>
         </form>
       </section>
@@ -275,6 +276,7 @@
     <div class="hidden pt-5" data-editor-panel="raw">
       <section class="panel">
         <div class="alert alert-info mb-4">
+          {% icon "info" "icon-lg" %}
           <span>Raw config editing is coming next. For now this tab shows the generated config in read-only mode.</span>
         </div>
         <textarea class="textarea textarea-bordered min-h-[32rem] w-full font-mono text-sm" readonly>{{ config_content }}</textarea>

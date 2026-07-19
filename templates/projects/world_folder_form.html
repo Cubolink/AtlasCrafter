@@ -1,24 +1,25 @@
 {% extends "base.html" %}
+{% load icons %}
 
 {% block title %}{{ title }} - BlueMap Web UI Panel{% endblock %}
 
 {% block breadcrumbs %}
-  <li><a href="{% url 'panel_settings' %}">Panel Settings</a></li>
-  <li><a href="{% url 'world_folders' %}">World Folders</a></li>
+  <li><a href="{% url 'panel_settings' %}">{% icon "settings" %} Panel Settings</a></li>
+  <li><a href="{% url 'world_folders' %}">{% icon "globe-2" %} World Folders</a></li>
   <li>{{ title }}</li>
 {% endblock %}
 
 {% block content %}
   <div class="row">
-    <h1>{{ title }}</h1>
-    <a class="btn btn-ghost btn-sm" href="{% url 'world_folders' %}">Back to World Folders</a>
+    <h1>{% icon "globe-2" "icon-heading" %}{{ title }}</h1>
+    <a class="btn btn-ghost btn-sm" href="{% url 'world_folders' %}">{% icon "arrow-left" %} Back to World Folders</a>
   </div>
 
   <section class="panel">
     <form method="post">
       {% csrf_token %}
       {{ form.as_p }}
-      <button type="submit">{{ submit_label }}</button>
+      <button type="submit">{% icon "save" %} {{ submit_label }}</button>
     </form>
   </section>
 {% endblock %}

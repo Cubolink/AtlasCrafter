@@ -1,19 +1,20 @@
 {% extends "base.html" %}
+{% load icons %}
 
 {% block title %}Render Job #{{ job.id }} - BlueMap Web UI Panel{% endblock %}
 
 {% block breadcrumbs %}
-  <li><a href="{% url 'dashboard' %}">Projects</a></li>
-  <li><a href="{{ render.project.get_absolute_url }}">{{ render.project.name }}</a></li>
-  <li><a href="{% url 'atlas_detail' render.atlas.id %}">{{ render.atlas.display_name }}</a></li>
-  <li><a href="{% url 'render_viewer' render.id %}">{{ render.display_name }}</a></li>
+  <li><a href="{% url 'dashboard' %}">{% icon "briefcase-business" %} Projects</a></li>
+  <li><a href="{{ render.project.get_absolute_url }}">{% icon "folder" %} {{ render.project.name }}</a></li>
+  <li><a href="{% url 'atlas_detail' render.atlas.id %}">{% icon "map" %} {{ render.atlas.display_name }}</a></li>
+  <li><a href="{% url 'render_viewer' render.id %}">{% icon "map-pinned" %} {{ render.display_name }}</a></li>
   <li>Job #{{ job.id }}</li>
 {% endblock %}
 
 {% block content %}
   <div class="row">
-    <h1>Render Job #{{ job.id }}</h1>
-    <a class="btn btn-ghost btn-sm" href="{% url 'render_viewer' render.id %}">Back to Render</a>
+    <h1>{% icon "activity" "icon-heading" %}Render Job #{{ job.id }}</h1>
+    <a class="btn btn-ghost btn-sm" href="{% url 'render_viewer' render.id %}">{% icon "arrow-left" %} Back to Render</a>
   </div>
 
   <section class="panel">
@@ -40,20 +41,20 @@
     </dl>
 
     {% if job.command %}
-      <h2>Command</h2>
+      <h2>{% icon "terminal" "icon-heading" %}Command</h2>
       <pre>{{ job.command|join:" " }}</pre>
     {% endif %}
 
     {% if can_cancel_job %}
       <form method="post" action="{% url 'cancel_render_job' job.id %}">
         {% csrf_token %}
-        <button class="action-danger" type="submit">Cancel queued job</button>
+        <button class="action-danger" type="submit">{% icon "circle-x" %} Cancel queued job</button>
       </form>
     {% endif %}
   </section>
 
   <section class="panel">
-    <h2>Logs</h2>
+    <h2>{% icon "scroll-text" "icon-heading" %}Logs</h2>
     {% for chunk in job.log_chunks.all %}
       <article>
         <strong>{{ chunk.stream }}</strong>
@@ -61,17 +62,17 @@
         <pre>{{ chunk.content }}</pre>
       </article>
     {% empty %}
-      <p class="muted">No logs captured.</p>
+      <p class="muted flex items-center gap-2">{% icon "file-x" %} No logs captured.</p>
     {% endfor %}
   </section>
 
   <section class="panel">
-    <h2>Artifacts</h2>
+    <h2>{% icon "package" "icon-heading" %}Artifacts</h2>
     <ul>
       {% for artifact in job.artifacts.all %}
-        <li>{{ artifact.path }} <span class="muted">{{ artifact.size_bytes|default:"unknown size" }}</span></li>
+        <li class="flex items-center gap-2">{% icon "file" %} {{ artifact.path }} <span class="muted">{{ artifact.size_bytes|default:"unknown size" }}</span></li>
       {% empty %}
-        <li>No artifacts recorded.</li>
+        <li class="flex items-center gap-2 text-base-content/60">{% icon "package-x" %} No artifacts recorded.</li>
       {% endfor %}
     </ul>
   </section>

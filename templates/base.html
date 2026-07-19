@@ -1,5 +1,5 @@
 <!doctype html>
-{% load static %}
+{% load static icons %}
 <html lang="en" data-theme="bluemap">
 <head>
   <meta charset="utf-8">
@@ -14,24 +14,24 @@
       <header class="navbar app-topbar">
         <div class="flex-none lg:hidden">
           <label for="app-drawer" aria-label="Open navigation" class="btn btn-square btn-ghost">
-            <span class="text-xl">&#9776;</span>
+            {% icon "menu" "icon-lg" %}
           </label>
         </div>
         <div class="min-w-0 flex-1">
           <div class="breadcrumbs max-w-full overflow-hidden text-sm">
             <ul>
               {% block breadcrumbs %}
-                <li><a href="{% url 'dashboard' %}">Projects</a></li>
+                <li><a href="{% url 'dashboard' %}">{% icon "briefcase-business" %} Projects</a></li>
               {% endblock %}
             </ul>
           </div>
         </div>
         {% if request.user.is_authenticated %}
           <div class="flex-none gap-2">
-            <a class="btn btn-ghost btn-sm" href="{% url 'profile_settings' %}">{{ request.user.username }}</a>
+            <a class="btn btn-ghost btn-sm" href="{% url 'profile_settings' %}">{% icon "user" %} {{ request.user.username }}</a>
             <form method="post" action="{% url 'logout' %}">
               {% csrf_token %}
-              <button class="btn btn-outline btn-sm" type="submit">Log out</button>
+              <button class="btn btn-outline btn-sm" type="submit">{% icon "log-out" %} Log out</button>
             </form>
           </div>
         {% endif %}
@@ -42,6 +42,15 @@
           <div class="mb-5 grid gap-3">
             {% for message in messages %}
               <div class="alert {% if message.tags == 'error' %}alert-error{% elif message.tags == 'warning' %}alert-warning{% elif message.tags == 'success' %}alert-success{% else %}alert-info{% endif %}">
+                {% if message.tags == 'error' %}
+                  {% icon "circle-alert" "icon-lg" %}
+                {% elif message.tags == 'warning' %}
+                  {% icon "triangle-alert" "icon-lg" %}
+                {% elif message.tags == 'success' %}
+                  {% icon "circle-check" "icon-lg" %}
+                {% else %}
+                  {% icon "info" "icon-lg" %}
+                {% endif %}
                 <span>{{ message }}</span>
               </div>
             {% endfor %}
@@ -55,7 +64,10 @@
       <label for="app-drawer" aria-label="Close navigation" class="drawer-overlay"></label>
       <div class="app-sidebar flex flex-col">
         <div class="border-b border-white/10 p-5">
-          <a href="{% url 'dashboard' %}" class="block text-lg font-semibold">BlueMap Panel</a>
+          <a href="{% url 'dashboard' %}" class="flex items-center gap-2 text-lg font-semibold">
+            {% icon "map" "icon-lg" %}
+            BlueMap Panel
+          </a>
           <p class="mt-1 text-sm text-[color:var(--app-sidebar-muted)]">Render control console</p>
         </div>
         {% if request.user.is_authenticated %}
@@ -64,14 +76,14 @@
               <li>
                 <details open>
                   <summary class="{% if request.resolver_match.url_name == 'dashboard' or request.resolver_match.url_name == 'project_detail' or request.resolver_match.url_name == 'project_members' or request.resolver_match.url_name == 'project_worlds' or request.resolver_match.url_name == 'atlas_detail' %}active{% endif %}">
-                    Projects
+                    {% icon "briefcase-business" %} Projects
                   </summary>
                   <ul>
-                    <li><a href="{% url 'dashboard' %}">All Projects</a></li>
+                    <li><a href="{% url 'dashboard' %}">{% icon "layout-dashboard" %} All Projects</a></li>
                     {% for project in sidebar_projects %}
-                      <li><a href="{{ project.get_absolute_url }}">{{ project.name }}</a></li>
+                      <li><a href="{{ project.get_absolute_url }}">{% icon "folder" %} {{ project.name }}</a></li>
                     {% empty %}
-                      <li><span class="text-[color:var(--app-sidebar-muted)]">No active projects</span></li>
+                      <li><span class="text-[color:var(--app-sidebar-muted)]">{% icon "folder-x" %} No active projects</span></li>
                     {% endfor %}
                   </ul>
                 </details>
@@ -80,14 +92,14 @@
                 <li>
                   <details {% if request.resolver_match.url_name == 'panel_settings' or request.resolver_match.url_name == 'panel_users' or request.resolver_match.url_name == 'panel_user_create' or request.resolver_match.url_name == 'panel_user_edit' or request.resolver_match.url_name == 'manage_projects' or request.resolver_match.url_name == 'create_project' or request.resolver_match.url_name == 'edit_project' or request.resolver_match.url_name == 'world_folders' or request.resolver_match.url_name == 'create_world_folder' or request.resolver_match.url_name == 'edit_world_folder' %}open{% endif %}>
                     <summary class="{% if request.resolver_match.url_name == 'panel_settings' %}active{% endif %}">
-                      Panel Settings
+                      {% icon "settings" %} Panel Settings
                     </summary>
                     <ul>
-                      <li><a href="{% url 'panel_settings' %}">Overview</a></li>
-                      <li><a href="{% url 'panel_users' %}">Users</a></li>
+                      <li><a href="{% url 'panel_settings' %}">{% icon "layout-dashboard" %} Overview</a></li>
+                      <li><a href="{% url 'panel_users' %}">{% icon "users" %} Users</a></li>
                       {% if request.user.is_superuser %}
-                        <li><a href="{% url 'manage_projects' %}">Manage Projects</a></li>
-                        <li><a href="{% url 'world_folders' %}">World Folders</a></li>
+                        <li><a href="{% url 'manage_projects' %}">{% icon "folder-cog" %} Manage Projects</a></li>
+                        <li><a href="{% url 'world_folders' %}">{% icon "globe-2" %} World Folders</a></li>
                       {% endif %}
                     </ul>
                   </details>
@@ -96,7 +108,10 @@
             </ul>
           </nav>
           <div class="border-t border-white/10 p-4 text-sm text-[color:var(--app-sidebar-muted)]">
-            Signed in as <a href="{% url 'profile_settings' %}" class="font-medium">{{ request.user.username }}</a>
+            <div class="flex items-center gap-2">
+              {% icon "user-round" %}
+              <span>Signed in as <a href="{% url 'profile_settings' %}" class="font-medium">{{ request.user.username }}</a></span>
+            </div>
           </div>
         {% endif %}
       </div>

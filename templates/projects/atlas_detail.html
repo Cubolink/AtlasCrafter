@@ -1,32 +1,33 @@
 {% extends "base.html" %}
+{% load icons %}
 
 {% block title %}{{ atlas.display_name }} - {{ project.name }}{% endblock %}
 
 {% block breadcrumbs %}
-  <li><a href="{% url 'dashboard' %}">Projects</a></li>
-  <li><a href="{{ project.get_absolute_url }}">{{ project.name }}</a></li>
-  <li>{{ atlas.display_name }}</li>
+  <li><a href="{% url 'dashboard' %}">{% icon "briefcase-business" %} Projects</a></li>
+  <li><a href="{{ project.get_absolute_url }}">{% icon "folder" %} {{ project.name }}</a></li>
+  <li>{% icon "map" %} {{ atlas.display_name }}</li>
 {% endblock %}
 
 {% block content %}
   <div class="page-heading">
     <div>
       <p class="page-kicker">Atlas</p>
-      <h1>{{ atlas.display_name }}</h1>
-      <p class="mt-2 max-w-3xl text-base-content/70">{{ atlas.world_folder.source_path }}</p>
+      <h1>{% icon "map" "icon-heading" %}{{ atlas.display_name }}</h1>
+      <p class="mt-2 flex max-w-3xl items-center gap-2 text-base-content/70">{% icon "folder-open" %} {{ atlas.world_folder.source_path }}</p>
       {% if atlas.notes %}
         <p class="mt-2 max-w-3xl text-base-content/70">{{ atlas.notes }}</p>
       {% endif %}
     </div>
     {% if can_manage_project %}
       <div class="dropdown dropdown-end">
-        <button class="btn btn-outline btn-sm" tabindex="0" type="button">Manage</button>
+        <button class="btn btn-outline btn-sm" tabindex="0" type="button">{% icon "more-horizontal" %} Manage</button>
         <ul class="dropdown-content menu z-10 w-48 rounded-lg border border-base-300 bg-base-100 p-2 shadow">
-          <li><a href="{% url 'edit_atlas' atlas.id %}">Edit Atlas</a></li>
+          <li><a href="{% url 'edit_atlas' atlas.id %}">{% icon "pencil" %} Edit Atlas</a></li>
           <li>
             <form method="post" action="{% url 'archive_atlas' atlas.id %}">
               {% csrf_token %}
-              <button class="text-error" type="submit">Archive Atlas</button>
+              <button class="text-error" type="submit">{% icon "archive" %} Archive Atlas</button>
             </form>
           </li>
         </ul>
@@ -36,10 +37,10 @@
 
   <section class="panel">
     <div class="row">
-      <h2>Renders</h2>
+      <h2>{% icon "layers" "icon-heading" %}Renders</h2>
       {% if can_manage_project %}
         <a class="btn btn-outline btn-sm" href="{% url 'archived_renders' atlas.id %}">
-          Archived Renders{% if archived_render_count %} ({{ archived_render_count }}){% endif %}
+          {% icon "archive" %} Archived Renders{% if archived_render_count %} ({{ archived_render_count }}){% endif %}
         </a>
       {% endif %}
     </div>
@@ -49,33 +50,33 @@
         <article class="rounded-lg border border-base-300 p-4">
           <div class="row">
             <div>
-              <h3><a href="{% url 'render_viewer' render.id %}">{{ render.display_name }}</a></h3>
-              <p class="muted">{{ render.bluemap_map_id }}</p>
-              <p class="muted">
+              <h3><a class="inline-flex items-center gap-2" href="{% url 'render_viewer' render.id %}">{% icon "map-pinned" %} {{ render.display_name }}</a></h3>
+              <p class="muted flex items-center gap-2">{% icon "fingerprint" %} {{ render.bluemap_map_id }}</p>
+              <p class="muted flex flex-wrap items-center gap-1.5">
                 {% if latest_job %}
-                  Last job:
+                  {% icon "activity" %} Last job:
                   <a href="{% url 'render_job_detail' latest_job.id %}">#{{ latest_job.id }}</a>
                   <span class="status-{{ latest_job.status }}">{{ latest_job.get_status_display }}</span>
                   <span>{{ latest_job.updated_at }}</span>
                 {% else %}
-                  No render jobs yet.
+                  {% icon "clock" %} No render jobs yet.
                 {% endif %}
               </p>
             </div>
-            <span class="badge badge-outline">{{ render.get_dimension_display }}</span>
+            <span class="badge badge-outline">{% icon "box" %} {{ render.get_dimension_display }}</span>
           </div>
           <div class="mt-3 flex flex-wrap gap-2">
-            <a class="btn btn-primary btn-sm" href="{% url 'render_viewer' render.id %}">Open Render</a>
+            <a class="btn btn-primary btn-sm" href="{% url 'render_viewer' render.id %}">{% icon "external-link" %} Open Render</a>
             {% if can_manage_project %}
               <div class="dropdown dropdown-end">
-                <button class="btn btn-ghost btn-sm" tabindex="0" type="button">Manage</button>
-                <ul class="dropdown-content menu z-10 w-48 rounded-lg border border-base-300 bg-base-100 p-2 shadow">
-                  <li><a href="{% url 'edit_render' render.id %}">Edit Render</a></li>
-                  <li><a href="{% url 'render_config_preview' render.id %}">Preview Config</a></li>
+                <button class="btn btn-ghost btn-sm" tabindex="0" type="button">{% icon "more-horizontal" %} Manage</button>
+                <ul class="dropdown-content menu z-10 w-52 rounded-lg border border-base-300 bg-base-100 p-2 shadow">
+                  <li><a href="{% url 'edit_render' render.id %}">{% icon "pencil" %} Edit Render</a></li>
+                  <li><a href="{% url 'render_config_preview' render.id %}">{% icon "file-code" %} Preview Config</a></li>
                   <li>
                     <form method="post" action="{% url 'archive_render' render.id %}">
                       {% csrf_token %}
-                      <button class="text-error" type="submit">Archive Render</button>
+                      <button class="text-error" type="submit">{% icon "archive" %} Archive Render</button>
                     </form>
                   </li>
                 </ul>
@@ -85,14 +86,14 @@
         </article>
         {% endwith %}
       {% empty %}
-        <p>No Renders defined.</p>
+        <p class="muted flex items-center gap-2">{% icon "layers-2" %} No Renders defined.</p>
       {% endfor %}
     </div>
   </section>
 
   {% if can_manage_project %}
     <section class="panel">
-      <h2>Create Render</h2>
+      <h2>{% icon "plus" "icon-heading" %}Create Render</h2>
       <form method="post" action="{% url 'create_render' atlas.id %}" data-render-form data-render-preset-form>
         {% csrf_token %}
         <div class="form-grid">
@@ -130,7 +131,7 @@
           {% endfor %}
         </div>
         {{ render_form.non_field_errors }}
-        <button type="submit">Create Render</button>
+        <button type="submit">{% icon "plus" %} Create Render</button>
       </form>
     </section>
   {% endif %}

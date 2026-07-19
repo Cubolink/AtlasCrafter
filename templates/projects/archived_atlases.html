@@ -1,16 +1,17 @@
 {% extends "base.html" %}
+{% load icons %}
 
 {% block title %}Archived Atlases - {{ project.name }}{% endblock %}
 
 {% block breadcrumbs %}
-  <li><a href="{% url 'dashboard' %}">Projects</a></li>
-  <li><a href="{{ project.get_absolute_url }}">{{ project.name }}</a></li>
+  <li><a href="{% url 'dashboard' %}">{% icon "briefcase-business" %} Projects</a></li>
+  <li><a href="{{ project.get_absolute_url }}">{% icon "folder" %} {{ project.name }}</a></li>
   <li>Archived Atlases</li>
 {% endblock %}
 
 {% block content %}
-  <h1>Archived Atlases</h1>
-  <p><a class="btn btn-ghost btn-sm" href="{{ project.get_absolute_url }}">Back to {{ project.name }}</a></p>
+  <h1>{% icon "archive" "icon-heading" %}Archived Atlases</h1>
+  <p><a class="btn btn-ghost btn-sm" href="{{ project.get_absolute_url }}">{% icon "arrow-left" %} Back to {{ project.name }}</a></p>
 
   <section class="panel">
     <div class="table-wrap">
@@ -30,13 +31,13 @@
             <td>
               <form method="post" action="{% url 'restore_atlas' atlas.id %}">
                 {% csrf_token %}
-                <button class="btn btn-secondary btn-sm" type="submit">Restore</button>
+                <button class="btn btn-secondary btn-sm" type="submit">{% icon "rotate-ccw" %} Restore</button>
               </form>
             </td>
           </tr>
         {% empty %}
           <tr>
-            <td colspan="3">No archived Atlases.</td>
+            <td colspan="3">{% icon "archive-x" %} No archived Atlases.</td>
           </tr>
         {% endfor %}
       </tbody>

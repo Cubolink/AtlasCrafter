@@ -1,11 +1,12 @@
+{% load icons %}
 <li class="py-1">
-  <strong>{{ node.name }}</strong>
+  <strong class="inline-flex items-center gap-2">{% icon "folder" %} {{ node.name }}</strong>
   {% if node.worlds %}
     <ul class="ml-4 mt-1 border-l border-base-300 pl-4">
       {% for world in node.worlds %}
         <li class="py-1">
-          {{ world.display_name }}
-          <span class="muted">{{ world.source_path }}</span>
+          <span class="inline-flex items-center gap-2">{% icon "globe-2" %} {{ world.display_name }}</span>
+          <span class="muted inline-flex items-center gap-2">{% icon "folder-open" %} {{ world.source_path }}</span>
         </li>
       {% endfor %}
     </ul>

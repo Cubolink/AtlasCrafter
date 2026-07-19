@@ -1,7 +1,8 @@
-{% load project_form_tags %}
+{% load project_form_tags icons %}
 <li class="py-1">
   <label class="flex items-center gap-2">
     <input type="checkbox" data-world-folder-toggle>
+    {% icon "folder" %}
     <strong>{{ node.name }}</strong>
   </label>
   {% if node.worlds %}
@@ -15,9 +16,10 @@
               value="{{ world.id }}"
               {% if form.visible_worlds.value|contains_world_id:world.id %}checked{% endif %}
             >
+            {% icon "globe-2" %}
             {{ world.display_name }}
           </label>
-          <span class="muted">{{ world.source_path }}</span>
+          <span class="muted inline-flex items-center gap-2">{% icon "folder-open" %} {{ world.source_path }}</span>
         </li>
       {% endfor %}
     </ul>

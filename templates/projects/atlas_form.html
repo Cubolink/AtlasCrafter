@@ -1,18 +1,19 @@
 {% extends "base.html" %}
+{% load icons %}
 
 {% block title %}{{ title }} - BlueMap Web UI Panel{% endblock %}
 
 {% block breadcrumbs %}
-  <li><a href="{% url 'dashboard' %}">Projects</a></li>
-  <li><a href="{{ atlas.project.get_absolute_url }}">{{ atlas.project.name }}</a></li>
-  <li><a href="{% url 'atlas_detail' atlas.id %}">{{ atlas.display_name }}</a></li>
+  <li><a href="{% url 'dashboard' %}">{% icon "briefcase-business" %} Projects</a></li>
+  <li><a href="{{ atlas.project.get_absolute_url }}">{% icon "folder" %} {{ atlas.project.name }}</a></li>
+  <li><a href="{% url 'atlas_detail' atlas.id %}">{% icon "map" %} {{ atlas.display_name }}</a></li>
   <li>{{ title }}</li>
 {% endblock %}
 
 {% block content %}
   <div class="row">
-    <h1>{{ title }}</h1>
-    <a class="btn btn-ghost btn-sm" href="{% url 'atlas_detail' atlas.id %}">Back to Atlas</a>
+    <h1>{% icon "pencil" "icon-heading" %}{{ title }}</h1>
+    <a class="btn btn-ghost btn-sm" href="{% url 'atlas_detail' atlas.id %}">{% icon "arrow-left" %} Back to Atlas</a>
   </div>
 
   <section class="panel">
@@ -20,7 +21,7 @@
     <form method="post">
       {% csrf_token %}
       {{ form.as_p }}
-      <button type="submit">{{ submit_label }}</button>
+      <button type="submit">{% icon "save" %} {{ submit_label }}</button>
     </form>
   </section>
 {% endblock %}

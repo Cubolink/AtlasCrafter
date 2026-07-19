@@ -1,10 +1,11 @@
 {% extends "base.html" %}
+{% load icons %}
 
 {% block title %}Worlds - {{ project.name }}{% endblock %}
 
 {% block breadcrumbs %}
-  <li><a href="{% url 'dashboard' %}">Projects</a></li>
-  <li><a href="{{ project.get_absolute_url }}">{{ project.name }}</a></li>
+  <li><a href="{% url 'dashboard' %}">{% icon "briefcase-business" %} Projects</a></li>
+  <li><a href="{{ project.get_absolute_url }}">{% icon "folder" %} {{ project.name }}</a></li>
   <li>Worlds</li>
 {% endblock %}
 
@@ -12,7 +13,7 @@
   <div class="page-heading">
     <div>
       <p class="page-kicker">Project</p>
-      <h1>{{ project.name }}</h1>
+      <h1>{% icon "folder" "icon-heading" %}{{ project.name }}</h1>
       {% if project.description %}
         <p class="mt-2 max-w-3xl text-base-content/70">{{ project.description }}</p>
       {% endif %}
@@ -22,22 +23,23 @@
   {% include "projects/project_subnav.html" with active_project_tab="worlds" %}
 
   <section class="panel">
-    <h2>{{ worlds_title }}</h2>
+    <h2>{% icon "globe-2" "icon-heading" %}{{ worlds_title }}</h2>
     <div class="list">
       {% for world in world_folders %}
         <article class="rounded-lg border border-base-300 p-4">
           <div class="row">
             <div>
-              <h3>{{ world.display_name }}</h3>
-              <p class="muted">{{ world.source_path }}</p>
+              <h3 class="flex items-center gap-2">{% icon "globe-2" %} {{ world.display_name }}</h3>
+              <p class="muted flex items-center gap-2">{% icon "folder-open" %} {{ world.source_path }}</p>
             </div>
             <span class="{% if world.is_active %}status-active{% else %}status-archived{% endif %}">
+              {% if world.is_active %}{% icon "circle-check" %}{% else %}{% icon "archive" %}{% endif %}
               {{ world.is_active|yesno:"Active,Archived" }}
             </span>
           </div>
         </article>
       {% empty %}
-        <p>{{ empty_message }}</p>
+        <p class="muted flex items-center gap-2">{% icon "globe-2" %} {{ empty_message }}</p>
       {% endfor %}
     </div>
   </section>
