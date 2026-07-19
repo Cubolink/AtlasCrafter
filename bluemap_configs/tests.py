@@ -43,6 +43,25 @@ class BlueMapRenderConfigTests(TestCase):
         render.enable_hires = True
         render.storage_profile = "file"
         render.ignore_missing_light_data = True
+        render.start_position = {"x": 10, "y": 80, "z": -20}
+        render.render_mask = [
+            {
+                "type": "box",
+                "subtract": True,
+                "min-x": -100,
+                "max-x": 100,
+                "min-z": -200,
+                "max-z": 200,
+            },
+        ]
+        render.marker_sets = (
+            "{\n"
+            "  spawn: {\n"
+            '    label: "Spawn"\n'
+            "    markers: {}\n"
+            "  }\n"
+            "}"
+        )
         render.save()
         profile = BlueMapProfile.objects.create(name="Default", slug="default")
         render_config = BlueMapRenderConfig.objects.create(render=render, profile=profile)
@@ -59,6 +78,12 @@ class BlueMapRenderConfigTests(TestCase):
         self.assertIn("cave-detection-ocean-floor: -3", content)
         self.assertIn("cave-detection-uses-block-light: true", content)
         self.assertIn("min-inhabited-time: 1200", content)
+        self.assertIn("start-pos: { x: 10, y: 80, z: -20 }", content)
+        self.assertIn("render-mask: [", content)
+        self.assertIn("type: box", content)
+        self.assertIn("subtract: true", content)
+        self.assertIn("min-x: -100", content)
+        self.assertIn("max-z: 200", content)
         self.assertIn("render-edges: false", content)
         self.assertIn("edge-light-strength: 12", content)
         self.assertIn("enable-perspective-view: false", content)
@@ -66,6 +91,8 @@ class BlueMapRenderConfigTests(TestCase):
         self.assertIn("enable-free-flight-view: false", content)
         self.assertIn("enable-hires: true", content)
         self.assertIn("ignore-missing-light-data: true", content)
+        self.assertIn("marker-sets: {", content)
+        self.assertIn('label: "Spawn"', content)
         self.assertNotIn("maps:", content)
 
     def create_render(self):

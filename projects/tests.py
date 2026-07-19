@@ -428,6 +428,21 @@ class ProjectSetupViewTests(TestCase):
                 "enable_free_flight_view": "on",
                 "enable_hires": "on",
                 "ignore_missing_light_data": "on",
+                "start_x": 10,
+                "start_y": 80,
+                "start_z": -20,
+                "render_mask_type": "box",
+                "render_mask_subtract": "",
+                "render_mask_min_x": -100,
+                "render_mask_max_x": 100,
+                "render_mask_min_y": "",
+                "render_mask_max_y": "",
+                "render_mask_min_z": -200,
+                "render_mask_max_z": 200,
+                "render_mask_center_x": "",
+                "render_mask_center_z": "",
+                "render_mask_radius": "",
+                "marker_sets": "{}",
             },
         )
 
@@ -439,6 +454,19 @@ class ProjectSetupViewTests(TestCase):
         self.assertEqual(render.sorting, 10)
         self.assertEqual(render.bluemap_map_id, "stable-render-id")
         self.assertEqual(render.sky_color, "#112233")
+        self.assertEqual(render.start_position, {"x": 10, "y": 80, "z": -20})
+        self.assertEqual(
+            render.render_mask,
+            [
+                {
+                    "type": "box",
+                    "min-x": -100,
+                    "max-x": 100,
+                    "min-z": -200,
+                    "max-z": 200,
+                },
+            ],
+        )
         self.assertTrue(render.cave_detection_uses_block_light)
         self.assertEqual(render.edge_light_strength, 12)
         self.assertTrue(render.ignore_missing_light_data)
@@ -493,6 +521,10 @@ class ProjectSetupViewTests(TestCase):
         self.assertContains(response, "data-render-preset-form")
         self.assertContains(response, "data-apply-render-preset")
         self.assertContains(response, "Apply Preset Settings")
+        self.assertContains(response, "Start Position")
+        self.assertContains(response, "Render Mask")
+        self.assertContains(response, "data-render-mask-type")
+        self.assertContains(response, "marker-sets")
 
     def test_render_forms_hide_custom_dimension_until_custom_dimension_selected(self):
         BlueMapProfile.objects.create(name="Default", slug="default")

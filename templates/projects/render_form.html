@@ -91,7 +91,126 @@
             <summary class="collapse-title text-lg font-semibold">Advanced Settings</summary>
             <div class="collapse-content">
               <div class="form-grid pt-2">
+                <div class="form-field form-field-wide">
+                  <h3>Start Position</h3>
+                  <p class="form-help">Optional map center when the render is opened. Leave blank to use the default start position.</p>
+                  <div class="mt-4 grid gap-3 md:grid-cols-3">
+                    <div>
+                      {{ form.start_x.label_tag }}
+                      {{ form.start_x }}
+                      {% if form.start_x.help_text %}<span class="form-help">{{ form.start_x.help_text }}</span>{% endif %}
+                      {% if form.start_x.errors %}<div class="form-errors">{{ form.start_x.errors }}</div>{% endif %}
+                    </div>
+                    <div>
+                      {{ form.start_y.label_tag }}
+                      {{ form.start_y }}
+                      {% if form.start_y.help_text %}<span class="form-help">{{ form.start_y.help_text }}</span>{% endif %}
+                      {% if form.start_y.errors %}<div class="form-errors">{{ form.start_y.errors }}</div>{% endif %}
+                    </div>
+                    <div>
+                      {{ form.start_z.label_tag }}
+                      {{ form.start_z }}
+                      {% if form.start_z.help_text %}<span class="form-help">{{ form.start_z.help_text }}</span>{% endif %}
+                      {% if form.start_z.errors %}<div class="form-errors">{{ form.start_z.errors }}</div>{% endif %}
+                    </div>
+                  </div>
+                </div>
+
                 {% for field in advanced_fields %}
+                  {% if field.name == 'start_x' or field.name == 'start_y' or field.name == 'start_z' %}
+                  {% elif field.name == 'render_mask_type' %}
+                    <div class="form-field form-field-wide" data-render-mask-wrapper>
+                      <h3>Render Mask</h3>
+                      <p class="form-help">Limit the rendered area or subtract a coordinate area from the map. This starts with one mask; use the raw config tab later for more complex multi-mask setups.</p>
+                      <div class="mt-4 grid gap-4 lg:grid-cols-2">
+                        <div>
+                          {{ form.render_mask_type.label_tag }}
+                          {{ form.render_mask_type }}
+                          {% if form.render_mask_type.help_text %}<span class="form-help">{{ form.render_mask_type.help_text }}</span>{% endif %}
+                          {% if form.render_mask_type.errors %}<div class="form-errors">{{ form.render_mask_type.errors }}</div>{% endif %}
+                        </div>
+                        <div class="flex items-center justify-between gap-4 rounded-lg border border-base-300 p-4" data-render-mask-fields>
+                          <div>
+                            {{ form.render_mask_subtract.label_tag }}
+                            {% if form.render_mask_subtract.help_text %}<span class="form-help">{{ form.render_mask_subtract.help_text }}</span>{% endif %}
+                            {% if form.render_mask_subtract.errors %}<div class="form-errors">{{ form.render_mask_subtract.errors }}</div>{% endif %}
+                          </div>
+                          {{ form.render_mask_subtract }}
+                        </div>
+                      </div>
+
+                      <div class="mt-4 grid gap-3 md:grid-cols-3" data-render-mask-fields data-render-mask-box-fields>
+                        <div>
+                          {{ form.render_mask_min_x.label_tag }}
+                          {{ form.render_mask_min_x }}
+                          {% if form.render_mask_min_x.help_text %}<span class="form-help">{{ form.render_mask_min_x.help_text }}</span>{% endif %}
+                          {% if form.render_mask_min_x.errors %}<div class="form-errors">{{ form.render_mask_min_x.errors }}</div>{% endif %}
+                        </div>
+                        <div>
+                          {{ form.render_mask_max_x.label_tag }}
+                          {{ form.render_mask_max_x }}
+                          {% if form.render_mask_max_x.help_text %}<span class="form-help">{{ form.render_mask_max_x.help_text }}</span>{% endif %}
+                          {% if form.render_mask_max_x.errors %}<div class="form-errors">{{ form.render_mask_max_x.errors }}</div>{% endif %}
+                        </div>
+                        <div>
+                          {{ form.render_mask_min_z.label_tag }}
+                          {{ form.render_mask_min_z }}
+                          {% if form.render_mask_min_z.help_text %}<span class="form-help">{{ form.render_mask_min_z.help_text }}</span>{% endif %}
+                          {% if form.render_mask_min_z.errors %}<div class="form-errors">{{ form.render_mask_min_z.errors }}</div>{% endif %}
+                        </div>
+                        <div>
+                          {{ form.render_mask_max_z.label_tag }}
+                          {{ form.render_mask_max_z }}
+                          {% if form.render_mask_max_z.help_text %}<span class="form-help">{{ form.render_mask_max_z.help_text }}</span>{% endif %}
+                          {% if form.render_mask_max_z.errors %}<div class="form-errors">{{ form.render_mask_max_z.errors }}</div>{% endif %}
+                        </div>
+                      </div>
+
+                      <div class="mt-4 grid gap-3 md:grid-cols-3" data-render-mask-fields data-render-mask-circle-fields>
+                        <div>
+                          {{ form.render_mask_center_x.label_tag }}
+                          {{ form.render_mask_center_x }}
+                          {% if form.render_mask_center_x.help_text %}<span class="form-help">{{ form.render_mask_center_x.help_text }}</span>{% endif %}
+                          {% if form.render_mask_center_x.errors %}<div class="form-errors">{{ form.render_mask_center_x.errors }}</div>{% endif %}
+                        </div>
+                        <div>
+                          {{ form.render_mask_center_z.label_tag }}
+                          {{ form.render_mask_center_z }}
+                          {% if form.render_mask_center_z.help_text %}<span class="form-help">{{ form.render_mask_center_z.help_text }}</span>{% endif %}
+                          {% if form.render_mask_center_z.errors %}<div class="form-errors">{{ form.render_mask_center_z.errors }}</div>{% endif %}
+                        </div>
+                        <div>
+                          {{ form.render_mask_radius.label_tag }}
+                          {{ form.render_mask_radius }}
+                          {% if form.render_mask_radius.help_text %}<span class="form-help">{{ form.render_mask_radius.help_text }}</span>{% endif %}
+                          {% if form.render_mask_radius.errors %}<div class="form-errors">{{ form.render_mask_radius.errors }}</div>{% endif %}
+                        </div>
+                      </div>
+
+                      <div class="mt-4 grid gap-3 md:grid-cols-2" data-render-mask-fields>
+                        <div>
+                          {{ form.render_mask_min_y.label_tag }}
+                          {{ form.render_mask_min_y }}
+                          {% if form.render_mask_min_y.help_text %}<span class="form-help">{{ form.render_mask_min_y.help_text }}</span>{% endif %}
+                          {% if form.render_mask_min_y.errors %}<div class="form-errors">{{ form.render_mask_min_y.errors }}</div>{% endif %}
+                        </div>
+                        <div>
+                          {{ form.render_mask_max_y.label_tag }}
+                          {{ form.render_mask_max_y }}
+                          {% if form.render_mask_max_y.help_text %}<span class="form-help">{{ form.render_mask_max_y.help_text }}</span>{% endif %}
+                          {% if form.render_mask_max_y.errors %}<div class="form-errors">{{ form.render_mask_max_y.errors }}</div>{% endif %}
+                        </div>
+                      </div>
+                    </div>
+                  {% elif field.name == 'render_mask_subtract' or field.name == 'render_mask_min_x' or field.name == 'render_mask_max_x' or field.name == 'render_mask_min_y' or field.name == 'render_mask_max_y' or field.name == 'render_mask_min_z' or field.name == 'render_mask_max_z' or field.name == 'render_mask_center_x' or field.name == 'render_mask_center_z' or field.name == 'render_mask_radius' %}
+                  {% elif field.name == 'marker_sets' %}
+                    <div class="form-field form-field-wide">
+                      {{ field.label_tag }}
+                      {{ field }}
+                      {% if field.help_text %}<span class="form-help">{{ field.help_text }}</span>{% endif %}
+                      {% if field.errors %}<div class="form-errors">{{ field.errors }}</div>{% endif %}
+                    </div>
+                  {% else %}
                   <div class="form-field {% if field.name == 'storage_profile' %}form-field-wide{% endif %} {% if field.field.widget.input_type == 'checkbox' %}flex items-center justify-between gap-4{% endif %}">
                     {% if field.field.widget.input_type == 'checkbox' %}
                       <div>
@@ -139,6 +258,7 @@
                       {% if field.errors %}<div class="form-errors">{{ field.errors }}</div>{% endif %}
                     {% endif %}
                   </div>
+                  {% endif %}
                 {% endfor %}
               </div>
             </div>
@@ -202,6 +322,45 @@
     }
 
     syncCustomDimensionField(document);
+
+    document.querySelectorAll("[data-render-mask-wrapper]").forEach(function (wrapper) {
+      var maskTypeSelect = wrapper.querySelector("[data-render-mask-type]");
+      if (!maskTypeSelect) return;
+
+      function setFieldsDisabled(container, isDisabled) {
+        container.querySelectorAll("input, select, textarea").forEach(function (field) {
+          if (field !== maskTypeSelect) field.disabled = isDisabled;
+        });
+      }
+
+      function updateRenderMaskFields() {
+        var maskType = maskTypeSelect.value;
+        var isNone = maskType === "none";
+        var boxFields = wrapper.querySelectorAll("[data-render-mask-box-fields]");
+        var circleFields = wrapper.querySelectorAll("[data-render-mask-circle-fields]");
+        var maskFields = wrapper.querySelectorAll("[data-render-mask-fields]");
+
+        maskFields.forEach(function (container) {
+          container.classList.toggle("hidden", isNone);
+          setFieldsDisabled(container, isNone);
+        });
+
+        boxFields.forEach(function (container) {
+          var isVisible = maskType === "box";
+          container.classList.toggle("hidden", !isVisible);
+          setFieldsDisabled(container, !isVisible);
+        });
+
+        circleFields.forEach(function (container) {
+          var isVisible = maskType === "circle";
+          container.classList.toggle("hidden", !isVisible);
+          setFieldsDisabled(container, !isVisible);
+        });
+      }
+
+      maskTypeSelect.addEventListener("change", updateRenderMaskFields);
+      updateRenderMaskFields();
+    });
 
     function setRenderPresetField(form, fieldName, value) {
       var field = form.querySelector('[name="' + fieldName + '"]');

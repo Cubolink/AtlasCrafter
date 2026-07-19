@@ -182,6 +182,8 @@ class Render(TimeStampedModel):
         default=PerspectivePreset.DAY,
     )
     start_position = models.JSONField(default=dict, blank=True)
+    render_mask = models.JSONField(default=list, blank=True)
+    marker_sets = models.TextField(default="{}", blank=True)
     lighting_options = models.JSONField(default=dict, blank=True)
     cave_options = models.JSONField(default=dict, blank=True)
     region = models.ForeignKey(Region, on_delete=models.SET_NULL, null=True, blank=True)
