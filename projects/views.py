@@ -16,6 +16,8 @@ from .forms import (
     ProjectUserAddForm,
     RENDER_ADVANCED_FIELDS,
     RENDER_BASIC_FIELDS,
+    RENDER_PRESET_DEFAULTS,
+    RENDER_PRESET_SUMMARIES,
     RenderCreateForm,
     RenderEditForm,
     WorldFolderForm,
@@ -350,6 +352,7 @@ def atlas_detail(request, atlas_id: int):
             ],
             "archived_render_count": atlas.renders.filter(is_enabled=False).count() if can_manage else 0,
             "render_form": RenderCreateForm(atlas=atlas) if can_manage else None,
+            "render_preset_summaries": RENDER_PRESET_SUMMARIES,
         },
     )
 
@@ -463,6 +466,8 @@ def edit_render(request, render_id: int):
             "basic_fields": [form[field] for field in RENDER_BASIC_FIELDS],
             "advanced_fields": [form[field] for field in RENDER_ADVANCED_FIELDS],
             "config_content": preview_render_config(render_obj)[1],
+            "render_preset_defaults": RENDER_PRESET_DEFAULTS,
+            "render_preset_summaries": RENDER_PRESET_SUMMARIES,
             "title": "Edit Render",
             "submit_label": "Save Render",
         },

@@ -1,4 +1,5 @@
 import uuid
+from decimal import Decimal
 
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
@@ -178,6 +179,56 @@ class ProjectSetupViewTests(TestCase):
         render = atlas.renders.get(display_name="HD 4K")
         self.assertTrue(render.bluemap_map_id.startswith("render-"))
         uuid.UUID(render.bluemap_map_id.removeprefix("render-"))
+
+    def test_project_admin_create_render_applies_preset_defaults(self):
+        atlas = Atlas.objects.create(
+            project=self.project,
+            world_folder=self.world,
+            display_name="Overworld",
+        )
+
+        response = self.client_for(self.admin).post(
+            reverse("create_render", kwargs={"atlas_id": atlas.id}),
+            {
+                "display_name": "Night Map",
+                "dimension": Render.Dimension.OVERWORLD,
+                "custom_dimension": "",
+                "perspective_preset": Render.PerspectivePreset.NIGHT,
+                "sorting": 0,
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        render = atlas.renders.get(display_name="Night Map")
+        self.assertEqual(render.sky_color, "#1d2b53")
+        self.assertEqual(render.sky_light, Decimal("0.25"))
+        self.assertEqual(render.ambient_light, Decimal("0.05"))
+        self.assertTrue(render.enable_perspective_view)
+        self.assertTrue(render.enable_flat_view)
+
+    def test_project_admin_create_render_custom_preset_keeps_model_defaults(self):
+        atlas = Atlas.objects.create(
+            project=self.project,
+            world_folder=self.world,
+            display_name="Overworld",
+        )
+
+        response = self.client_for(self.admin).post(
+            reverse("create_render", kwargs={"atlas_id": atlas.id}),
+            {
+                "display_name": "Manual Map",
+                "dimension": Render.Dimension.OVERWORLD,
+                "custom_dimension": "",
+                "perspective_preset": Render.PerspectivePreset.CUSTOM,
+                "sorting": 0,
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        render = atlas.renders.get(display_name="Manual Map")
+        self.assertEqual(render.sky_color, "#7dabff")
+        self.assertEqual(render.sky_light, Decimal("1.00"))
+        self.assertEqual(render.ambient_light, Decimal("0.00"))
 
     def test_project_user_cannot_create_atlas_or_render(self):
         atlas = Atlas.objects.create(
@@ -415,6 +466,61 @@ class ProjectSetupViewTests(TestCase):
         self.assertContains(response, "readonly")
         self.assertContains(response, "name:")
         self.assertContains(response, "Standard")
+
+    def test_edit_render_uses_enhanced_form_controls(self):
+        BlueMapProfile.objects.create(name="Default", slug="default")
+        atlas = Atlas.objects.create(
+            project=self.project,
+            world_folder=self.world,
+            display_name="Overworld",
+        )
+        render = Render.objects.create(
+            atlas=atlas,
+            display_name="Standard",
+            dimension=Render.Dimension.OVERWORLD,
+        )
+
+        response = self.client_for(self.admin).get(
+            reverse("edit_render", kwargs={"render_id": render.id}),
+        )
+
+        self.assertContains(response, 'type="color"')
+        self.assertContains(response, 'type="range"')
+        self.assertContains(response, "data-range-control")
+        self.assertContains(response, 'class="toggle toggle-primary"')
+        self.assertContains(response, "collapse collapse-arrow")
+        self.assertContains(response, "Advanced Settings")
+        self.assertContains(response, "data-render-preset-form")
+        self.assertContains(response, "data-apply-render-preset")
+        self.assertContains(response, "Apply Preset Settings")
+
+    def test_render_forms_hide_custom_dimension_until_custom_dimension_selected(self):
+        BlueMapProfile.objects.create(name="Default", slug="default")
+        atlas = Atlas.objects.create(
+            project=self.project,
+            world_folder=self.world,
+            display_name="Overworld",
+        )
+        render = Render.objects.create(
+            atlas=atlas,
+            display_name="Standard",
+            dimension=Render.Dimension.OVERWORLD,
+        )
+
+        edit_response = self.client_for(self.admin).get(
+            reverse("edit_render", kwargs={"render_id": render.id}),
+        )
+        atlas_response = self.client_for(self.admin).get(
+            reverse("atlas_detail", kwargs={"atlas_id": atlas.id}),
+        )
+
+        self.assertContains(edit_response, "data-dimension-select")
+        self.assertContains(edit_response, "data-custom-dimension-wrapper")
+        self.assertContains(edit_response, "mod/datapack dimension key")
+        self.assertContains(edit_response, "Preset defaults for the advanced render fields")
+        self.assertContains(atlas_response, "data-dimension-select")
+        self.assertContains(atlas_response, "data-custom-dimension-wrapper")
+        self.assertContains(atlas_response, "data-render-preset-summary")
 
     def test_project_admin_can_archive_render(self):
         atlas = Atlas.objects.create(

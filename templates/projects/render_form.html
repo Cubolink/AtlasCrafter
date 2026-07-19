@@ -26,41 +26,133 @@
     </dl>
   </section>
 
-  <div role="tablist" class="tabs tabs-bordered mb-5">
-    <input type="radio" name="render_editor_tabs" role="tab" class="tab" aria-label="Friendly Editor" checked>
-    <div role="tabpanel" class="tab-content pt-5">
-      <section class="panel">
-        <form method="post">
-          {% csrf_token %}
-          {% for field in basic_fields %}
-            <p>
-              {{ field.label_tag }}
-              {{ field }}
-              {% if field.help_text %}<span class="muted">{{ field.help_text }}</span>{% endif %}
-              {{ field.errors }}
-            </p>
-          {% endfor %}
+  <div class="mb-5">
+    <div role="tablist" class="tabs tabs-bordered">
+      <a href="#friendly-editor" role="tab" class="tab tab-active" data-editor-tab="friendly">Friendly Editor</a>
+      <a href="#raw-config" role="tab" class="tab" data-editor-tab="raw">Raw Config</a>
+    </div>
 
-          <section>
-            <h2>Advanced Settings</h2>
-            {% for field in advanced_fields %}
-              <p>
-                {{ field.label_tag }}
-                {{ field }}
-                {% if field.help_text %}<span class="muted">{{ field.help_text }}</span>{% endif %}
-                {{ field.errors }}
-              </p>
+    <div class="pt-5" data-editor-panel="friendly">
+      <section class="panel">
+        <form method="post" data-render-preset-form>
+          {% csrf_token %}
+          <div class="form-grid">
+            {% for field in basic_fields %}
+              {% if field.name == 'custom_dimension' %}
+              {% elif field.name == 'dimension' %}
+                <div class="form-field">
+                  {{ field.label_tag }}
+                  {{ field }}
+                  {% if field.help_text %}<span class="form-help">{{ field.help_text }}</span>{% endif %}
+                  {% if field.errors %}<div class="form-errors">{{ field.errors }}</div>{% endif %}
+                  <div class="mt-4 hidden border-t border-base-300 pt-4" data-custom-dimension-wrapper>
+                    {{ form.custom_dimension.label_tag }}
+                    {{ form.custom_dimension }}
+                    {% if form.custom_dimension.help_text %}<span class="form-help">{{ form.custom_dimension.help_text }}</span>{% endif %}
+                    {% if form.custom_dimension.errors %}<div class="form-errors">{{ form.custom_dimension.errors }}</div>{% endif %}
+                  </div>
+                </div>
+              {% elif field.name == 'perspective_preset' %}
+                <div class="form-field form-field-wide">
+                  <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div class="min-w-0 flex-1">
+                      {{ field.label_tag }}
+                      {{ field }}
+                      {% if field.help_text %}<span class="form-help">{{ field.help_text }}</span>{% endif %}
+                      <span class="form-help" data-render-preset-summary></span>
+                      {% if field.errors %}<div class="form-errors">{{ field.errors }}</div>{% endif %}
+                    </div>
+                    <button class="btn btn-outline btn-sm mt-1" type="button" data-apply-render-preset>
+                      Apply Preset Settings
+                    </button>
+                  </div>
+                </div>
+              {% else %}
+              <div class="form-field {% if field.field.widget.input_type == 'checkbox' %}flex items-center justify-between gap-4{% endif %}">
+                {% if field.field.widget.input_type == 'checkbox' %}
+                  <div>
+                    {{ field.label_tag }}
+                    {% if field.help_text %}<span class="form-help">{{ field.help_text }}</span>{% endif %}
+                    {% if field.errors %}<div class="form-errors">{{ field.errors }}</div>{% endif %}
+                  </div>
+                  {{ field }}
+                {% else %}
+                  {{ field.label_tag }}
+                  {{ field }}
+                  {% if field.help_text %}<span class="form-help">{{ field.help_text }}</span>{% endif %}
+                  {% if field.errors %}<div class="form-errors">{{ field.errors }}</div>{% endif %}
+                {% endif %}
+              </div>
+              {% endif %}
             {% endfor %}
-          </section>
+          </div>
+
+          <details class="collapse collapse-arrow mt-5 rounded-lg border border-base-300 bg-base-100">
+            <summary class="collapse-title text-lg font-semibold">Advanced Settings</summary>
+            <div class="collapse-content">
+              <div class="form-grid pt-2">
+                {% for field in advanced_fields %}
+                  <div class="form-field {% if field.name == 'storage_profile' %}form-field-wide{% endif %} {% if field.field.widget.input_type == 'checkbox' %}flex items-center justify-between gap-4{% endif %}">
+                    {% if field.field.widget.input_type == 'checkbox' %}
+                      <div>
+                        {{ field.label_tag }}
+                        {% if field.help_text %}<span class="form-help">{{ field.help_text }}</span>{% endif %}
+                        {% if field.errors %}<div class="form-errors">{{ field.errors }}</div>{% endif %}
+                      </div>
+                      {{ field }}
+                    {% elif field.name == 'sky_color' or field.name == 'void_color' %}
+                      {{ field.label_tag }}
+                      <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
+                        <input
+                          type="color"
+                          value="{{ field.value|default:'#000000' }}"
+                          data-color-picker="{{ field.id_for_label }}"
+                          aria-label="{{ field.label }} picker"
+                        >
+                        {{ field }}
+                      </div>
+                      {% if field.help_text %}<span class="form-help">{{ field.help_text }}</span>{% endif %}
+                      {% if field.errors %}<div class="form-errors">{{ field.errors }}</div>{% endif %}
+                    {% elif field.name == 'sky_light' or field.name == 'ambient_light' or field.name == 'edge_light_strength' %}
+                      {{ field.label_tag }}
+                      <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
+                        <input
+                          class="range range-primary min-w-0 flex-1"
+                          type="range"
+                          min="{{ field.field.widget.attrs.min }}"
+                          max="{{ field.field.widget.attrs.max }}"
+                          step="{{ field.field.widget.attrs.step }}"
+                          value="{{ field.value|default:field.field.initial }}"
+                          data-range-control="{{ field.id_for_label }}"
+                          aria-label="{{ field.label }} slider"
+                        >
+                        <div class="w-full sm:w-28">
+                          {{ field }}
+                        </div>
+                      </div>
+                      {% if field.help_text %}<span class="form-help">{{ field.help_text }}</span>{% endif %}
+                      {% if field.errors %}<div class="form-errors">{{ field.errors }}</div>{% endif %}
+                    {% else %}
+                      {{ field.label_tag }}
+                      {{ field }}
+                      {% if field.help_text %}<span class="form-help">{{ field.help_text }}</span>{% endif %}
+                      {% if field.errors %}<div class="form-errors">{{ field.errors }}</div>{% endif %}
+                    {% endif %}
+                  </div>
+                {% endfor %}
+              </div>
+            </div>
+          </details>
 
           {{ form.non_field_errors }}
-          <button type="submit">{{ submit_label }}</button>
+          <div class="mt-5">
+            <button type="submit">{{ submit_label }}</button>
+          </div>
         </form>
       </section>
     </div>
 
-    <input type="radio" name="render_editor_tabs" role="tab" class="tab" aria-label="Raw Config">
-    <div role="tabpanel" class="tab-content pt-5">
+    <div class="hidden pt-5" data-editor-panel="raw">
       <section class="panel">
         <div class="alert alert-info mb-4">
           <span>Raw config editing is coming next. For now this tab shows the generated config in read-only mode.</span>
@@ -69,4 +161,122 @@
       </section>
     </div>
   </div>
+
+  {{ render_preset_defaults|json_script:"render-preset-defaults" }}
+  {{ render_preset_summaries|json_script:"render-preset-summaries" }}
+  <script>
+    var renderPresetDefaults = JSON.parse(document.getElementById("render-preset-defaults").textContent);
+    var renderPresetSummaries = JSON.parse(document.getElementById("render-preset-summaries").textContent);
+
+    document.querySelectorAll("[data-editor-tab]").forEach(function (tab) {
+      tab.addEventListener("click", function (event) {
+        event.preventDefault();
+        var target = tab.dataset.editorTab;
+
+        document.querySelectorAll("[data-editor-tab]").forEach(function (otherTab) {
+          otherTab.classList.toggle("tab-active", otherTab.dataset.editorTab === target);
+        });
+
+        document.querySelectorAll("[data-editor-panel]").forEach(function (panel) {
+          panel.classList.toggle("hidden", panel.dataset.editorPanel !== target);
+        });
+      });
+    });
+
+    function syncCustomDimensionField(root) {
+      var dimensionSelect = root.querySelector("[data-dimension-select]");
+      var customInput = root.querySelector("[data-custom-dimension]");
+      var customWrapper = root.querySelector("[data-custom-dimension-wrapper]");
+      if (!dimensionSelect || !customInput || !customWrapper) return;
+
+      function updateCustomDimensionVisibility() {
+        var isCustom = dimensionSelect.value === "custom";
+        customWrapper.classList.toggle("hidden", !isCustom);
+        customInput.disabled = !isCustom;
+        customInput.required = isCustom;
+        if (!isCustom) customInput.value = "";
+      }
+
+      dimensionSelect.addEventListener("change", updateCustomDimensionVisibility);
+      updateCustomDimensionVisibility();
+    }
+
+    syncCustomDimensionField(document);
+
+    function setRenderPresetField(form, fieldName, value) {
+      var field = form.querySelector('[name="' + fieldName + '"]');
+      if (!field) return;
+
+      if (field.type === "checkbox") {
+        field.checked = Boolean(value);
+        field.dispatchEvent(new Event("change", { bubbles: true }));
+        return;
+      }
+
+      field.value = value;
+      field.dispatchEvent(new Event("input", { bubbles: true }));
+      field.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+
+    document.querySelectorAll("[data-render-preset-form]").forEach(function (form) {
+      var presetSelect = form.querySelector("[data-perspective-preset]");
+      var applyButton = form.querySelector("[data-apply-render-preset]");
+      var summary = form.querySelector("[data-render-preset-summary]");
+      if (!presetSelect) return;
+
+      function updatePresetUi() {
+        var preset = presetSelect.value;
+        if (summary) summary.textContent = renderPresetSummaries[preset] || "";
+        if (applyButton) {
+          var canApply = Boolean(renderPresetDefaults[preset]);
+          applyButton.disabled = !canApply;
+          applyButton.classList.toggle("btn-disabled", !canApply);
+        }
+      }
+
+      if (applyButton) {
+        applyButton.addEventListener("click", function () {
+          var defaults = renderPresetDefaults[presetSelect.value];
+          if (!defaults) return;
+
+          Object.keys(defaults).forEach(function (fieldName) {
+            setRenderPresetField(form, fieldName, defaults[fieldName]);
+          });
+        });
+      }
+
+      presetSelect.addEventListener("change", updatePresetUi);
+      updatePresetUi();
+    });
+
+    document.querySelectorAll("[data-color-picker]").forEach(function (picker) {
+      var valueInput = document.getElementById(picker.dataset.colorPicker);
+      if (!valueInput) return;
+
+      picker.addEventListener("input", function () {
+        valueInput.value = picker.value;
+      });
+
+      valueInput.addEventListener("input", function () {
+        if (/^#[0-9a-fA-F]{6}$/.test(valueInput.value)) {
+          picker.value = valueInput.value;
+        }
+      });
+    });
+
+    document.querySelectorAll("[data-range-control]").forEach(function (slider) {
+      var valueInput = document.getElementById(slider.dataset.rangeControl);
+      if (!valueInput) return;
+
+      slider.addEventListener("input", function () {
+        valueInput.value = slider.value;
+      });
+
+      valueInput.addEventListener("input", function () {
+        if (valueInput.value !== "") {
+          slider.value = valueInput.value;
+        }
+      });
+    });
+  </script>
 {% endblock %}

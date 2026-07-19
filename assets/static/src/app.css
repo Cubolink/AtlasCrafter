@@ -53,7 +53,7 @@
     @apply align-middle;
   }
 
-  input:not([type="checkbox"]):not([type="radio"]),
+  input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="range"]),
   select,
   textarea {
     @apply input input-bordered w-full max-w-2xl;
@@ -63,7 +63,15 @@
     @apply textarea textarea-bordered min-h-28;
   }
 
-  input[type="checkbox"] {
+  input[type="color"] {
+    @apply h-10 w-16 cursor-pointer rounded-md border border-base-300 bg-base-100 p-1;
+  }
+
+  input[type="range"] {
+    @apply cursor-pointer;
+  }
+
+  input[type="checkbox"]:not(.toggle) {
     @apply checkbox checkbox-sm checkbox-primary align-middle;
   }
 
@@ -195,5 +203,25 @@
 
   .menu form button {
     @apply btn btn-ghost btn-sm w-full justify-start font-normal;
+  }
+
+  .form-grid {
+    @apply grid gap-4 lg:grid-cols-2;
+  }
+
+  .form-field {
+    @apply rounded-lg border border-base-300 bg-base-100 p-4;
+  }
+
+  .form-field-wide {
+    @apply lg:col-span-2;
+  }
+
+  .form-help {
+    @apply mt-2 block text-sm text-base-content/60;
+  }
+
+  .form-errors {
+    @apply mt-2 text-sm text-error;
   }
 }

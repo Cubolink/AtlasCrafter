@@ -93,11 +93,80 @@
   {% if can_manage_project %}
     <section class="panel">
       <h2>Create Render</h2>
-      <form method="post" action="{% url 'create_render' atlas.id %}">
+      <form method="post" action="{% url 'create_render' atlas.id %}" data-render-form data-render-preset-form>
         {% csrf_token %}
-        {{ render_form.as_p }}
+        <div class="form-grid">
+          {% for field in render_form %}
+            {% if field.name == 'custom_dimension' %}
+            {% elif field.name == 'dimension' %}
+              <div class="form-field">
+                {{ field.label_tag }}
+                {{ field }}
+                {% if field.help_text %}<span class="form-help">{{ field.help_text }}</span>{% endif %}
+                {% if field.errors %}<div class="form-errors">{{ field.errors }}</div>{% endif %}
+                <div class="mt-4 hidden border-t border-base-300 pt-4" data-custom-dimension-wrapper>
+                  {{ render_form.custom_dimension.label_tag }}
+                  {{ render_form.custom_dimension }}
+                  {% if render_form.custom_dimension.help_text %}<span class="form-help">{{ render_form.custom_dimension.help_text }}</span>{% endif %}
+                  {% if render_form.custom_dimension.errors %}<div class="form-errors">{{ render_form.custom_dimension.errors }}</div>{% endif %}
+                </div>
+              </div>
+            {% elif field.name == 'perspective_preset' %}
+              <div class="form-field">
+                {{ field.label_tag }}
+                {{ field }}
+                {% if field.help_text %}<span class="form-help">{{ field.help_text }}</span>{% endif %}
+                <span class="form-help" data-render-preset-summary></span>
+                {% if field.errors %}<div class="form-errors">{{ field.errors }}</div>{% endif %}
+              </div>
+            {% else %}
+            <div class="form-field">
+              {{ field.label_tag }}
+              {{ field }}
+              {% if field.help_text %}<span class="form-help">{{ field.help_text }}</span>{% endif %}
+              {% if field.errors %}<div class="form-errors">{{ field.errors }}</div>{% endif %}
+            </div>
+            {% endif %}
+          {% endfor %}
+        </div>
+        {{ render_form.non_field_errors }}
         <button type="submit">Create Render</button>
       </form>
     </section>
   {% endif %}
+
+  {{ render_preset_summaries|json_script:"render-preset-summaries" }}
+  <script>
+    document.querySelectorAll("[data-render-form]").forEach(function (form) {
+      var dimensionSelect = form.querySelector("[data-dimension-select]");
+      var customInput = form.querySelector("[data-custom-dimension]");
+      var customWrapper = form.querySelector("[data-custom-dimension-wrapper]");
+      if (!dimensionSelect || !customInput || !customWrapper) return;
+
+      function updateCustomDimensionVisibility() {
+        var isCustom = dimensionSelect.value === "custom";
+        customWrapper.classList.toggle("hidden", !isCustom);
+        customInput.disabled = !isCustom;
+        customInput.required = isCustom;
+        if (!isCustom) customInput.value = "";
+      }
+
+      dimensionSelect.addEventListener("change", updateCustomDimensionVisibility);
+      updateCustomDimensionVisibility();
+    });
+
+    var renderPresetSummaries = JSON.parse(document.getElementById("render-preset-summaries").textContent);
+    document.querySelectorAll("[data-render-preset-form]").forEach(function (form) {
+      var presetSelect = form.querySelector("[data-perspective-preset]");
+      var summary = form.querySelector("[data-render-preset-summary]");
+      if (!presetSelect || !summary) return;
+
+      function updatePresetSummary() {
+        summary.textContent = renderPresetSummaries[presetSelect.value] || "";
+      }
+
+      presetSelect.addEventListener("change", updatePresetSummary);
+      updatePresetSummary();
+    });
+  </script>
 {% endblock %}
