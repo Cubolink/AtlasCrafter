@@ -6,6 +6,7 @@ from django.contrib.auth.decorators import user_passes_test
 from django.contrib.auth.forms import PasswordChangeForm
 from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from renders.models import RenderJob
@@ -63,12 +64,13 @@ def panel_jobs(request):
         "render__atlas__project",
         "requested_by",
     )
-    active_jobs = jobs.filter(
+    active_jobs = list(jobs.filter(
         status__in=[RenderJob.Status.QUEUED, RenderJob.Status.RUNNING],
-    ).order_by("created_at")
-    finished_jobs = jobs.exclude(
+    ).order_by("created_at"))
+    finished_jobs = list(jobs.exclude(
         status__in=[RenderJob.Status.QUEUED, RenderJob.Status.RUNNING],
-    ).order_by("-finished_at", "-updated_at")[:25]
+    ).order_by("-finished_at", "-updated_at")[:25])
+    add_elapsed_labels(active_jobs, finished_jobs)
 
     return render(
         request,
@@ -78,6 +80,33 @@ def panel_jobs(request):
             "finished_jobs": finished_jobs,
         },
     )
+
+
+def add_elapsed_labels(active_jobs, finished_jobs):
+    now = timezone.now()
+    for job in active_jobs:
+        started_at = job.started_at or job.created_at
+        job.elapsed_label = format_elapsed(now - started_at)
+
+    for job in finished_jobs:
+        started_at = job.started_at or job.created_at
+        finished_at = job.finished_at or job.updated_at
+        job.elapsed_label = format_elapsed(finished_at - started_at)
+
+
+def format_elapsed(delta):
+    total_seconds = max(0, int(delta.total_seconds()))
+    days, remainder = divmod(total_seconds, 86400)
+    hours, remainder = divmod(remainder, 3600)
+    minutes, seconds = divmod(remainder, 60)
+
+    if days:
+        return f"{days}d {hours:02d}h"
+    if hours:
+        return f"{hours}h {minutes:02d}m"
+    if minutes:
+        return f"{minutes}m {seconds:02d}s"
+    return f"{seconds}s"
 
 
 @login_required

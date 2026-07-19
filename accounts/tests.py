@@ -1,7 +1,11 @@
+from datetime import timedelta
+
 from django.contrib.auth.models import User
 from django.test import Client, TestCase
 from django.urls import reverse
+from django.utils import timezone
 
+from accounts.views import format_elapsed
 from projects.models import Atlas, Project, ProjectVisibleWorld, Render, WorldFolder
 from renders.models import RenderJob
 from .models import ProjectMembership
@@ -149,6 +153,27 @@ class PanelSettingsTests(TestCase):
         self.assertContains(response, "Succeeded")
         self.assertContains(response, render.display_name)
 
+    def test_panel_jobs_shows_elapsed_time(self):
+        render = self.create_render()
+        started_at = timezone.now() - timedelta(hours=1, minutes=30)
+        finished_at = timezone.now() - timedelta(minutes=5)
+        RenderJob.objects.create(
+            render=render,
+            status=RenderJob.Status.RUNNING,
+            started_at=started_at,
+        )
+        RenderJob.objects.create(
+            render=render,
+            status=RenderJob.Status.SUCCEEDED,
+            started_at=finished_at - timedelta(minutes=12, seconds=5),
+            finished_at=finished_at,
+        )
+
+        response = self.client.get(reverse("panel_jobs"))
+
+        self.assertContains(response, "1h 30m")
+        self.assertContains(response, "12m 05s")
+
     def test_staff_user_can_open_panel_job_detail(self):
         render = self.create_render()
         job = RenderJob.objects.create(render=render, status=RenderJob.Status.RUNNING)
@@ -267,3 +292,11 @@ class PanelSettingsTests(TestCase):
             display_name="Spawn Render",
             bluemap_map_id="spawn_render",
         )
+
+
+class ElapsedFormatTests(TestCase):
+    def test_format_elapsed_uses_compact_units(self):
+        self.assertEqual(format_elapsed(timedelta(seconds=42)), "42s")
+        self.assertEqual(format_elapsed(timedelta(minutes=3, seconds=5)), "3m 05s")
+        self.assertEqual(format_elapsed(timedelta(hours=2, minutes=7)), "2h 07m")
+        self.assertEqual(format_elapsed(timedelta(days=1, hours=4)), "1d 04h")
