@@ -302,3 +302,9 @@ On the first BlueMap CLI run, BlueMap may generate `core.conf` and ask you to se
 - Managing the Minecraft server process.
 - Requiring Crafty Controller or any specific game server panel.
 - Exposing BlueMap directly to the public internet.
+
+## License
+
+AtlasCrafter is licensed under the MIT License. See [LICENSE](LICENSE).
+
+BlueMap is a separate project and is not bundled with AtlasCrafter. You must provide your own BlueMap CLI jar and comply with BlueMap, Minecraft, Mojang, and any mod or resource licenses for the worlds and assets you render.
