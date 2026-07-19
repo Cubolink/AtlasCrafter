@@ -114,6 +114,12 @@
     @apply min-h-screen bg-base-200;
   }
 
+  @media (min-width: 1024px) {
+    .app-shell {
+      grid-template-columns: var(--app-sidebar-width) minmax(0, 1fr);
+    }
+  }
+
   .app-sidebar {
     width: var(--app-sidebar-width);
     @apply min-h-full bg-app-sidebar text-[color:var(--app-sidebar-fg)];
@@ -124,7 +130,7 @@
   }
 
   .app-main {
-    @apply min-h-screen lg:pl-sidebar;
+    @apply min-h-screen;
   }
 
   .app-topbar {
@@ -211,7 +217,8 @@
   }
 
   .menu form button.text-error {
-    @apply text-error hover:bg-error/10 hover:text-error;
+    color: var(--fallback-er, oklch(var(--er) / 1));
+    @apply hover:bg-error/10;
   }
 
   .menu a,
