@@ -1,6 +1,7 @@
 import hashlib
 import os
 import shlex
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -154,11 +155,17 @@ def write_managed_file(path: Path, content: str) -> None:
     path.write_text(content, encoding="utf-8")
 
 
-def build_command(render_config: BlueMapRenderConfig) -> list[str]:
+def build_command(
+    render_config: BlueMapRenderConfig,
+    *,
+    force_render: bool = False,
+) -> list[str]:
     command_string = render_config.profile.command_template.format(**render_config.context())
     command = shlex.split(command_string, posix=os.name != "nt")
     command = [argument.strip('"') for argument in command]
     command = add_bluemap_render_options(command, render_config.render)
+    if force_render and not has_command_option(command, "-f", "--force-render"):
+        command.append("--force-render")
     if command and command[0].lower().endswith(".jar"):
         command = [
             settings.BLUEMAP_JAVA_PATH,
@@ -270,14 +277,21 @@ def cancel_queued_render_job(job: RenderJob, user=None) -> bool:
         return True
 
 
-def enqueue_render(render: Render, requested_by=None) -> RenderJob:
+def enqueue_render(
+    render: Render,
+    requested_by=None,
+    operation: str = RenderJob.Operation.UPDATE,
+) -> RenderJob:
     if requested_by is not None and not user_can_trigger_render(requested_by, render):
         raise PermissionDenied("You do not have permission to trigger this Render.")
+    if operation not in RenderJob.Operation.values:
+        raise RenderConfigurationError(f"Unsupported Render job operation: {operation}")
 
     if not render_world_folder_is_available(render):
         job = RenderJob.objects.create(
             render=render,
             requested_by=requested_by,
+            operation=operation,
             status=RenderJob.Status.FAILED,
             finished_at=timezone.now(),
         )
@@ -290,7 +304,11 @@ def enqueue_render(render: Render, requested_by=None) -> RenderJob:
             status__in=ACTIVE_RENDER_STATUSES,
         ).exists():
             raise RenderConfigurationError("This Render already has a queued or running job.")
-        job = RenderJob.objects.create(render=render, requested_by=requested_by)
+        job = RenderJob.objects.create(
+            render=render,
+            requested_by=requested_by,
+            operation=operation,
+        )
 
     return job
 
@@ -332,6 +350,7 @@ def claim_next_queued_job(max_running: int | None = None) -> RenderJob | None:
 def execute_render_job(job: RenderJob) -> RenderJob:
     render = job.render
     command = []
+    rebuild_paths = []
     try:
         if not render_world_folder_is_available(render):
             log_world_folder_unavailable(render, job)
@@ -341,7 +360,10 @@ def execute_render_job(job: RenderJob) -> RenderJob:
 
         render_config = get_or_create_render_config(render)
         write_render_config(render_config, job.requested_by)
-        command = build_command(render_config)
+        command = build_command(
+            render_config,
+            force_render=job.operation == RenderJob.Operation.REBUILD,
+        )
         settings.BLUEMAP_TMP_DIR.mkdir(parents=True, exist_ok=True)
         process_env = os.environ.copy()
         process_env["TMP"] = str(settings.BLUEMAP_TMP_DIR)
@@ -350,6 +372,9 @@ def execute_render_job(job: RenderJob) -> RenderJob:
         job.status = RenderJob.Status.RUNNING
         job.started_at = timezone.now()
         job.save(update_fields=["command", "status", "started_at", "updated_at"])
+
+        if job.operation == RenderJob.Operation.REBUILD:
+            rebuild_paths = stage_render_output_rebuild(render, job)
 
         result = subprocess.run(
             command,
@@ -403,10 +428,97 @@ def execute_render_job(job: RenderJob) -> RenderJob:
         job.exit_code = None
         RenderLogChunk.objects.create(job=job, stream="stderr", content=str(exc))
     finally:
+        if rebuild_paths:
+            try:
+                if job.status == RenderJob.Status.SUCCEEDED:
+                    discard_render_output_backups(rebuild_paths)
+                else:
+                    restore_render_output_backups(rebuild_paths)
+            except Exception as exc:
+                job.status = RenderJob.Status.FAILED
+                RenderLogChunk.objects.create(
+                    job=job,
+                    stream="stderr",
+                    content=f"Could not finalize the Render rebuild: {exc}",
+                )
         job.finished_at = timezone.now()
         job.save(update_fields=["status", "exit_code", "finished_at", "updated_at"])
 
     return job
+
+
+def stage_render_output_rebuild(render: Render, job: RenderJob) -> list[tuple[Path, Path | None]]:
+    maps_root = (settings.BLUEMAP_WEBROOT_DIR / "maps").resolve()
+    maps_root.mkdir(parents=True, exist_ok=True)
+    staged_paths = []
+
+    try:
+        for map_id in bluemap_output_map_ids(render):
+            candidate = maps_root / map_id
+            if candidate.is_symlink():
+                raise RenderConfigurationError(
+                    f"Refusing to rebuild symlinked BlueMap output path: {candidate}"
+                )
+
+            target = candidate.resolve(strict=False)
+            if target.parent != maps_root:
+                raise RenderConfigurationError(
+                    f"Refusing to rebuild unsafe BlueMap output path: {target}"
+                )
+
+            backup = maps_root / f".rebuild-job-{job.id}-{map_id}"
+            if backup.exists() or backup.is_symlink():
+                raise RenderConfigurationError(
+                    f"A previous rebuild backup already exists: {backup}"
+                )
+
+            if target.exists():
+                if not target.is_dir():
+                    raise RenderConfigurationError(
+                        f"BlueMap output path is not a directory: {target}"
+                    )
+                target.replace(backup)
+                staged_paths.append((target, backup))
+            else:
+                staged_paths.append((target, None))
+
+        replaced = [target.name for target, backup in staged_paths if backup is not None]
+        detail = ", ".join(replaced) if replaced else "no previous map output"
+        RenderLogChunk.objects.create(
+            job=job,
+            stream="stdout",
+            content=f"Starting full Render rebuild; staged {detail}.",
+        )
+    except Exception:
+        restore_render_output_backups(staged_paths)
+        raise
+
+    return staged_paths
+
+
+def restore_render_output_backups(staged_paths: list[tuple[Path, Path | None]]) -> None:
+    for target, backup in reversed(staged_paths):
+        remove_render_output_path(target)
+        if backup is not None and backup.exists():
+            backup.replace(target)
+
+
+def discard_render_output_backups(staged_paths: list[tuple[Path, Path | None]]) -> None:
+    for _, backup in staged_paths:
+        if backup is not None:
+            remove_render_output_path(backup)
+
+
+def remove_render_output_path(path: Path) -> None:
+    if not path.exists():
+        return
+    if path.is_symlink() or not path.is_dir():
+        raise RenderConfigurationError(f"Refusing to remove unsafe BlueMap output path: {path}")
+    shutil.rmtree(path)
+
+
+def bluemap_output_map_ids(render: Render) -> list[str]:
+    return sorted({render.bluemap_map_id, render.bluemap_map_id.replace("-", "_")})
 
 
 def render_world_folder_is_available(render: Render) -> bool:

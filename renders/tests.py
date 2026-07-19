@@ -1,5 +1,6 @@
 from tempfile import TemporaryDirectory
 from pathlib import Path
+from unittest.mock import Mock, patch
 
 from django.test import TestCase, override_settings
 
@@ -107,6 +108,14 @@ class RenderRunnerTests(TestCase):
                 self.assertEqual(command[0], "C:/Java/bin/java.exe")
                 self.assertEqual(command[2:4], ["-jar", "C:/Tools/BlueMap-cli.jar"])
 
+    def test_build_command_can_force_full_render(self):
+        render = self.create_render()
+        render_config = get_or_create_render_config(render)
+
+        command = build_command(render_config, force_render=True)
+
+        self.assertIn("--force-render", command)
+
     def test_build_command_discovers_forge_mods_and_minecraft_version(self):
         with TemporaryDirectory() as config_dir, TemporaryDirectory() as webroot_dir:
             with override_settings(
@@ -195,7 +204,16 @@ class RenderRunnerTests(TestCase):
         job = enqueue_render(render)
 
         self.assertEqual(job.status, RenderJob.Status.QUEUED)
+        self.assertEqual(job.operation, RenderJob.Operation.UPDATE)
         self.assertIsNone(job.started_at)
+
+    def test_enqueue_render_can_queue_rebuild(self):
+        render = self.create_render()
+
+        job = enqueue_render(render, operation=RenderJob.Operation.REBUILD)
+
+        self.assertEqual(job.status, RenderJob.Status.QUEUED)
+        self.assertEqual(job.operation, RenderJob.Operation.REBUILD)
 
     def test_enqueue_render_fails_and_archives_world_when_world_folder_is_missing(self):
         render = self.create_render()
@@ -246,6 +264,67 @@ class RenderRunnerTests(TestCase):
 
         self.assertEqual(job.status, RenderJob.Status.FAILED)
         self.assertTrue(job.log_chunks.filter(content__contains="Restore the World Folder").exists())
+
+    def test_successful_rebuild_replaces_previous_map_output(self):
+        with TemporaryDirectory() as config_dir, TemporaryDirectory() as webroot_dir:
+            webroot = Path(webroot_dir)
+            render = self.create_render()
+            map_dir = webroot / "maps" / render.bluemap_map_id.replace("-", "_")
+            map_dir.mkdir(parents=True)
+            (map_dir / "old-tile").write_text("old", encoding="utf-8")
+            job = RenderJob.objects.create(
+                render=render,
+                operation=RenderJob.Operation.REBUILD,
+            )
+
+            def complete_rebuild(*args, **kwargs):
+                map_dir.mkdir(parents=True)
+                (map_dir / "new-tile").write_text("new", encoding="utf-8")
+                return Mock(returncode=0, stdout="Rebuilt", stderr="")
+
+            with override_settings(
+                BLUEMAP_CLI_PATH="bluemap",
+                BLUEMAP_CONFIG_DIR=Path(config_dir),
+                BLUEMAP_WEBROOT_DIR=webroot,
+                BLUEMAP_TMP_DIR=Path(config_dir) / "tmp",
+            ), patch("renders.services.subprocess.run", side_effect=complete_rebuild):
+                job = execute_render_job(job)
+
+            self.assertEqual(job.status, RenderJob.Status.SUCCEEDED)
+            self.assertIn("--force-render", job.command)
+            self.assertFalse((map_dir / "old-tile").exists())
+            self.assertTrue((map_dir / "new-tile").exists())
+            self.assertFalse(any((webroot / "maps").glob(".rebuild-job-*")))
+
+    def test_failed_rebuild_restores_previous_map_output(self):
+        with TemporaryDirectory() as config_dir, TemporaryDirectory() as webroot_dir:
+            webroot = Path(webroot_dir)
+            render = self.create_render()
+            map_dir = webroot / "maps" / render.bluemap_map_id.replace("-", "_")
+            map_dir.mkdir(parents=True)
+            (map_dir / "old-tile").write_text("old", encoding="utf-8")
+            job = RenderJob.objects.create(
+                render=render,
+                operation=RenderJob.Operation.REBUILD,
+            )
+
+            def fail_rebuild(*args, **kwargs):
+                map_dir.mkdir(parents=True)
+                (map_dir / "partial-tile").write_text("partial", encoding="utf-8")
+                return Mock(returncode=1, stdout="", stderr="Render failed")
+
+            with override_settings(
+                BLUEMAP_CLI_PATH="bluemap",
+                BLUEMAP_CONFIG_DIR=Path(config_dir),
+                BLUEMAP_WEBROOT_DIR=webroot,
+                BLUEMAP_TMP_DIR=Path(config_dir) / "tmp",
+            ), patch("renders.services.subprocess.run", side_effect=fail_rebuild):
+                job = execute_render_job(job)
+
+            self.assertEqual(job.status, RenderJob.Status.FAILED)
+            self.assertTrue((map_dir / "old-tile").exists())
+            self.assertFalse((map_dir / "partial-tile").exists())
+            self.assertFalse(any((webroot / "maps").glob(".rebuild-job-*")))
 
     def test_claim_next_queued_job_respects_global_running_limit(self):
         first_render = self.create_render()

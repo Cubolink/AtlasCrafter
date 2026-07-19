@@ -2,6 +2,10 @@ from django.db import models
 
 
 class RenderJob(models.Model):
+    class Operation(models.TextChoices):
+        UPDATE = "update", "Update"
+        REBUILD = "rebuild", "Rebuild"
+
     class Status(models.TextChoices):
         QUEUED = "queued", "Queued"
         RUNNING = "running", "Running"
@@ -13,6 +17,11 @@ class RenderJob(models.Model):
         "projects.Render",
         on_delete=models.CASCADE,
         related_name="jobs",
+    )
+    operation = models.CharField(
+        max_length=20,
+        choices=Operation.choices,
+        default=Operation.UPDATE,
     )
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.QUEUED)
     command = models.JSONField(default=list, blank=True)

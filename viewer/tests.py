@@ -214,6 +214,40 @@ class RenderViewerStateTests(TestCase):
 
         self.assertContains(response, reverse("edit_render", kwargs={"render_id": self.render.id}))
         self.assertContains(response, reverse("archive_render", kwargs={"render_id": self.render.id}))
+        self.assertContains(response, reverse("rebuild_render", kwargs={"render_id": self.render.id}))
+        self.assertContains(response, "Rebuild all tiles")
+
+    def test_admin_can_queue_full_rebuild(self):
+        with TemporaryDirectory() as world_dir:
+            world_path = Path(world_dir)
+            (world_path / "level.dat").write_bytes(b"")
+            self.world.source_path = str(world_path)
+            self.world.save(update_fields=["source_path"])
+
+            response = self.client.post(
+                reverse("rebuild_render", kwargs={"render_id": self.render.id})
+            )
+
+        self.assertEqual(response.status_code, 302)
+        job = self.render.jobs.get()
+        self.assertEqual(job.operation, RenderJob.Operation.REBUILD)
+        self.assertEqual(job.status, RenderJob.Status.QUEUED)
+
+    def test_project_user_cannot_rebuild_render(self):
+        project_user = User.objects.create_user(username="rebuild-viewer", password="password")
+        ProjectMembership.objects.create(
+            user=project_user,
+            project=self.project,
+            role=ProjectMembership.Role.PROJECT_USER,
+        )
+        self.client.force_login(project_user)
+
+        response = self.client.post(
+            reverse("rebuild_render", kwargs={"render_id": self.render.id})
+        )
+
+        self.assertEqual(response.status_code, 403)
+        self.assertFalse(self.render.jobs.exists())
 
     def test_admin_can_preview_generated_render_config(self):
         BlueMapProfile.objects.create(name="Default", slug="default")

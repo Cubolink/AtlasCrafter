@@ -266,6 +266,8 @@ When `BLUEMAP_CLI_PATH` ends in `.jar`, the render runner automatically executes
 java -jar "<BLUEMAP_CLI_PATH>" -c "<BLUEMAP_CONFIG_DIR>" -r
 ```
 
+Project Administrators can also choose **Rebuild Render** when Minecraft resources or render settings require every tile to be regenerated. A rebuild temporarily moves only that map's existing BlueMap output aside, runs BlueMap with `--force-render`, and removes the backup after success. If BlueMap fails or times out, the worker restores the previous generated map.
+
 If BlueMap is not installed or `BLUEMAP_CLI_PATH` is wrong, the render job fails with a log explaining what needs to be configured.
 
 If a World Folder is archived, new render jobs for its existing Renders are blocked and a direct trigger attempt creates a failed job explaining that the World Folder must be restored first. If the physical folder disappears from disk, scan and render-time checks archive the World Folder and record a job log explaining the missing `level.dat`.

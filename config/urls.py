@@ -45,6 +45,7 @@ from projects.views import (
 )
 from viewer.views import (
     cancel_render_job,
+    rebuild_render,
     render_config_preview,
     render_job_detail,
     render_status,
@@ -116,6 +117,7 @@ urlpatterns = [
     path('renders/<int:render_id>/config-preview/', render_config_preview, name='render_config_preview'),
     path('renders/<int:render_id>/status/', render_status, name='render_status'),
     path('renders/<int:render_id>/trigger/', trigger_render, name='trigger_render'),
+    path('renders/<int:render_id>/rebuild/', rebuild_render, name='rebuild_render'),
     path('jobs/<int:job_id>/', render_job_detail, name='render_job_detail'),
     path('jobs/<int:job_id>/cancel/', cancel_render_job, name='cancel_render_job'),
     path(

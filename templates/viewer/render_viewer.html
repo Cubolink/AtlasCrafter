@@ -56,6 +56,14 @@
             <ul class="dropdown-content menu z-10 w-52 rounded-lg border border-base-300 bg-base-100 p-2 shadow">
               {% if can_manage_render %}
                 <li><a href="{% url 'edit_render' render.id %}">{% icon "pencil" %} Edit Render</a></li>
+                <li>
+                  <button
+                    type="button"
+                    onclick="document.getElementById('rebuild-render-modal').showModal()"
+                  >
+                    {% icon "refresh-cw" %} Rebuild Render
+                  </button>
+                </li>
               {% endif %}
               {% if can_trigger_render %}
                 <li><a href="{% url 'render_config_preview' render.id %}">{% icon "file-code" %} Preview Config</a></li>
@@ -111,6 +119,40 @@
     {% endif %}
   </section>
 
+  {% if can_manage_render %}
+    <dialog id="rebuild-render-modal" class="modal">
+      <div class="modal-box">
+        <h2 class="flex items-center gap-2">{% icon "refresh-cw" %}Rebuild Render</h2>
+        <p>
+          Rebuild every generated tile for <strong>{{ render.display_name }}</strong> using
+          the current BlueMap configuration and Minecraft resources.
+        </p>
+        <p class="text-base-content/70">
+          The map may be unavailable while this long-running job completes. If BlueMap
+          fails, the current generated map will be restored.
+        </p>
+        <div class="modal-action">
+          <form method="dialog">
+            <button class="btn btn-ghost" type="submit">Cancel</button>
+          </form>
+          <form method="post" action="{% url 'rebuild_render' render.id %}">
+            {% csrf_token %}
+            <button
+              class="btn btn-warning"
+              type="submit"
+              {% if has_active_job or not source_available %}disabled{% endif %}
+            >
+              {% icon "refresh-cw" %} Rebuild all tiles
+            </button>
+          </form>
+        </div>
+      </div>
+      <form method="dialog" class="modal-backdrop">
+        <button type="submit">Close</button>
+      </form>
+    </dialog>
+  {% endif %}
+
   {% if render_output_exists %}
     <section class="panel">
       <h2>{% icon "monitor" "icon-heading" %}BlueMap Viewer</h2>
@@ -135,6 +177,7 @@
           <div class="row">
             <strong>
               <a class="inline-flex items-center gap-2" href="{% url 'render_job_detail' job.id %}">{% icon "activity" %} Job #{{ job.id }}</a>
+              <span class="badge badge-outline">{{ job.get_operation_display }}</span>
               <span class="status-{{ job.status }}">{{ job.get_status_display }}</span>
             </strong>
             <span class="muted">{{ job.created_at }}</span>

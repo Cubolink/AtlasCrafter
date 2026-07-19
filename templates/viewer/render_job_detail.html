@@ -20,6 +20,8 @@
   <section class="panel">
     <p class="muted">{{ render.project.name }} / {{ render.atlas.display_name }} / {{ render.display_name }}</p>
     <dl>
+      <dt>Operation</dt>
+      <dd>{{ job.get_operation_display }}</dd>
       <dt>Status</dt>
       <dd><span class="status-{{ job.status }}">{{ job.get_status_display }}</span></dd>
       <dt>Requested by</dt>

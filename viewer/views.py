@@ -114,6 +114,35 @@ def trigger_render(request, render_id: int):
 
 
 @login_required
+@require_POST
+def rebuild_render(request, render_id: int):
+    render_obj = get_visible_render_or_404(request, render_id)
+    if not can_manage_project(request.user, render_obj.project):
+        raise PermissionDenied("You do not have permission to rebuild this Render.")
+
+    if has_active_render_job(render_obj):
+        messages.warning(request, "This Render already has a queued or running job.")
+        return redirect("render_viewer", render_id=render_obj.id)
+
+    job = enqueue_render(
+        render_obj,
+        requested_by=request.user,
+        operation=RenderJob.Operation.REBUILD,
+    )
+    if job.status == RenderJob.Status.FAILED:
+        messages.error(
+            request,
+            (
+                f"Rebuild job #{job.id} failed before queueing because the Minecraft "
+                "world folder is archived or missing."
+            ),
+        )
+    else:
+        messages.success(request, f"Full rebuild job #{job.id} queued.")
+    return redirect("render_viewer", render_id=render_obj.id)
+
+
+@login_required
 def render_job_detail(request, job_id: int):
     job = get_visible_job_or_404(request, job_id)
     return render(
@@ -164,6 +193,8 @@ def serialize_job(job):
         return None
     return {
         "id": job.id,
+        "operation": job.operation,
+        "operation_label": job.get_operation_display(),
         "status": job.status,
         "status_label": job.get_status_display(),
         "updated_at": job.updated_at.isoformat(),

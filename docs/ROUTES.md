@@ -89,6 +89,7 @@ Project Administrators for the Project and superadmins can use these routes. Pro
 | `GET` | `/renders/<render_id>/` | `render_viewer` | Render detail page and scoped BlueMap viewer frame. |
 | `GET` | `/renders/<render_id>/config-preview/` | `render_config_preview` | Preview generated BlueMap map config. |
 | `POST` | `/renders/<render_id>/trigger/` | `trigger_render` | Queue render job, or create failed job if source World Folder is archived/missing. |
+| `POST` | `/renders/<render_id>/rebuild/` | `rebuild_render` | Project Admin-only purge and full rebuild using current config and Minecraft resources. |
 | `GET` | `/renders/<render_id>/status/` | `render_status` | JSON status endpoint used by polling while a job is active. |
 | `GET` | `/jobs/<job_id>/` | `render_job_detail` | Render job detail and logs. |
 | `POST` | `/jobs/<job_id>/cancel/` | `cancel_render_job` | Cancel queued job when permitted. |
@@ -103,6 +104,8 @@ Project Administrators for the Project and superadmins can use these routes. Pro
   "has_active_job": true,
   "job": {
     "id": 1,
+    "operation": "update",
+    "operation_label": "Update",
     "status": "running",
     "status_label": "Running",
     "updated_at": "2026-07-18T12:00:00+00:00",

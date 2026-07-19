@@ -16,8 +16,16 @@ class RenderArtifactInline(admin.TabularInline):
 
 @admin.register(RenderJob)
 class RenderJobAdmin(admin.ModelAdmin):
-    list_display = ("render", "status", "progress", "exit_code", "created_at", "finished_at")
-    list_filter = ("status",)
+    list_display = (
+        "render",
+        "operation",
+        "status",
+        "progress",
+        "exit_code",
+        "created_at",
+        "finished_at",
+    )
+    list_filter = ("operation", "status")
     search_fields = ("render__display_name", "render__bluemap_map_id")
     autocomplete_fields = ("render", "requested_by")
     inlines = (RenderLogChunkInline, RenderArtifactInline)
