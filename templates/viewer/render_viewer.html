@@ -56,19 +56,20 @@
             <ul class="dropdown-content menu z-10 w-52 rounded-lg border border-base-300 bg-base-100 p-2 shadow">
               {% if can_manage_render %}
                 <li><a href="{% url 'edit_render' render.id %}">{% icon "pencil" %} Edit Render</a></li>
-                <li>
-                  <button
-                    type="button"
-                    onclick="document.getElementById('rebuild-render-modal').showModal()"
-                  >
-                    {% icon "refresh-cw" %} Rebuild Render
-                  </button>
-                </li>
               {% endif %}
               {% if can_trigger_render %}
                 <li><a href="{% url 'render_config_preview' render.id %}">{% icon "file-code" %} Preview Config</a></li>
               {% endif %}
               {% if can_manage_render %}
+                <li>
+                  <a
+                    href="#rebuild-render-modal"
+                    role="button"
+                    onclick="event.preventDefault(); document.getElementById('rebuild-render-modal').showModal()"
+                  >
+                    {% icon "refresh-cw" %} Rebuild Render
+                  </a>
+                </li>
                 <li>
                   <form method="post" action="{% url 'archive_render' render.id %}">
                     {% csrf_token %}

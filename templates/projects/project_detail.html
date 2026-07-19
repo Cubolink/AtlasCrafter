@@ -41,29 +41,29 @@
                 <h3><a class="inline-flex items-center gap-2" href="{% url 'atlas_detail' atlas.id %}">{% icon "map" %} {{ atlas.display_name }}</a></h3>
                 <p class="muted flex items-center gap-2">{% icon "folder-open" %} {{ atlas.world_folder.source_path }}</p>
               </div>
-              <div class="flex flex-wrap gap-2">
+              <div class="flex flex-wrap items-center justify-end gap-2">
                 <span class="badge badge-outline">{% icon "layers" %} {{ section.renders.count }} renders</span>
                 {% if can_manage_project and section.archived_render_count %}
                   <span class="badge badge-neutral badge-outline">{% icon "archive" %} {{ section.archived_render_count }} archived</span>
+                {% endif %}
+                {% if can_manage_project %}
+                  <div class="dropdown dropdown-end">
+                    <button class="btn btn-ghost btn-sm" tabindex="0" type="button">{% icon "more-horizontal" %} Manage</button>
+                    <ul class="dropdown-content menu z-10 w-48 rounded-lg border border-base-300 bg-base-100 p-2 shadow">
+                      <li><a href="{% url 'edit_atlas' atlas.id %}">{% icon "pencil" %} Edit Atlas</a></li>
+                      <li>
+                        <form method="post" action="{% url 'archive_atlas' atlas.id %}">
+                          {% csrf_token %}
+                          <button class="text-error" type="submit">{% icon "archive" %} Archive Atlas</button>
+                        </form>
+                      </li>
+                    </ul>
+                  </div>
                 {% endif %}
               </div>
             </div>
             <div class="mt-3 flex flex-wrap gap-2">
               <a class="btn btn-primary btn-sm" href="{% url 'atlas_detail' atlas.id %}">{% icon "eye" %} View Atlas</a>
-              {% if can_manage_project %}
-                <div class="dropdown dropdown-end">
-                  <button class="btn btn-ghost btn-sm" tabindex="0" type="button">{% icon "more-horizontal" %} Manage</button>
-                  <ul class="dropdown-content menu z-10 w-48 rounded-lg border border-base-300 bg-base-100 p-2 shadow">
-                    <li><a href="{% url 'edit_atlas' atlas.id %}">{% icon "pencil" %} Edit Atlas</a></li>
-                    <li>
-                      <form method="post" action="{% url 'archive_atlas' atlas.id %}">
-                        {% csrf_token %}
-                        <button class="text-error" type="submit">{% icon "archive" %} Archive Atlas</button>
-                      </form>
-                    </li>
-                  </ul>
-                </div>
-              {% endif %}
             </div>
           </article>
         {% endwith %}
