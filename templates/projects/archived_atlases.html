@@ -2,11 +2,18 @@
 
 {% block title %}Archived Atlases - {{ project.name }}{% endblock %}
 
+{% block breadcrumbs %}
+  <li><a href="{% url 'dashboard' %}">Projects</a></li>
+  <li><a href="{{ project.get_absolute_url }}">{{ project.name }}</a></li>
+  <li>Archived Atlases</li>
+{% endblock %}
+
 {% block content %}
   <h1>Archived Atlases</h1>
-  <p><a href="{{ project.get_absolute_url }}">Back to {{ project.name }}</a></p>
+  <p><a class="btn btn-ghost btn-sm" href="{{ project.get_absolute_url }}">Back to {{ project.name }}</a></p>
 
   <section class="panel">
+    <div class="table-wrap">
     <table>
       <thead>
         <tr>
@@ -23,7 +30,7 @@
             <td>
               <form method="post" action="{% url 'restore_atlas' atlas.id %}">
                 {% csrf_token %}
-                <button type="submit">Restore</button>
+                <button class="btn btn-secondary btn-sm" type="submit">Restore</button>
               </form>
             </td>
           </tr>
@@ -34,5 +41,6 @@
         {% endfor %}
       </tbody>
     </table>
+    </div>
   </section>
 {% endblock %}

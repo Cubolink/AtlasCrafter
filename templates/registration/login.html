@@ -2,8 +2,12 @@
 
 {% block title %}Log in - BlueMap Web UI Panel{% endblock %}
 
+{% block breadcrumbs %}
+  <li>Log in</li>
+{% endblock %}
+
 {% block content %}
-  <section class="panel">
+  <section class="panel mx-auto max-w-md">
     <h1>Log in</h1>
     <form method="post">
       {% csrf_token %}

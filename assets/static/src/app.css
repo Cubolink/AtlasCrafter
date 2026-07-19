@@ -1,0 +1,227 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --app-sidebar-width: 17rem;
+  --app-header-height: 4rem;
+  --app-sidebar-bg: #111827;
+  --app-sidebar-fg: #e5e7eb;
+  --app-sidebar-muted: #9ca3af;
+  --app-code-bg: #0f172a;
+  --app-code-fg: #e5e7eb;
+}
+
+@layer base {
+  html {
+    @apply min-h-full bg-base-200;
+  }
+
+  body {
+    @apply min-h-screen bg-base-200 text-base-content antialiased;
+  }
+
+  a {
+    @apply text-primary no-underline hover:underline;
+  }
+
+  h1 {
+    @apply text-3xl font-semibold tracking-normal text-base-content;
+  }
+
+  h2 {
+    @apply text-xl font-semibold tracking-normal text-base-content;
+  }
+
+  h3 {
+    @apply text-base font-semibold tracking-normal text-base-content;
+  }
+
+  p {
+    @apply leading-7;
+  }
+
+  table {
+    @apply table table-zebra w-full;
+  }
+
+  th {
+    @apply text-xs font-semibold uppercase tracking-normal text-base-content/70;
+  }
+
+  td {
+    @apply align-middle;
+  }
+
+  input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="range"]),
+  select,
+  textarea {
+    @apply input input-bordered w-full max-w-2xl;
+  }
+
+  textarea {
+    @apply textarea textarea-bordered min-h-28;
+  }
+
+  input[type="color"] {
+    @apply h-10 w-16 cursor-pointer rounded-md border border-base-300 bg-base-100 p-1;
+  }
+
+  input[type="range"] {
+    @apply cursor-pointer;
+  }
+
+  input[type="checkbox"]:not(.toggle) {
+    @apply checkbox checkbox-sm checkbox-primary align-middle;
+  }
+
+  button,
+  input[type="submit"] {
+    @apply btn btn-primary btn-sm;
+  }
+
+  label {
+    @apply mb-1 block text-sm font-medium text-base-content/80;
+  }
+
+  form p {
+    @apply mb-4;
+  }
+
+  form ul.errorlist {
+    @apply mt-2 list-none p-0 text-sm text-error;
+  }
+
+  dl {
+    @apply grid gap-x-6 gap-y-2 sm:grid-cols-[12rem_1fr];
+  }
+
+  dt {
+    @apply text-sm font-medium text-base-content/60;
+  }
+
+  dd {
+    @apply min-w-0 break-words text-sm;
+  }
+
+  pre {
+    @apply overflow-auto rounded-md bg-app-code p-4 text-sm leading-6 text-[color:var(--app-code-fg)];
+  }
+}
+
+@layer components {
+  .app-shell {
+    @apply min-h-screen bg-base-200;
+  }
+
+  .app-sidebar {
+    width: var(--app-sidebar-width);
+    @apply min-h-full bg-app-sidebar text-[color:var(--app-sidebar-fg)];
+  }
+
+  .app-sidebar a {
+    @apply text-[color:var(--app-sidebar-fg)] hover:no-underline;
+  }
+
+  .app-main {
+    @apply min-h-screen lg:pl-sidebar;
+  }
+
+  .app-topbar {
+    min-height: var(--app-header-height);
+    @apply sticky top-0 z-30 border-b border-base-300 bg-base-100/95 px-4 backdrop-blur lg:px-8;
+  }
+
+  .app-content {
+    @apply mx-auto max-w-7xl px-4 py-6 lg:px-8;
+  }
+
+  .panel {
+    @apply card mb-5 rounded-lg border border-base-300 bg-base-100 shadow-sm;
+  }
+
+  .panel > :not(.card-body) {
+    @apply p-5;
+  }
+
+  .list {
+    @apply grid gap-4;
+  }
+
+  .row {
+    @apply flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between;
+  }
+
+  .muted {
+    @apply text-sm text-base-content/60;
+  }
+
+  .page-heading {
+    @apply mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between;
+  }
+
+  .page-kicker {
+    @apply text-sm font-medium text-base-content/60;
+  }
+
+  .status-active {
+    @apply badge badge-success badge-outline;
+  }
+
+  .status-archived {
+    @apply badge badge-neutral badge-outline;
+  }
+
+  .status-queued,
+  .status-running {
+    @apply badge badge-info badge-outline;
+  }
+
+  .status-succeeded {
+    @apply badge badge-success badge-outline;
+  }
+
+  .status-failed {
+    @apply badge badge-error badge-outline;
+  }
+
+  .status-canceled {
+    @apply badge badge-warning badge-outline;
+  }
+
+  .action-link {
+    @apply btn btn-ghost btn-sm;
+  }
+
+  .action-danger {
+    @apply btn btn-error btn-outline btn-sm;
+  }
+
+  .table-wrap {
+    @apply overflow-x-auto rounded-lg border border-base-300 bg-base-100;
+  }
+
+  .menu form button {
+    @apply btn btn-ghost btn-sm w-full justify-start font-normal;
+  }
+
+  .form-grid {
+    @apply grid gap-4 lg:grid-cols-2;
+  }
+
+  .form-field {
+    @apply rounded-lg border border-base-300 bg-base-100 p-4;
+  }
+
+  .form-field-wide {
+    @apply lg:col-span-2;
+  }
+
+  .form-help {
+    @apply mt-2 block text-sm text-base-content/60;
+  }
+
+  .form-errors {
+    @apply mt-2 text-sm text-error;
+  }
+}

@@ -1,52 +1,106 @@
 <!doctype html>
-<html lang="en">
+{% load static %}
+<html lang="en" data-theme="bluemap">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}BlueMap Web UI Panel{% endblock %}</title>
-  <style>
-    body { font-family: system-ui, sans-serif; margin: 0; background: #f6f7f9; color: #1f2933; }
-    header { background: #16202a; color: white; padding: 1rem 1.5rem; display: flex; justify-content: space-between; }
-    nav { display: flex; gap: 1rem; align-items: center; }
-    main { max-width: 1100px; margin: 0 auto; padding: 2rem 1.5rem; }
-    a { color: #1264a3; text-decoration: none; }
-    a:hover { text-decoration: underline; }
-    .panel { background: white; border: 1px solid #d9e2ec; border-radius: 8px; padding: 1rem; margin-bottom: 1rem; }
-    .muted { color: #627d98; }
-    .list { display: grid; gap: 0.75rem; }
-    .row { display: flex; justify-content: space-between; gap: 1rem; align-items: baseline; }
-    table { width: 100%; border-collapse: collapse; }
-    th, td { border-bottom: 1px solid #d9e2ec; padding: 0.65rem; text-align: left; }
-    input, button { font: inherit; padding: 0.5rem 0.65rem; }
-    button { cursor: pointer; }
-  </style>
+  <link rel="stylesheet" href="{% static 'css/app.css' %}">
 </head>
 <body>
-  <header>
-    <a href="{% url 'dashboard' %}" style="color:white">BlueMap Web UI Panel</a>
-    <nav>
-      {% if request.user.is_authenticated %}
-        <a href="{% url 'dashboard' %}" style="color:white">Projects</a>
-        {% if request.user.is_staff or request.user.is_superuser %}
-          <a href="{% url 'panel_settings' %}" style="color:white">Panel Settings</a>
+  <div class="drawer lg:drawer-open app-shell">
+    <input id="app-drawer" type="checkbox" class="drawer-toggle">
+    <div class="drawer-content app-main">
+      <header class="navbar app-topbar">
+        <div class="flex-none lg:hidden">
+          <label for="app-drawer" aria-label="Open navigation" class="btn btn-square btn-ghost">
+            <span class="text-xl">&#9776;</span>
+          </label>
+        </div>
+        <div class="min-w-0 flex-1">
+          <div class="breadcrumbs max-w-full overflow-hidden text-sm">
+            <ul>
+              {% block breadcrumbs %}
+                <li><a href="{% url 'dashboard' %}">Projects</a></li>
+              {% endblock %}
+            </ul>
+          </div>
+        </div>
+        {% if request.user.is_authenticated %}
+          <div class="flex-none gap-2">
+            <a class="btn btn-ghost btn-sm" href="{% url 'profile_settings' %}">{{ request.user.username }}</a>
+            <form method="post" action="{% url 'logout' %}">
+              {% csrf_token %}
+              <button class="btn btn-outline btn-sm" type="submit">Log out</button>
+            </form>
+          </div>
         {% endif %}
-        <a href="{% url 'profile_settings' %}" style="color:white">{{ request.user.username }}</a>
-        <form method="post" action="{% url 'logout' %}" style="display:inline">
-          {% csrf_token %}
-          <button type="submit">Log out</button>
-        </form>
-      {% endif %}
-    </nav>
-  </header>
-  <main>
-    {% if messages %}
-      <div class="list">
-        {% for message in messages %}
-          <div class="panel">{{ message }}</div>
-        {% endfor %}
+      </header>
+
+      <main class="app-content">
+        {% if messages %}
+          <div class="mb-5 grid gap-3">
+            {% for message in messages %}
+              <div class="alert {% if message.tags == 'error' %}alert-error{% elif message.tags == 'warning' %}alert-warning{% elif message.tags == 'success' %}alert-success{% else %}alert-info{% endif %}">
+                <span>{{ message }}</span>
+              </div>
+            {% endfor %}
+          </div>
+        {% endif %}
+        {% block content %}{% endblock %}
+      </main>
+    </div>
+
+    <aside class="drawer-side z-40">
+      <label for="app-drawer" aria-label="Close navigation" class="drawer-overlay"></label>
+      <div class="app-sidebar flex flex-col">
+        <div class="border-b border-white/10 p-5">
+          <a href="{% url 'dashboard' %}" class="block text-lg font-semibold">BlueMap Panel</a>
+          <p class="mt-1 text-sm text-[color:var(--app-sidebar-muted)]">Render control console</p>
+        </div>
+        {% if request.user.is_authenticated %}
+          <nav class="flex-1 overflow-y-auto p-3">
+            <ul class="menu gap-1">
+              <li>
+                <details open>
+                  <summary class="{% if request.resolver_match.url_name == 'dashboard' or request.resolver_match.url_name == 'project_detail' or request.resolver_match.url_name == 'project_members' or request.resolver_match.url_name == 'project_worlds' or request.resolver_match.url_name == 'atlas_detail' %}active{% endif %}">
+                    Projects
+                  </summary>
+                  <ul>
+                    <li><a href="{% url 'dashboard' %}">All Projects</a></li>
+                    {% for project in sidebar_projects %}
+                      <li><a href="{{ project.get_absolute_url }}">{{ project.name }}</a></li>
+                    {% empty %}
+                      <li><span class="text-[color:var(--app-sidebar-muted)]">No active projects</span></li>
+                    {% endfor %}
+                  </ul>
+                </details>
+              </li>
+              {% if request.user.is_staff or request.user.is_superuser %}
+                <li>
+                  <details {% if request.resolver_match.url_name == 'panel_settings' or request.resolver_match.url_name == 'panel_users' or request.resolver_match.url_name == 'panel_user_create' or request.resolver_match.url_name == 'panel_user_edit' or request.resolver_match.url_name == 'manage_projects' or request.resolver_match.url_name == 'create_project' or request.resolver_match.url_name == 'edit_project' or request.resolver_match.url_name == 'world_folders' or request.resolver_match.url_name == 'create_world_folder' or request.resolver_match.url_name == 'edit_world_folder' %}open{% endif %}>
+                    <summary class="{% if request.resolver_match.url_name == 'panel_settings' %}active{% endif %}">
+                      Panel Settings
+                    </summary>
+                    <ul>
+                      <li><a href="{% url 'panel_settings' %}">Overview</a></li>
+                      <li><a href="{% url 'panel_users' %}">Users</a></li>
+                      {% if request.user.is_superuser %}
+                        <li><a href="{% url 'manage_projects' %}">Manage Projects</a></li>
+                        <li><a href="{% url 'world_folders' %}">World Folders</a></li>
+                      {% endif %}
+                    </ul>
+                  </details>
+                </li>
+              {% endif %}
+            </ul>
+          </nav>
+          <div class="border-t border-white/10 p-4 text-sm text-[color:var(--app-sidebar-muted)]">
+            Signed in as <a href="{% url 'profile_settings' %}" class="font-medium">{{ request.user.username }}</a>
+          </div>
+        {% endif %}
       </div>
-    {% endif %}
-    {% block content %}{% endblock %}
-  </main>
+    </aside>
+  </div>
 </body>
 </html>

@@ -2,20 +2,25 @@
 
 {% block title %}World Folders - BlueMap Web UI Panel{% endblock %}
 
+{% block breadcrumbs %}
+  <li><a href="{% url 'panel_settings' %}">Panel Settings</a></li>
+  <li>World Folders</li>
+{% endblock %}
+
 {% block content %}
   <div class="row">
     <h1>World Folders</h1>
-    <a href="{% url 'panel_settings' %}">Back to Panel Settings</a>
+    <a class="btn btn-ghost btn-sm" href="{% url 'panel_settings' %}">Back to Panel Settings</a>
   </div>
 
   <section class="panel">
     <h2>Source Worlds</h2>
     <p class="muted">{{ source_root }}</p>
-    <form method="post" action="{% url 'scan_world_folders' %}" style="display:inline">
+    <form class="inline-block" method="post" action="{% url 'scan_world_folders' %}">
       {% csrf_token %}
       <button type="submit">Scan Source Worlds</button>
     </form>
-    <a href="{% url 'create_world_folder' %}">Add World Folder Manually</a>
+    <a class="btn btn-outline btn-sm" href="{% url 'create_world_folder' %}">Add World Folder Manually</a>
   </section>
 
   <section class="panel">
@@ -31,6 +36,7 @@
 
   <section class="panel">
     <h2>Known World Folders</h2>
+    <div class="table-wrap">
     <table>
       <thead>
         <tr>
@@ -46,19 +52,23 @@
           <tr>
             <td>{{ world.display_name }}</td>
             <td>{{ world.source_path }}</td>
-            <td>{{ world.is_active|yesno:"Active,Archived" }}</td>
+            <td>
+              <span class="{% if world.is_active %}status-active{% else %}status-archived{% endif %}">
+                {{ world.is_active|yesno:"Active,Archived" }}
+              </span>
+            </td>
             <td>{{ world.detected_dimensions|join:", " }}</td>
             <td>
-              <a href="{% url 'edit_world_folder' world.id %}">Edit</a>
+              <a class="action-link" href="{% url 'edit_world_folder' world.id %}">Edit</a>
               {% if world.is_active %}
-                <form method="post" action="{% url 'archive_world_folder' world.id %}" style="display:inline">
+                <form class="inline-block" method="post" action="{% url 'archive_world_folder' world.id %}">
                   {% csrf_token %}
-                  <button type="submit">Archive</button>
+                  <button class="action-danger" type="submit">Archive</button>
                 </form>
               {% else %}
-                <form method="post" action="{% url 'restore_world_folder' world.id %}" style="display:inline">
+                <form class="inline-block" method="post" action="{% url 'restore_world_folder' world.id %}">
                   {% csrf_token %}
-                  <button type="submit">Restore</button>
+                  <button class="btn btn-secondary btn-sm" type="submit">Restore</button>
                 </form>
               {% endif %}
             </td>
@@ -70,5 +80,6 @@
         {% endfor %}
       </tbody>
     </table>
+    </div>
   </section>
 {% endblock %}

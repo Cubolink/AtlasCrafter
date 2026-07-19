@@ -1,4 +1,5 @@
 import uuid
+from decimal import Decimal
 
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
@@ -6,6 +7,7 @@ from django.test import Client, TestCase
 from django.urls import reverse
 
 from accounts.models import ProjectMembership
+from bluemap_configs.models import BlueMapProfile
 from renders.models import RenderJob
 from .models import Atlas, Project, ProjectVisibleWorld, Render, WorldFolder
 
@@ -178,6 +180,56 @@ class ProjectSetupViewTests(TestCase):
         self.assertTrue(render.bluemap_map_id.startswith("render-"))
         uuid.UUID(render.bluemap_map_id.removeprefix("render-"))
 
+    def test_project_admin_create_render_applies_preset_defaults(self):
+        atlas = Atlas.objects.create(
+            project=self.project,
+            world_folder=self.world,
+            display_name="Overworld",
+        )
+
+        response = self.client_for(self.admin).post(
+            reverse("create_render", kwargs={"atlas_id": atlas.id}),
+            {
+                "display_name": "Night Map",
+                "dimension": Render.Dimension.OVERWORLD,
+                "custom_dimension": "",
+                "perspective_preset": Render.PerspectivePreset.NIGHT,
+                "sorting": 0,
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        render = atlas.renders.get(display_name="Night Map")
+        self.assertEqual(render.sky_color, "#1d2b53")
+        self.assertEqual(render.sky_light, Decimal("0.25"))
+        self.assertEqual(render.ambient_light, Decimal("0.05"))
+        self.assertTrue(render.enable_perspective_view)
+        self.assertTrue(render.enable_flat_view)
+
+    def test_project_admin_create_render_custom_preset_keeps_model_defaults(self):
+        atlas = Atlas.objects.create(
+            project=self.project,
+            world_folder=self.world,
+            display_name="Overworld",
+        )
+
+        response = self.client_for(self.admin).post(
+            reverse("create_render", kwargs={"atlas_id": atlas.id}),
+            {
+                "display_name": "Manual Map",
+                "dimension": Render.Dimension.OVERWORLD,
+                "custom_dimension": "",
+                "perspective_preset": Render.PerspectivePreset.CUSTOM,
+                "sorting": 0,
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        render = atlas.renders.get(display_name="Manual Map")
+        self.assertEqual(render.sky_color, "#7dabff")
+        self.assertEqual(render.sky_light, Decimal("1.00"))
+        self.assertEqual(render.ambient_light, Decimal("0.00"))
+
     def test_project_user_cannot_create_atlas_or_render(self):
         atlas = Atlas.objects.create(
             project=self.project,
@@ -207,6 +259,42 @@ class ProjectSetupViewTests(TestCase):
         self.assertEqual(render_response.status_code, 403)
         self.assertFalse(self.project.atlases.filter(display_name="Denied").exists())
         self.assertFalse(atlas.renders.filter(bluemap_map_id="denied").exists())
+
+    def test_project_user_sees_project_section_tabs(self):
+        response = self.client_for(self.user).get(
+            reverse("project_detail", kwargs={"slug": self.project.slug}),
+        )
+
+        self.assertContains(response, reverse("project_members", kwargs={"slug": self.project.slug}))
+        self.assertContains(response, reverse("project_worlds", kwargs={"slug": self.project.slug}))
+
+    def test_project_user_can_view_members_without_manage_actions(self):
+        response = self.client_for(self.user).get(
+            reverse("project_members", kwargs={"slug": self.project.slug}),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, self.admin.username)
+        self.assertContains(response, self.user.username)
+        self.assertNotContains(response, "Add Project User")
+        self.assertNotContains(response, "Remove")
+
+    def test_project_user_can_view_only_worlds_used_by_atlases(self):
+        ProjectVisibleWorld.objects.create(project=self.project, world_folder=self.other_world)
+        Atlas.objects.create(
+            project=self.project,
+            world_folder=self.world,
+            display_name="Overworld",
+        )
+
+        response = self.client_for(self.user).get(
+            reverse("project_worlds", kwargs={"slug": self.project.slug}),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Atlas World Folders")
+        self.assertContains(response, self.world.display_name)
+        self.assertNotContains(response, self.other_world.display_name)
 
     def test_project_admin_can_edit_atlas(self):
         atlas = Atlas.objects.create(
@@ -340,6 +428,21 @@ class ProjectSetupViewTests(TestCase):
                 "enable_free_flight_view": "on",
                 "enable_hires": "on",
                 "ignore_missing_light_data": "on",
+                "start_x": 10,
+                "start_y": 80,
+                "start_z": -20,
+                "render_mask_type": "box",
+                "render_mask_subtract": "",
+                "render_mask_min_x": -100,
+                "render_mask_max_x": 100,
+                "render_mask_min_y": "",
+                "render_mask_max_y": "",
+                "render_mask_min_z": -200,
+                "render_mask_max_z": 200,
+                "render_mask_center_x": "",
+                "render_mask_center_z": "",
+                "render_mask_radius": "",
+                "marker_sets": "{}",
             },
         )
 
@@ -351,9 +454,105 @@ class ProjectSetupViewTests(TestCase):
         self.assertEqual(render.sorting, 10)
         self.assertEqual(render.bluemap_map_id, "stable-render-id")
         self.assertEqual(render.sky_color, "#112233")
+        self.assertEqual(render.start_position, {"x": 10, "y": 80, "z": -20})
+        self.assertEqual(
+            render.render_mask,
+            [
+                {
+                    "type": "box",
+                    "min-x": -100,
+                    "max-x": 100,
+                    "min-z": -200,
+                    "max-z": 200,
+                },
+            ],
+        )
         self.assertTrue(render.cave_detection_uses_block_light)
         self.assertEqual(render.edge_light_strength, 12)
         self.assertTrue(render.ignore_missing_light_data)
+
+    def test_edit_render_shows_read_only_raw_config_tab(self):
+        BlueMapProfile.objects.create(name="Default", slug="default")
+        atlas = Atlas.objects.create(
+            project=self.project,
+            world_folder=self.world,
+            display_name="Overworld",
+        )
+        render = Render.objects.create(
+            atlas=atlas,
+            display_name="Standard",
+            dimension=Render.Dimension.OVERWORLD,
+        )
+
+        response = self.client_for(self.admin).get(
+            reverse("edit_render", kwargs={"render_id": render.id}),
+        )
+
+        self.assertContains(response, "Friendly Editor")
+        self.assertContains(response, "Raw Config")
+        self.assertContains(response, "Raw config editing is coming next")
+        self.assertContains(response, "readonly")
+        self.assertContains(response, "name:")
+        self.assertContains(response, "Standard")
+
+    def test_edit_render_uses_enhanced_form_controls(self):
+        BlueMapProfile.objects.create(name="Default", slug="default")
+        atlas = Atlas.objects.create(
+            project=self.project,
+            world_folder=self.world,
+            display_name="Overworld",
+        )
+        render = Render.objects.create(
+            atlas=atlas,
+            display_name="Standard",
+            dimension=Render.Dimension.OVERWORLD,
+        )
+
+        response = self.client_for(self.admin).get(
+            reverse("edit_render", kwargs={"render_id": render.id}),
+        )
+
+        self.assertContains(response, 'type="color"')
+        self.assertContains(response, 'type="range"')
+        self.assertContains(response, "data-range-control")
+        self.assertContains(response, 'class="toggle toggle-primary"')
+        self.assertContains(response, "collapse collapse-arrow")
+        self.assertContains(response, "Advanced Settings")
+        self.assertContains(response, "data-render-preset-form")
+        self.assertContains(response, "data-apply-render-preset")
+        self.assertContains(response, "Apply Preset Settings")
+        self.assertContains(response, "Start Position")
+        self.assertContains(response, "Render Mask")
+        self.assertContains(response, "data-render-mask-type")
+        self.assertContains(response, "marker-sets")
+
+    def test_render_forms_hide_custom_dimension_until_custom_dimension_selected(self):
+        BlueMapProfile.objects.create(name="Default", slug="default")
+        atlas = Atlas.objects.create(
+            project=self.project,
+            world_folder=self.world,
+            display_name="Overworld",
+        )
+        render = Render.objects.create(
+            atlas=atlas,
+            display_name="Standard",
+            dimension=Render.Dimension.OVERWORLD,
+        )
+
+        edit_response = self.client_for(self.admin).get(
+            reverse("edit_render", kwargs={"render_id": render.id}),
+        )
+        atlas_response = self.client_for(self.admin).get(
+            reverse("atlas_detail", kwargs={"atlas_id": atlas.id}),
+        )
+
+        self.assertContains(edit_response, "data-dimension-select")
+        self.assertContains(edit_response, "data-custom-dimension-wrapper")
+        self.assertContains(edit_response, "mod/datapack dimension key")
+        self.assertContains(edit_response, "Preset defaults for the advanced render fields")
+        self.assertContains(atlas_response, "data-dimension-select")
+        self.assertContains(atlas_response, "data-custom-dimension-wrapper")
+        self.assertContains(atlas_response, "data-render-preset-summary")
 
     def test_project_admin_can_archive_render(self):
         atlas = Atlas.objects.create(
@@ -395,7 +594,7 @@ class ProjectSetupViewTests(TestCase):
         )
 
         detail_response = self.client_for(self.admin).get(
-            reverse("project_detail", kwargs={"slug": self.project.slug}),
+            reverse("atlas_detail", kwargs={"atlas_id": atlas.id}),
         )
         archive_response = self.client_for(self.admin).get(
             reverse("archived_renders", kwargs={"atlas_id": atlas.id}),
@@ -410,6 +609,28 @@ class ProjectSetupViewTests(TestCase):
         self.assertEqual(restore_response.status_code, 302)
         archived_render.refresh_from_db()
         self.assertTrue(archived_render.is_enabled)
+
+    def test_atlas_detail_shows_latest_render_job_summary(self):
+        atlas = Atlas.objects.create(
+            project=self.project,
+            world_folder=self.world,
+            display_name="Overworld",
+        )
+        render = Render.objects.create(
+            atlas=atlas,
+            display_name="Standard",
+            dimension=Render.Dimension.OVERWORLD,
+        )
+        old_job = RenderJob.objects.create(render=render, status=RenderJob.Status.FAILED)
+        latest_job = RenderJob.objects.create(render=render, status=RenderJob.Status.SUCCEEDED)
+
+        response = self.client_for(self.admin).get(
+            reverse("atlas_detail", kwargs={"atlas_id": atlas.id}),
+        )
+
+        self.assertContains(response, f"#{latest_job.id}")
+        self.assertContains(response, latest_job.get_status_display())
+        self.assertNotContains(response, f"#{old_job.id}")
 
     def test_project_user_cannot_view_archived_renders(self):
         atlas = Atlas.objects.create(

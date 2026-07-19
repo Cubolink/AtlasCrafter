@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+
+{% block title %}Worlds - {{ project.name }}{% endblock %}
+
+{% block breadcrumbs %}
+  <li><a href="{% url 'dashboard' %}">Projects</a></li>
+  <li><a href="{{ project.get_absolute_url }}">{{ project.name }}</a></li>
+  <li>Worlds</li>
+{% endblock %}
+
+{% block content %}
+  <div class="page-heading">
+    <div>
+      <p class="page-kicker">Project</p>
+      <h1>{{ project.name }}</h1>
+      {% if project.description %}
+        <p class="mt-2 max-w-3xl text-base-content/70">{{ project.description }}</p>
+      {% endif %}
+    </div>
+  </div>
+
+  {% include "projects/project_subnav.html" with active_project_tab="worlds" %}
+
+  <section class="panel">
+    <h2>{{ worlds_title }}</h2>
+    <div class="list">
+      {% for world in world_folders %}
+        <article class="rounded-lg border border-base-300 p-4">
+          <div class="row">
+            <div>
+              <h3>{{ world.display_name }}</h3>
+              <p class="muted">{{ world.source_path }}</p>
+            </div>
+            <span class="{% if world.is_active %}status-active{% else %}status-archived{% endif %}">
+              {{ world.is_active|yesno:"Active,Archived" }}
+            </span>
+          </div>
+        </article>
+      {% empty %}
+        <p>{{ empty_message }}</p>
+      {% endfor %}
+    </div>
+  </section>
+{% endblock %}

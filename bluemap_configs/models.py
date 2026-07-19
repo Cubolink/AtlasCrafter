@@ -15,7 +15,7 @@ class BlueMapProfile(models.Model):
             'dimension: "{dimension}"\n'
             'name: "{display_name}"\n'
             'sorting: {sorting}\n'
-            'start-pos: {{ x: 0, z: 0 }}\n'
+            'start-pos: {start_pos}\n'
             'sky-color: "{sky_color}"\n'
             'void-color: "{void_color}"\n'
             'sky-light: {sky_light}\n'
@@ -24,7 +24,7 @@ class BlueMapProfile(models.Model):
             'cave-detection-ocean-floor: {cave_detection_ocean_floor}\n'
             'cave-detection-uses-block-light: {cave_detection_uses_block_light}\n'
             'min-inhabited-time: {min_inhabited_time}\n'
-            'render-mask: []\n'
+            'render-mask: {render_mask}\n'
             'render-edges: {render_edges}\n'
             'edge-light-strength: {edge_light_strength}\n'
             'enable-perspective-view: {enable_perspective_view}\n'
@@ -33,7 +33,7 @@ class BlueMapProfile(models.Model):
             'enable-hires: {enable_hires}\n'
             'storage: "{storage}"\n'
             'ignore-missing-light-data: {ignore_missing_light_data}\n'
-            'marker-sets: {{}}\n'
+            'marker-sets: {marker_sets}\n'
         )
     )
     command_template = models.CharField(
@@ -83,6 +83,7 @@ class BlueMapRenderConfig(models.Model):
             "dimension": render.effective_dimension,
             "display_name": render.display_name,
             "sorting": str(render.sorting),
+            "start_pos": format_start_position(render.start_position),
             "sky_color": render.sky_color,
             "void_color": render.void_color,
             "sky_light": format_decimal(render.sky_light),
@@ -91,6 +92,7 @@ class BlueMapRenderConfig(models.Model):
             "cave_detection_ocean_floor": str(render.cave_detection_ocean_floor),
             "cave_detection_uses_block_light": hocon_bool(render.cave_detection_uses_block_light),
             "min_inhabited_time": str(render.min_inhabited_time),
+            "render_mask": format_render_mask(render.render_mask),
             "render_edges": hocon_bool(render.render_edges),
             "edge_light_strength": str(render.edge_light_strength),
             "enable_perspective_view": hocon_bool(render.enable_perspective_view),
@@ -99,6 +101,7 @@ class BlueMapRenderConfig(models.Model):
             "enable_hires": hocon_bool(render.enable_hires),
             "storage": render.storage_profile or "file",
             "ignore_missing_light_data": hocon_bool(render.ignore_missing_light_data),
+            "marker_sets": render.marker_sets.strip() or "{}",
             "bluemap_cli": settings.BLUEMAP_CLI_PATH,
             "config_dir": settings.BLUEMAP_CONFIG_DIR.as_posix(),
             "config_file": self.config_path().as_posix(),
@@ -165,3 +168,48 @@ def hocon_bool(value: bool) -> str:
 
 def format_decimal(value) -> str:
     return f"{value.normalize():f}"
+
+
+def format_start_position(start_position) -> str:
+    values = start_position or {}
+    parts = []
+    for key in ["x", "y", "z"]:
+        value = values.get(key)
+        if value is not None:
+            parts.append(f"{key}: {value}")
+    if not parts:
+        parts = ["x: 0", "z: 0"]
+    return "{ " + ", ".join(parts) + " }"
+
+
+def format_render_mask(render_mask) -> str:
+    masks = render_mask or []
+    if not masks:
+        return "[]"
+
+    formatted_masks = []
+    for mask in masks:
+        lines = ["  {"]
+        for key in [
+            "type",
+            "subtract",
+            "min-x",
+            "max-x",
+            "min-y",
+            "max-y",
+            "min-z",
+            "max-z",
+            "center-x",
+            "center-z",
+            "radius",
+        ]:
+            if key not in mask:
+                continue
+            value = mask[key]
+            if isinstance(value, bool):
+                value = hocon_bool(value)
+            lines.append(f"    {key}: {value}")
+        lines.append("  }")
+        formatted_masks.append("\n".join(lines))
+
+    return "[\n" + "\n".join(formatted_masks) + "\n]"

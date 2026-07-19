@@ -209,6 +209,12 @@ class RenderViewerStateTests(TestCase):
             reverse("render_config_preview", kwargs={"render_id": self.render.id}),
         )
 
+    def test_render_page_links_to_manage_actions_for_admin(self):
+        response = self.client.get(reverse("render_viewer", kwargs={"render_id": self.render.id}))
+
+        self.assertContains(response, reverse("edit_render", kwargs={"render_id": self.render.id}))
+        self.assertContains(response, reverse("archive_render", kwargs={"render_id": self.render.id}))
+
     def test_admin_can_preview_generated_render_config(self):
         BlueMapProfile.objects.create(name="Default", slug="default")
         self.render.sky_color = "#112233"

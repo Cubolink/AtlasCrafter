@@ -1,0 +1,172 @@
+{% extends "base.html" %}
+
+{% block title %}{{ atlas.display_name }} - {{ project.name }}{% endblock %}
+
+{% block breadcrumbs %}
+  <li><a href="{% url 'dashboard' %}">Projects</a></li>
+  <li><a href="{{ project.get_absolute_url }}">{{ project.name }}</a></li>
+  <li>{{ atlas.display_name }}</li>
+{% endblock %}
+
+{% block content %}
+  <div class="page-heading">
+    <div>
+      <p class="page-kicker">Atlas</p>
+      <h1>{{ atlas.display_name }}</h1>
+      <p class="mt-2 max-w-3xl text-base-content/70">{{ atlas.world_folder.source_path }}</p>
+      {% if atlas.notes %}
+        <p class="mt-2 max-w-3xl text-base-content/70">{{ atlas.notes }}</p>
+      {% endif %}
+    </div>
+    {% if can_manage_project %}
+      <div class="dropdown dropdown-end">
+        <button class="btn btn-outline btn-sm" tabindex="0" type="button">Manage</button>
+        <ul class="dropdown-content menu z-10 w-48 rounded-lg border border-base-300 bg-base-100 p-2 shadow">
+          <li><a href="{% url 'edit_atlas' atlas.id %}">Edit Atlas</a></li>
+          <li>
+            <form method="post" action="{% url 'archive_atlas' atlas.id %}">
+              {% csrf_token %}
+              <button class="text-error" type="submit">Archive Atlas</button>
+            </form>
+          </li>
+        </ul>
+      </div>
+    {% endif %}
+  </div>
+
+  <section class="panel">
+    <div class="row">
+      <h2>Renders</h2>
+      {% if can_manage_project %}
+        <a class="btn btn-outline btn-sm" href="{% url 'archived_renders' atlas.id %}">
+          Archived Renders{% if archived_render_count %} ({{ archived_render_count }}){% endif %}
+        </a>
+      {% endif %}
+    </div>
+    <div class="list">
+      {% for section in render_sections %}
+        {% with render=section.render latest_job=section.latest_job %}
+        <article class="rounded-lg border border-base-300 p-4">
+          <div class="row">
+            <div>
+              <h3><a href="{% url 'render_viewer' render.id %}">{{ render.display_name }}</a></h3>
+              <p class="muted">{{ render.bluemap_map_id }}</p>
+              <p class="muted">
+                {% if latest_job %}
+                  Last job:
+                  <a href="{% url 'render_job_detail' latest_job.id %}">#{{ latest_job.id }}</a>
+                  <span class="status-{{ latest_job.status }}">{{ latest_job.get_status_display }}</span>
+                  <span>{{ latest_job.updated_at }}</span>
+                {% else %}
+                  No render jobs yet.
+                {% endif %}
+              </p>
+            </div>
+            <span class="badge badge-outline">{{ render.get_dimension_display }}</span>
+          </div>
+          <div class="mt-3 flex flex-wrap gap-2">
+            <a class="btn btn-primary btn-sm" href="{% url 'render_viewer' render.id %}">Open Render</a>
+            {% if can_manage_project %}
+              <div class="dropdown dropdown-end">
+                <button class="btn btn-ghost btn-sm" tabindex="0" type="button">Manage</button>
+                <ul class="dropdown-content menu z-10 w-48 rounded-lg border border-base-300 bg-base-100 p-2 shadow">
+                  <li><a href="{% url 'edit_render' render.id %}">Edit Render</a></li>
+                  <li><a href="{% url 'render_config_preview' render.id %}">Preview Config</a></li>
+                  <li>
+                    <form method="post" action="{% url 'archive_render' render.id %}">
+                      {% csrf_token %}
+                      <button class="text-error" type="submit">Archive Render</button>
+                    </form>
+                  </li>
+                </ul>
+              </div>
+            {% endif %}
+          </div>
+        </article>
+        {% endwith %}
+      {% empty %}
+        <p>No Renders defined.</p>
+      {% endfor %}
+    </div>
+  </section>
+
+  {% if can_manage_project %}
+    <section class="panel">
+      <h2>Create Render</h2>
+      <form method="post" action="{% url 'create_render' atlas.id %}" data-render-form data-render-preset-form>
+        {% csrf_token %}
+        <div class="form-grid">
+          {% for field in render_form %}
+            {% if field.name == 'custom_dimension' %}
+            {% elif field.name == 'dimension' %}
+              <div class="form-field">
+                {{ field.label_tag }}
+                {{ field }}
+                {% if field.help_text %}<span class="form-help">{{ field.help_text }}</span>{% endif %}
+                {% if field.errors %}<div class="form-errors">{{ field.errors }}</div>{% endif %}
+                <div class="mt-4 hidden border-t border-base-300 pt-4" data-custom-dimension-wrapper>
+                  {{ render_form.custom_dimension.label_tag }}
+                  {{ render_form.custom_dimension }}
+                  {% if render_form.custom_dimension.help_text %}<span class="form-help">{{ render_form.custom_dimension.help_text }}</span>{% endif %}
+                  {% if render_form.custom_dimension.errors %}<div class="form-errors">{{ render_form.custom_dimension.errors }}</div>{% endif %}
+                </div>
+              </div>
+            {% elif field.name == 'perspective_preset' %}
+              <div class="form-field">
+                {{ field.label_tag }}
+                {{ field }}
+                {% if field.help_text %}<span class="form-help">{{ field.help_text }}</span>{% endif %}
+                <span class="form-help" data-render-preset-summary></span>
+                {% if field.errors %}<div class="form-errors">{{ field.errors }}</div>{% endif %}
+              </div>
+            {% else %}
+            <div class="form-field">
+              {{ field.label_tag }}
+              {{ field }}
+              {% if field.help_text %}<span class="form-help">{{ field.help_text }}</span>{% endif %}
+              {% if field.errors %}<div class="form-errors">{{ field.errors }}</div>{% endif %}
+            </div>
+            {% endif %}
+          {% endfor %}
+        </div>
+        {{ render_form.non_field_errors }}
+        <button type="submit">Create Render</button>
+      </form>
+    </section>
+  {% endif %}
+
+  {{ render_preset_summaries|json_script:"render-preset-summaries" }}
+  <script>
+    document.querySelectorAll("[data-render-form]").forEach(function (form) {
+      var dimensionSelect = form.querySelector("[data-dimension-select]");
+      var customInput = form.querySelector("[data-custom-dimension]");
+      var customWrapper = form.querySelector("[data-custom-dimension-wrapper]");
+      if (!dimensionSelect || !customInput || !customWrapper) return;
+
+      function updateCustomDimensionVisibility() {
+        var isCustom = dimensionSelect.value === "custom";
+        customWrapper.classList.toggle("hidden", !isCustom);
+        customInput.disabled = !isCustom;
+        customInput.required = isCustom;
+        if (!isCustom) customInput.value = "";
+      }
+
+      dimensionSelect.addEventListener("change", updateCustomDimensionVisibility);
+      updateCustomDimensionVisibility();
+    });
+
+    var renderPresetSummaries = JSON.parse(document.getElementById("render-preset-summaries").textContent);
+    document.querySelectorAll("[data-render-preset-form]").forEach(function (form) {
+      var presetSelect = form.querySelector("[data-perspective-preset]");
+      var summary = form.querySelector("[data-render-preset-summary]");
+      if (!presetSelect || !summary) return;
+
+      function updatePresetSummary() {
+        summary.textContent = renderPresetSummaries[presetSelect.value] || "";
+      }
+
+      presetSelect.addEventListener("change", updatePresetSummary);
+      updatePresetSummary();
+    });
+  </script>
+{% endblock %}

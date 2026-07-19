@@ -2,17 +2,25 @@
 
 {% block title %}Render Job #{{ job.id }} - BlueMap Web UI Panel{% endblock %}
 
+{% block breadcrumbs %}
+  <li><a href="{% url 'dashboard' %}">Projects</a></li>
+  <li><a href="{{ render.project.get_absolute_url }}">{{ render.project.name }}</a></li>
+  <li><a href="{% url 'atlas_detail' render.atlas.id %}">{{ render.atlas.display_name }}</a></li>
+  <li><a href="{% url 'render_viewer' render.id %}">{{ render.display_name }}</a></li>
+  <li>Job #{{ job.id }}</li>
+{% endblock %}
+
 {% block content %}
   <div class="row">
     <h1>Render Job #{{ job.id }}</h1>
-    <a href="{% url 'render_viewer' render.id %}">Back to Render</a>
+    <a class="btn btn-ghost btn-sm" href="{% url 'render_viewer' render.id %}">Back to Render</a>
   </div>
 
   <section class="panel">
     <p class="muted">{{ render.project.name }} / {{ render.atlas.display_name }} / {{ render.display_name }}</p>
     <dl>
       <dt>Status</dt>
-      <dd>{{ job.get_status_display }}</dd>
+      <dd><span class="status-{{ job.status }}">{{ job.get_status_display }}</span></dd>
       <dt>Requested by</dt>
       <dd>
         {% if job.requested_by %}
@@ -39,7 +47,7 @@
     {% if can_cancel_job %}
       <form method="post" action="{% url 'cancel_render_job' job.id %}">
         {% csrf_token %}
-        <button type="submit">Cancel queued job</button>
+        <button class="action-danger" type="submit">Cancel queued job</button>
       </form>
     {% endif %}
   </section>

@@ -2,10 +2,16 @@
 
 {% block title %}{{ title }} - BlueMap Web UI Panel{% endblock %}
 
+{% block breadcrumbs %}
+  <li><a href="{% url 'panel_settings' %}">Panel Settings</a></li>
+  <li><a href="{% url 'panel_users' %}">Users</a></li>
+  <li>{{ title }}</li>
+{% endblock %}
+
 {% block content %}
   <div class="row">
     <h1>{{ title }}</h1>
-    <a href="{% url 'panel_settings' %}">Back to Panel Settings</a>
+    <a class="btn btn-ghost btn-sm" href="{% url 'panel_users' %}">Back to Users</a>
   </div>
 
   <section class="panel">
@@ -19,6 +25,7 @@
   {% if edited_user %}
     <section class="panel">
       <h2>Project Access</h2>
+      <div class="table-wrap">
       <table>
         <thead>
           <tr>
@@ -38,7 +45,7 @@
                 <td>
                   <form method="post" action="{% url 'panel_user_project_access_remove' edited_user.id membership.id %}">
                     {% csrf_token %}
-                    <button type="submit">Remove</button>
+                    <button class="action-danger" type="submit">Remove</button>
                   </form>
                 </td>
               {% endif %}
@@ -50,6 +57,7 @@
           {% endfor %}
         </tbody>
       </table>
+      </div>
     </section>
 
     {% if request.user.is_superuser %}

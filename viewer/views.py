@@ -8,6 +8,7 @@ from django.views.decorators.http import require_POST
 
 from accounts.models import ProjectMembership
 from projects.models import Render
+from projects.permissions import can_manage_project
 from renders.models import RenderJob
 from renders.services import (
     cancel_queued_render_job,
@@ -59,6 +60,7 @@ def render_viewer(request, render_id: int):
         {
             "render": render_obj,
             "jobs": jobs,
+            "can_manage_render": can_manage_project(request.user, render_obj.project),
             "can_trigger_render": user_can_trigger_render(request.user, render_obj),
             "source_available": source_available,
             "active_job": active_job,

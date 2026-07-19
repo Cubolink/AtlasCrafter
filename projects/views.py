@@ -8,6 +8,7 @@ from django.views.decorators.http import require_POST
 
 from accounts.models import ProjectMembership
 from renders.models import RenderJob
+from renders.services import preview_render_config
 from .forms import (
     AtlasCreateForm,
     AtlasEditForm,
@@ -15,6 +16,8 @@ from .forms import (
     ProjectUserAddForm,
     RENDER_ADVANCED_FIELDS,
     RENDER_BASIC_FIELDS,
+    RENDER_PRESET_DEFAULTS,
+    RENDER_PRESET_SUMMARIES,
     RenderCreateForm,
     RenderEditForm,
     WorldFolderForm,
@@ -26,6 +29,28 @@ from .world_discovery import build_world_tree, scan_source_worlds, world_folder_
 
 def superuser_required(user):
     return user.is_authenticated and user.is_superuser
+
+
+def get_visible_project_or_404(request, slug: str, queryset=None):
+    queryset = queryset or Project.objects.all()
+    project = get_object_or_404(queryset, slug=slug)
+    if not project.is_active and not request.user.is_superuser:
+        raise PermissionDenied("This Project is archived.")
+    if not request.user.is_superuser:
+        get_object_or_404(ProjectMembership, user=request.user, project=project)
+    return project
+
+
+def get_visible_atlas_or_404(request, atlas_id: int):
+    atlas = get_object_or_404(
+        Atlas.objects.select_related("project", "world_folder"),
+        id=atlas_id,
+        is_active=True,
+        project__is_active=True,
+    )
+    if not request.user.is_superuser:
+        get_object_or_404(ProjectMembership, user=request.user, project=atlas.project)
+    return atlas
 
 
 @login_required
@@ -227,14 +252,11 @@ def restore_world_folder(request, world_id: int):
 
 @login_required
 def project_detail(request, slug: str):
-    project = get_object_or_404(
+    project = get_visible_project_or_404(
+        request,
+        slug,
         Project.objects.prefetch_related("atlases__renders", "visible_worlds"),
-        slug=slug,
     )
-    if not project.is_active and not request.user.is_superuser:
-        raise PermissionDenied("This Project is archived.")
-    if not request.user.is_superuser:
-        get_object_or_404(ProjectMembership, user=request.user, project=project)
 
     can_manage = can_manage_project(request.user, project)
     return render(
@@ -244,8 +266,6 @@ def project_detail(request, slug: str):
             "project": project,
             "can_manage_project": can_manage,
             "atlas_form": AtlasCreateForm(project=project) if can_manage else None,
-            "project_user_add_form": ProjectUserAddForm(project=project) if can_manage else None,
-            "memberships": project.memberships.select_related("user").all(),
             "archived_atlas_count": (
                 project.atlases.filter(is_active=False).count() if can_manage else 0
             ),
@@ -254,10 +274,85 @@ def project_detail(request, slug: str):
                     "atlas": atlas,
                     "renders": atlas.renders.filter(is_enabled=True),
                     "archived_render_count": atlas.renders.filter(is_enabled=False).count(),
-                    "render_form": RenderCreateForm(atlas=atlas) if can_manage else None,
                 }
                 for atlas in project.atlases.filter(is_active=True)
             ],
+        },
+    )
+
+
+@login_required
+def project_members(request, slug: str):
+    project = get_visible_project_or_404(request, slug)
+    can_manage = can_manage_project(request.user, project)
+
+    return render(
+        request,
+        "projects/project_members.html",
+        {
+            "project": project,
+            "can_manage_project": can_manage,
+            "project_user_add_form": ProjectUserAddForm(project=project) if can_manage else None,
+            "memberships": project.memberships.select_related("user").all(),
+        },
+    )
+
+
+@login_required
+def project_worlds(request, slug: str):
+    project = get_visible_project_or_404(
+        request,
+        slug,
+        Project.objects.prefetch_related("visible_worlds"),
+    )
+    can_manage = can_manage_project(request.user, project)
+    if can_manage:
+        world_folders = project.visible_worlds.all()
+        worlds_title = "Visible World Folders"
+        empty_message = "No world folders are visible to this Project."
+    else:
+        world_folders = WorldFolder.objects.filter(
+            atlases__project=project,
+            atlases__is_active=True,
+        ).distinct().order_by("display_name")
+        worlds_title = "Atlas World Folders"
+        empty_message = "No world folders are in use by this Project's Atlases yet."
+
+    return render(
+        request,
+        "projects/project_worlds.html",
+        {
+            "project": project,
+            "can_manage_project": can_manage,
+            "world_folders": world_folders,
+            "worlds_title": worlds_title,
+            "empty_message": empty_message,
+        },
+    )
+
+
+@login_required
+def atlas_detail(request, atlas_id: int):
+    atlas = get_visible_atlas_or_404(request, atlas_id)
+    can_manage = can_manage_project(request.user, atlas.project)
+    renders = atlas.renders.filter(is_enabled=True).prefetch_related("jobs")
+    return render(
+        request,
+        "projects/atlas_detail.html",
+        {
+            "atlas": atlas,
+            "project": atlas.project,
+            "can_manage_project": can_manage,
+            "render_sections": [
+                {
+                    "render": render,
+                    "latest_job": render.jobs.first(),
+                }
+                for render in renders
+            ],
+            "archived_render_count": atlas.renders.filter(is_enabled=False).count() if can_manage else 0,
+            "render_form": RenderCreateForm(atlas=atlas) if can_manage else None,
+            "render_preset_summaries": RENDER_PRESET_SUMMARIES,
         },
     )
 
@@ -313,6 +408,7 @@ def create_atlas(request, slug: str):
     if form.is_valid():
         atlas = form.save()
         messages.success(request, f"Atlas '{atlas.display_name}' created.")
+        return redirect("atlas_detail", atlas_id=atlas.id)
     else:
         for error in form.errors.values():
             messages.error(request, error)
@@ -338,7 +434,7 @@ def create_render(request, atlas_id: int):
     else:
         for error in form.errors.values():
             messages.error(request, error)
-    return redirect(atlas.project.get_absolute_url())
+    return redirect("atlas_detail", atlas_id=atlas.id)
 
 
 @login_required
@@ -359,7 +455,7 @@ def edit_render(request, render_id: int):
         if form.is_valid():
             render_obj = form.save()
             messages.success(request, f"Render '{render_obj.display_name}' updated.")
-            return redirect(render_obj.project.get_absolute_url())
+            return redirect("atlas_detail", atlas_id=render_obj.atlas_id)
 
     return render(
         request,
@@ -369,6 +465,9 @@ def edit_render(request, render_id: int):
             "form": form,
             "basic_fields": [form[field] for field in RENDER_BASIC_FIELDS],
             "advanced_fields": [form[field] for field in RENDER_ADVANCED_FIELDS],
+            "config_content": preview_render_config(render_obj)[1],
+            "render_preset_defaults": RENDER_PRESET_DEFAULTS,
+            "render_preset_summaries": RENDER_PRESET_SUMMARIES,
             "title": "Edit Render",
             "submit_label": "Save Render",
         },
@@ -390,14 +489,13 @@ def archive_render(request, render_id: int):
 
     if render_has_active_jobs(render_obj):
         messages.error(request, "This Render has a queued or running job and cannot be archived yet.")
-        return redirect(render_obj.project.get_absolute_url())
+        return redirect("atlas_detail", atlas_id=render_obj.atlas_id)
 
-    project = render_obj.project
     display_name = render_obj.display_name
     render_obj.is_enabled = False
     render_obj.save(update_fields=["is_enabled", "updated_at"])
     messages.success(request, f"Render '{display_name}' archived.")
-    return redirect(project.get_absolute_url())
+    return redirect("atlas_detail", atlas_id=render_obj.atlas_id)
 
 
 @login_required
@@ -436,7 +534,7 @@ def add_project_user(request, slug: str):
     else:
         for error in form.errors.values():
             messages.error(request, error)
-    return redirect(project.get_absolute_url())
+    return redirect("project_members", slug=project.slug)
 
 
 @login_required
@@ -456,7 +554,7 @@ def edit_atlas(request, atlas_id: int):
         if form.is_valid():
             atlas = form.save()
             messages.success(request, f"Atlas '{atlas.display_name}' updated.")
-            return redirect(atlas.project.get_absolute_url())
+            return redirect("atlas_detail", atlas_id=atlas.id)
 
     return render(
         request,
@@ -484,7 +582,7 @@ def archive_atlas(request, atlas_id: int):
 
     if atlas_has_active_jobs(atlas):
         messages.error(request, "This Atlas has queued or running render jobs and cannot be archived yet.")
-        return redirect(atlas.project.get_absolute_url())
+        return redirect("atlas_detail", atlas_id=atlas.id)
 
     project = atlas.project
     display_name = atlas.display_name
@@ -530,7 +628,7 @@ def remove_project_membership(request, slug: str, membership_id: int):
     username = membership.user.username
     membership.delete()
     messages.success(request, f"Removed {username} from this Project.")
-    return redirect(project.get_absolute_url())
+    return redirect("project_members", slug=project.slug)
 
 
 def render_has_active_jobs(render_obj: Render) -> bool:

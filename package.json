@@ -1,0 +1,14 @@
+{
+  "name": "bluemap-web-ui-panel",
+  "private": true,
+  "scripts": {
+    "build:css": "tailwindcss -i ./assets/static/src/app.css -o ./assets/static/css/app.css --minify",
+    "watch:css": "tailwindcss -i ./assets/static/src/app.css -o ./assets/static/css/app.css --watch"
+  },
+  "devDependencies": {
+    "autoprefixer": "^10.4.20",
+    "daisyui": "^4.12.24",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^3.4.17"
+  }
+}

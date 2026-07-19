@@ -2,129 +2,75 @@
 
 {% block title %}{{ project.name }} - BlueMap Web UI Panel{% endblock %}
 
+{% block breadcrumbs %}
+  <li><a href="{% url 'dashboard' %}">Projects</a></li>
+  <li>{{ project.name }}</li>
+{% endblock %}
+
 {% block content %}
-  <h1>{{ project.name }}</h1>
-  {% if project.description %}
-    <p>{{ project.description }}</p>
-  {% endif %}
+  <div class="page-heading">
+    <div>
+      <p class="page-kicker">Project</p>
+      <h1>{{ project.name }}</h1>
+      {% if project.description %}
+        <p class="mt-2 max-w-3xl text-base-content/70">{{ project.description }}</p>
+      {% endif %}
+    </div>
+  </div>
+
+  {% include "projects/project_subnav.html" with active_project_tab="atlases" %}
 
   <section class="panel">
     <div class="row">
       <h2>Atlases</h2>
       {% if can_manage_project %}
-        <a href="{% url 'archived_atlases' project.slug %}">
-          Archived Atlases{% if archived_atlas_count %} ({{ archived_atlas_count }}){% endif %}
-        </a>
+        <div>
+          <a class="btn btn-outline btn-sm" href="{% url 'archived_atlases' project.slug %}">
+            Archived Atlases{% if archived_atlas_count %} ({{ archived_atlas_count }}){% endif %}
+          </a>
+        </div>
       {% endif %}
     </div>
     <div class="list">
       {% for section in atlas_sections %}
         {% with atlas=section.atlas %}
-        <article>
-          <div class="row">
-            <h3>{{ atlas.display_name }}</h3>
-            {% if can_manage_project %}
+          <article class="rounded-lg border border-base-300 p-4">
+            <div class="row">
               <div>
-                <a href="{% url 'edit_atlas' atlas.id %}">Edit Atlas</a>
-                <form method="post" action="{% url 'archive_atlas' atlas.id %}" style="display:inline">
-                  {% csrf_token %}
-                  <button type="submit">Archive Atlas</button>
-                </form>
+                <h3><a href="{% url 'atlas_detail' atlas.id %}">{{ atlas.display_name }}</a></h3>
+                <p class="muted">{{ atlas.world_folder.source_path }}</p>
               </div>
-            {% endif %}
-          </div>
-          <p class="muted">{{ atlas.world_folder.source_path }}</p>
-          <ul>
-            {% for render in section.renders %}
-              <li>
-                <a href="{% url 'render_viewer' render.id %}">{{ render.display_name }}</a>
-                <span class="muted">({{ render.bluemap_map_id }})</span>
-                {% if can_manage_project %}
-                  <a href="{% url 'edit_render' render.id %}">Edit</a>
-                  <form method="post" action="{% url 'archive_render' render.id %}" style="display:inline">
-                    {% csrf_token %}
-                    <button type="submit">Archive</button>
-                  </form>
+              <div class="flex flex-wrap gap-2">
+                <span class="badge badge-outline">{{ section.renders.count }} renders</span>
+                {% if can_manage_project and section.archived_render_count %}
+                  <span class="badge badge-neutral badge-outline">{{ section.archived_render_count }} archived</span>
                 {% endif %}
-              </li>
-            {% empty %}
-              <li>No Renders defined.</li>
-            {% endfor %}
-          </ul>
-          {% if can_manage_project %}
-            <p>
-              <a href="{% url 'archived_renders' atlas.id %}">
-                Archived Renders{% if section.archived_render_count %} ({{ section.archived_render_count }}){% endif %}
-              </a>
-            </p>
-          {% endif %}
-          {% if can_manage_project %}
-            <details>
-              <summary>Add Render</summary>
-              <form method="post" action="{% url 'create_render' atlas.id %}">
-                {% csrf_token %}
-                {{ section.render_form.as_p }}
-                <button type="submit">Create Render</button>
-              </form>
-            </details>
-          {% endif %}
-        </article>
+              </div>
+            </div>
+            <div class="mt-3 flex flex-wrap gap-2">
+              <a class="btn btn-primary btn-sm" href="{% url 'atlas_detail' atlas.id %}">View Atlas</a>
+              {% if can_manage_project %}
+                <div class="dropdown dropdown-end">
+                  <button class="btn btn-ghost btn-sm" tabindex="0" type="button">Manage</button>
+                  <ul class="dropdown-content menu z-10 w-48 rounded-lg border border-base-300 bg-base-100 p-2 shadow">
+                    <li><a href="{% url 'edit_atlas' atlas.id %}">Edit Atlas</a></li>
+                    <li>
+                      <form method="post" action="{% url 'archive_atlas' atlas.id %}">
+                        {% csrf_token %}
+                        <button class="text-error" type="submit">Archive Atlas</button>
+                      </form>
+                    </li>
+                  </ul>
+                </div>
+              {% endif %}
+            </div>
+          </article>
         {% endwith %}
       {% empty %}
         <p>No Atlases have been created for this Project.</p>
       {% endfor %}
     </div>
   </section>
-
-  {% if can_manage_project %}
-    <section class="panel">
-      <h2>Project Users</h2>
-      <table>
-        <thead>
-          <tr>
-            <th>Username</th>
-            <th>Email</th>
-            <th>Role</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for membership in memberships %}
-            <tr>
-              <td>{{ membership.user.username }}</td>
-              <td>
-                {% if membership.user.email %}
-                  {{ membership.user.email }}
-                {% else %}
-                  <span class="muted">No email</span>
-                {% endif %}
-              </td>
-              <td>{{ membership.get_role_display }}</td>
-              <td>
-                {% if request.user.is_superuser or membership.role == "project_user" %}
-                  <form method="post" action="{% url 'remove_project_membership' project.slug membership.id %}">
-                    {% csrf_token %}
-                    <button type="submit">Remove</button>
-                  </form>
-                {% endif %}
-              </td>
-            </tr>
-          {% empty %}
-            <tr>
-              <td colspan="4">No users are assigned to this Project.</td>
-            </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-
-      <h3>Add Project User</h3>
-      <form method="post" action="{% url 'add_project_user' project.slug %}">
-        {% csrf_token %}
-        {{ project_user_add_form.as_p }}
-        <button type="submit">Add User</button>
-      </form>
-    </section>
-  {% endif %}
 
   {% if can_manage_project %}
     <section class="panel">
@@ -138,19 +84,6 @@
       {% else %}
         <p class="muted">No world folders are visible to this Project yet.</p>
       {% endif %}
-    </section>
-  {% endif %}
-
-  {% if can_manage_project %}
-    <section class="panel">
-      <h2>Visible World Folders</h2>
-      <ul>
-        {% for world in project.visible_worlds.all %}
-          <li>{{ world.display_name }} <span class="muted">{{ world.source_path }}</span></li>
-        {% empty %}
-          <li>No world folders are visible to this Project.</li>
-        {% endfor %}
-      </ul>
     </section>
   {% endif %}
 {% endblock %}
