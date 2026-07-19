@@ -1,30 +1,31 @@
 {% extends "base.html" %}
+{% load icons %}
 
 {% block title %}{{ title }} - BlueMap Web UI Panel{% endblock %}
 
 {% block breadcrumbs %}
-  <li><a href="{% url 'panel_settings' %}">Panel Settings</a></li>
-  <li><a href="{% url 'panel_users' %}">Users</a></li>
+  <li><a href="{% url 'panel_settings' %}">{% icon "settings" %} Panel Settings</a></li>
+  <li><a href="{% url 'panel_users' %}">{% icon "users" %} Users</a></li>
   <li>{{ title }}</li>
 {% endblock %}
 
 {% block content %}
   <div class="row">
-    <h1>{{ title }}</h1>
-    <a class="btn btn-ghost btn-sm" href="{% url 'panel_users' %}">Back to Users</a>
+    <h1>{% icon "user-cog" "icon-heading" %}{{ title }}</h1>
+    <a class="btn btn-ghost btn-sm" href="{% url 'panel_users' %}">{% icon "arrow-left" %} Back to Users</a>
   </div>
 
   <section class="panel">
     <form method="post">
       {% csrf_token %}
       {{ form.as_p }}
-      <button type="submit">{{ submit_label }}</button>
+      <button type="submit">{% icon "save" %} {{ submit_label }}</button>
     </form>
   </section>
 
   {% if edited_user %}
     <section class="panel">
-      <h2>Project Access</h2>
+      <h2>{% icon "key-round" "icon-heading" %}Project Access</h2>
       <div class="table-wrap">
       <table>
         <thead>
@@ -45,14 +46,14 @@
                 <td>
                   <form method="post" action="{% url 'panel_user_project_access_remove' edited_user.id membership.id %}">
                     {% csrf_token %}
-                    <button class="action-danger" type="submit">Remove</button>
+                    <button class="action-danger" type="submit">{% icon "user-minus" %} Remove</button>
                   </form>
                 </td>
               {% endif %}
             </tr>
           {% empty %}
             <tr>
-              <td colspan="{% if request.user.is_superuser %}3{% else %}2{% endif %}">No Project access assigned.</td>
+              <td colspan="{% if request.user.is_superuser %}3{% else %}2{% endif %}">{% icon "key-round" %} No Project access assigned.</td>
             </tr>
           {% endfor %}
         </tbody>
@@ -62,11 +63,11 @@
 
     {% if request.user.is_superuser %}
       <section class="panel">
-        <h2>Add Project Access</h2>
+        <h2>{% icon "plus" "icon-heading" %}Add Project Access</h2>
         <form method="post" action="{% url 'panel_user_project_access_add' edited_user.id %}">
           {% csrf_token %}
           {{ project_access_form.as_p }}
-          <button type="submit">Add Project Access</button>
+          <button type="submit">{% icon "plus" %} Add Project Access</button>
         </form>
       </section>
     {% endif %}

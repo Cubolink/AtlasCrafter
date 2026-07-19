@@ -1,17 +1,18 @@
 {% extends "base.html" %}
+{% load icons %}
 
 {% block title %}{{ title }} - BlueMap Web UI Panel{% endblock %}
 
 {% block breadcrumbs %}
-  <li><a href="{% url 'panel_settings' %}">Panel Settings</a></li>
-  <li><a href="{% url 'manage_projects' %}">Manage Projects</a></li>
+  <li><a href="{% url 'panel_settings' %}">{% icon "settings" %} Panel Settings</a></li>
+  <li><a href="{% url 'manage_projects' %}">{% icon "folder-cog" %} Manage Projects</a></li>
   <li>{{ title }}</li>
 {% endblock %}
 
 {% block content %}
   <div class="row">
-    <h1>{{ title }}</h1>
-    <a class="btn btn-ghost btn-sm" href="{% url 'manage_projects' %}">Back to Projects</a>
+    <h1>{% icon "folder-cog" "icon-heading" %}{{ title }}</h1>
+    <a class="btn btn-ghost btn-sm" href="{% url 'manage_projects' %}">{% icon "arrow-left" %} Back to Projects</a>
   </div>
 
   <section class="panel">
@@ -44,19 +45,19 @@
       </p>
 
       <section>
-        <h2>Visible World Folders</h2>
+        <h2>{% icon "globe-2" "icon-heading" %}Visible World Folders</h2>
         {% if worlds %}
           <ul>
             {% include "projects/visible_world_tree_node.html" with node=tree form=form only %}
           </ul>
         {% else %}
-          <p class="muted">No active world folders are available yet.</p>
+          <p class="muted flex items-center gap-2">{% icon "folder-x" %} No active world folders are available yet.</p>
         {% endif %}
         {{ form.visible_worlds.errors }}
       </section>
 
       {{ form.non_field_errors }}
-      <button type="submit">{{ submit_label }}</button>
+      <button type="submit">{% icon "save" %} {{ submit_label }}</button>
     </form>
   </section>
 

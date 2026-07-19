@@ -1,21 +1,22 @@
 {% extends "base.html" %}
+{% load icons %}
 
 {% block title %}Archived Renders - {{ atlas.display_name }}{% endblock %}
 
 {% block breadcrumbs %}
-  <li><a href="{% url 'dashboard' %}">Projects</a></li>
-  <li><a href="{{ project.get_absolute_url }}">{{ project.name }}</a></li>
-  <li><a href="{% url 'atlas_detail' atlas.id %}">{{ atlas.display_name }}</a></li>
+  <li><a href="{% url 'dashboard' %}">{% icon "briefcase-business" %} Projects</a></li>
+  <li><a href="{{ project.get_absolute_url }}">{% icon "folder" %} {{ project.name }}</a></li>
+  <li><a href="{% url 'atlas_detail' atlas.id %}">{% icon "map" %} {{ atlas.display_name }}</a></li>
   <li>Archived Renders</li>
 {% endblock %}
 
 {% block content %}
-  <h1>Archived Renders</h1>
-  <p><a class="btn btn-ghost btn-sm" href="{% url 'atlas_detail' atlas.id %}">Back to {{ atlas.display_name }}</a></p>
+  <h1>{% icon "archive" "icon-heading" %}Archived Renders</h1>
+  <p><a class="btn btn-ghost btn-sm" href="{% url 'atlas_detail' atlas.id %}">{% icon "arrow-left" %} Back to {{ atlas.display_name }}</a></p>
 
   <section class="panel">
-    <h2>{{ atlas.display_name }}</h2>
-    <p class="muted">{{ atlas.world_folder.source_path }}</p>
+    <h2>{% icon "map" "icon-heading" %}{{ atlas.display_name }}</h2>
+    <p class="muted flex items-center gap-2">{% icon "folder-open" %} {{ atlas.world_folder.source_path }}</p>
     <div class="table-wrap">
     <table>
       <thead>
@@ -35,13 +36,13 @@
             <td>
               <form method="post" action="{% url 'restore_render' render.id %}">
                 {% csrf_token %}
-                <button class="btn btn-secondary btn-sm" type="submit">Restore</button>
+                <button class="btn btn-secondary btn-sm" type="submit">{% icon "rotate-ccw" %} Restore</button>
               </form>
             </td>
           </tr>
         {% empty %}
           <tr>
-            <td colspan="4">No archived Renders.</td>
+            <td colspan="4">{% icon "archive-x" %} No archived Renders.</td>
           </tr>
         {% endfor %}
       </tbody>

@@ -1,24 +1,25 @@
 {% extends "base.html" %}
+{% load icons %}
 
 {% block title %}Projects - BlueMap Web UI Panel{% endblock %}
 
 {% block breadcrumbs %}
-  <li><a href="{% url 'dashboard' %}">Projects</a></li>
+  <li><a href="{% url 'dashboard' %}">{% icon "briefcase-business" %} Projects</a></li>
 {% endblock %}
 
 {% block content %}
   <div class="page-heading">
     <div>
       <p class="page-kicker">Workspace</p>
-      <h1>Projects</h1>
+      <h1>{% icon "briefcase-business" "icon-heading" %}Projects</h1>
     </div>
   </div>
   <div class="list">
     {% for project in projects %}
       <section class="panel">
         <div class="row">
-          <h2><a href="{{ project.get_absolute_url }}">{{ project.name }}</a></h2>
-          <span class="badge badge-outline">{{ project.atlases.count }} atlases</span>
+          <h2><a class="inline-flex items-center gap-2" href="{{ project.get_absolute_url }}">{% icon "folder" %} {{ project.name }}</a></h2>
+          <span class="badge badge-outline">{% icon "map" %} {{ project.atlases.count }} atlases</span>
         </div>
         {% if project.description %}
           <p>{{ project.description }}</p>
@@ -26,7 +27,7 @@
       </section>
     {% empty %}
       <section class="panel">
-        <p>No Projects are available for your account yet.</p>
+        <p class="muted flex items-center gap-2">{% icon "folder-x" %} No Projects are available for your account yet.</p>
       </section>
     {% endfor %}
   </div>

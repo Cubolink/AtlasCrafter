@@ -1,11 +1,12 @@
 {% extends "base.html" %}
+{% load icons %}
 
 {% block title %}{{ render.display_name }} - BlueMap Web UI Panel{% endblock %}
 
 {% block breadcrumbs %}
-  <li><a href="{% url 'dashboard' %}">Projects</a></li>
-  <li><a href="{{ render.project.get_absolute_url }}">{{ render.project.name }}</a></li>
-  <li><a href="{% url 'atlas_detail' render.atlas.id %}">{{ render.atlas.display_name }}</a></li>
+  <li><a href="{% url 'dashboard' %}">{% icon "briefcase-business" %} Projects</a></li>
+  <li><a href="{{ render.project.get_absolute_url }}">{% icon "folder" %} {{ render.project.name }}</a></li>
+  <li><a href="{% url 'atlas_detail' render.atlas.id %}">{% icon "map" %} {{ render.atlas.display_name }}</a></li>
   <li>{{ render.display_name }}</li>
 {% endblock %}
 
@@ -42,7 +43,7 @@
     <div class="row">
       <div>
         <p class="page-kicker">Render</p>
-        <h1>{{ render.display_name }}</h1>
+        <h1>{% icon "map-pinned" "icon-heading" %}{{ render.display_name }}</h1>
         <p class="muted">{{ render.project.name }} / {{ render.atlas.display_name }}</p>
       </div>
       <div class="flex flex-wrap items-center gap-2">
@@ -51,19 +52,19 @@
         </span>
         {% if can_manage_render or can_trigger_render %}
           <div class="dropdown dropdown-end">
-            <button class="btn btn-outline btn-sm" tabindex="0" type="button">Manage</button>
+            <button class="btn btn-outline btn-sm" tabindex="0" type="button">{% icon "more-horizontal" %} Manage</button>
             <ul class="dropdown-content menu z-10 w-52 rounded-lg border border-base-300 bg-base-100 p-2 shadow">
               {% if can_manage_render %}
-                <li><a href="{% url 'edit_render' render.id %}">Edit Render</a></li>
+                <li><a href="{% url 'edit_render' render.id %}">{% icon "pencil" %} Edit Render</a></li>
               {% endif %}
               {% if can_trigger_render %}
-                <li><a href="{% url 'render_config_preview' render.id %}">Preview Config</a></li>
+                <li><a href="{% url 'render_config_preview' render.id %}">{% icon "file-code" %} Preview Config</a></li>
               {% endif %}
               {% if can_manage_render %}
                 <li>
                   <form method="post" action="{% url 'archive_render' render.id %}">
                     {% csrf_token %}
-                    <button class="text-error" type="submit">Archive Render</button>
+                    <button class="text-error" type="submit">{% icon "archive" %} Archive Render</button>
                   </form>
                 </li>
               {% endif %}
@@ -87,23 +88,23 @@
             <span class="muted">{{ render.config.generated_file.path }}</span>
           {% endif %}
         {% else %}
-          <span class="muted">No explicit config yet. The default Project/Profile config will be created when rendering.</span>
+          <span class="muted inline-flex items-center gap-2">{% icon "file-code" %} No explicit config yet. The default Project/Profile config will be created when rendering.</span>
         {% endif %}
       </dd>
     </dl>
     {% if can_trigger_render %}
       {% if not source_available %}
-        <p class="muted">This World Folder is archived or missing. Restore it before triggering new render jobs.</p>
+        <p class="muted flex items-center gap-2">{% icon "triangle-alert" %} This World Folder is archived or missing. Restore it before triggering new render jobs.</p>
       {% endif %}
       <form method="post" action="{% url 'trigger_render' render.id %}">
         {% csrf_token %}
         <button class="btn btn-primary" type="submit" {% if has_active_job or not source_available %}disabled{% endif %}>
-          {% if has_active_job %}Render in progress{% elif not source_available %}World folder unavailable{% else %}Trigger render{% endif %}
+          {% if has_active_job %}{% icon "loader-circle" %} Render in progress{% elif not source_available %}{% icon "triangle-alert" %} World folder unavailable{% else %}{% icon "play" %} Trigger render{% endif %}
         </button>
       </form>
       {% if has_active_job %}
         <p class="muted">
-          Job #{{ active_job.id }} is {{ active_job.get_status_display|lower }}.
+          {% icon "activity" %} Job #{{ active_job.id }} is {{ active_job.get_status_display|lower }}.
           The page will refresh when the job finishes.
         </p>
       {% endif %}
@@ -112,7 +113,7 @@
 
   {% if render_output_exists %}
     <section class="panel">
-      <h2>BlueMap Viewer</h2>
+      <h2>{% icon "monitor" "icon-heading" %}BlueMap Viewer</h2>
       <iframe
         title="{{ render.display_name }} BlueMap viewer"
         src="{% url 'protected_render_asset' render.id 'index.html' %}"
@@ -121,19 +122,19 @@
     </section>
   {% else %}
     <section class="panel">
-      <h2>BlueMap Viewer</h2>
-      <p class="muted">No render output has been generated for this Render yet.</p>
+      <h2>{% icon "monitor" "icon-heading" %}BlueMap Viewer</h2>
+      <p class="muted flex items-center gap-2">{% icon "monitor-x" %} No render output has been generated for this Render yet.</p>
     </section>
   {% endif %}
 
   <section class="panel">
-    <h2>Recent Jobs</h2>
+    <h2>{% icon "history" "icon-heading" %}Recent Jobs</h2>
     <div class="list">
       {% for job in jobs %}
         <article>
           <div class="row">
             <strong>
-              <a href="{% url 'render_job_detail' job.id %}">Job #{{ job.id }}</a>
+              <a class="inline-flex items-center gap-2" href="{% url 'render_job_detail' job.id %}">{% icon "activity" %} Job #{{ job.id }}</a>
               <span class="status-{{ job.status }}">{{ job.get_status_display }}</span>
             </strong>
             <span class="muted">{{ job.created_at }}</span>
@@ -141,16 +142,16 @@
           {% if can_trigger_render and job.status == "queued" %}
             <form method="post" action="{% url 'cancel_render_job' job.id %}">
               {% csrf_token %}
-              <button class="action-danger" type="submit">Cancel queued job</button>
+              <button class="action-danger" type="submit">{% icon "circle-x" %} Cancel queued job</button>
             </form>
           {% endif %}
           {% if job.command %}
             <p class="muted">{{ job.command|join:" " }}</p>
           {% endif %}
-          <p><a href="{% url 'render_job_detail' job.id %}">View details and logs</a></p>
+          <p><a class="inline-flex items-center gap-2" href="{% url 'render_job_detail' job.id %}">{% icon "scroll-text" %} View details and logs</a></p>
         </article>
       {% empty %}
-        <p>No render jobs have been triggered yet.</p>
+        <p class="muted flex items-center gap-2">{% icon "clock" %} No render jobs have been triggered yet.</p>
       {% endfor %}
     </div>
   </section>

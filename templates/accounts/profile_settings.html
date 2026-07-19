@@ -1,38 +1,39 @@
 {% extends "base.html" %}
+{% load icons %}
 
 {% block title %}Profile Settings - BlueMap Web UI Panel{% endblock %}
 
 {% block breadcrumbs %}
-  <li><a href="{% url 'dashboard' %}">Projects</a></li>
-  <li>Profile</li>
+  <li><a href="{% url 'dashboard' %}">{% icon "briefcase-business" %} Projects</a></li>
+  <li>{% icon "user" %} Profile</li>
 {% endblock %}
 
 {% block content %}
   <div class="page-heading">
     <div>
       <p class="page-kicker">Account</p>
-      <h1>Profile Settings</h1>
+      <h1>{% icon "user" "icon-heading" %}Profile Settings</h1>
     </div>
   </div>
 
   <section class="panel">
-    <h2>Account</h2>
-    <p class="muted">Signed in as {{ request.user.username }}</p>
+    <h2>{% icon "id-card" "icon-heading" %}Account</h2>
+    <p class="muted flex items-center gap-2">{% icon "user-round" %} Signed in as {{ request.user.username }}</p>
     <form method="post">
       {% csrf_token %}
       <input type="hidden" name="form" value="profile">
       {{ profile_form.as_p }}
-      <button type="submit">Save Profile</button>
+      <button type="submit">{% icon "save" %} Save Profile</button>
     </form>
   </section>
 
   <section class="panel">
-    <h2>Change Password</h2>
+    <h2>{% icon "lock-keyhole" "icon-heading" %}Change Password</h2>
     <form method="post">
       {% csrf_token %}
       <input type="hidden" name="form" value="password">
       {{ password_form.as_p }}
-      <button type="submit">Change Password</button>
+      <button type="submit">{% icon "key-round" %} Change Password</button>
     </form>
   </section>
 {% endblock %}

@@ -1,16 +1,17 @@
 {% extends "base.html" %}
+{% load icons %}
 
 {% block title %}Panel Settings - BlueMap Web UI Panel{% endblock %}
 
 {% block breadcrumbs %}
-  <li>Panel Settings</li>
+  <li>{% icon "settings" %} Panel Settings</li>
 {% endblock %}
 
 {% block content %}
   <div class="page-heading">
     <div>
       <p class="page-kicker">Administration</p>
-      <h1>Panel Settings</h1>
+      <h1>{% icon "settings" "icon-heading" %}Panel Settings</h1>
       <p class="mt-2 max-w-3xl text-base-content/70">
         Manage users, project visibility, and discovered world folders from one place.
       </p>
@@ -20,10 +21,10 @@
   <section class="grid gap-4 lg:grid-cols-3">
     <article class="panel">
       <div>
-        <h2>Users</h2>
+        <h2>{% icon "users" "icon-heading" %}Users</h2>
         <p class="muted">Search users, edit account details, and assign project access.</p>
         <div class="mt-4">
-          <a class="btn btn-outline btn-sm" href="{% url 'panel_users' %}">Manage Users</a>
+          <a class="btn btn-outline btn-sm" href="{% url 'panel_users' %}">{% icon "users" %} Manage Users</a>
         </div>
       </div>
     </article>
@@ -31,20 +32,20 @@
   {% if request.user.is_superuser %}
     <article class="panel">
       <div>
-        <h2>Projects</h2>
+        <h2>{% icon "folder-cog" "icon-heading" %}Projects</h2>
         <p class="muted">Create Projects and control which world folders are visible to them.</p>
         <div class="mt-4">
-          <a class="btn btn-outline btn-sm" href="{% url 'manage_projects' %}">Manage Projects</a>
+          <a class="btn btn-outline btn-sm" href="{% url 'manage_projects' %}">{% icon "folder-cog" %} Manage Projects</a>
         </div>
       </div>
     </article>
 
     <article class="panel">
       <div>
-        <h2>World Folders</h2>
+        <h2>{% icon "globe-2" "icon-heading" %}World Folders</h2>
         <p class="muted">Discover and manage Minecraft world folders available to Projects.</p>
         <div class="mt-4">
-          <a class="btn btn-outline btn-sm" href="{% url 'world_folders' %}">Manage World Folders</a>
+          <a class="btn btn-outline btn-sm" href="{% url 'world_folders' %}">{% icon "globe-2" %} Manage World Folders</a>
         </div>
       </div>
     </article>

@@ -1,10 +1,11 @@
 {% extends "base.html" %}
+{% load icons %}
 
 {% block title %}Members - {{ project.name }}{% endblock %}
 
 {% block breadcrumbs %}
-  <li><a href="{% url 'dashboard' %}">Projects</a></li>
-  <li><a href="{{ project.get_absolute_url }}">{{ project.name }}</a></li>
+  <li><a href="{% url 'dashboard' %}">{% icon "briefcase-business" %} Projects</a></li>
+  <li><a href="{{ project.get_absolute_url }}">{% icon "folder" %} {{ project.name }}</a></li>
   <li>Members</li>
 {% endblock %}
 
@@ -12,7 +13,7 @@
   <div class="page-heading">
     <div>
       <p class="page-kicker">Project</p>
-      <h1>{{ project.name }}</h1>
+      <h1>{% icon "folder" "icon-heading" %}{{ project.name }}</h1>
       {% if project.description %}
         <p class="mt-2 max-w-3xl text-base-content/70">{{ project.description }}</p>
       {% endif %}
@@ -22,7 +23,7 @@
   {% include "projects/project_subnav.html" with active_project_tab="members" %}
 
   <section class="panel">
-    <h2>Members</h2>
+    <h2>{% icon "users" "icon-heading" %}Members</h2>
     <div class="table-wrap">
       <table>
         <thead>
@@ -52,7 +53,7 @@
                   {% if request.user.is_superuser or membership.role == "project_user" %}
                     <form method="post" action="{% url 'remove_project_membership' project.slug membership.id %}">
                       {% csrf_token %}
-                      <button class="action-danger" type="submit">Remove</button>
+                    <button class="action-danger" type="submit">{% icon "user-minus" %} Remove</button>
                     </form>
                   {% endif %}
                 </td>
@@ -60,7 +61,7 @@
             </tr>
           {% empty %}
             <tr>
-              <td colspan="{% if can_manage_project %}4{% else %}3{% endif %}">No users are assigned to this Project.</td>
+              <td colspan="{% if can_manage_project %}4{% else %}3{% endif %}">{% icon "user-x" %} No users are assigned to this Project.</td>
             </tr>
           {% endfor %}
         </tbody>
@@ -70,11 +71,11 @@
 
   {% if can_manage_project %}
     <section class="panel">
-      <h2>Add Project User</h2>
+      <h2>{% icon "user-plus" "icon-heading" %}Add Project User</h2>
       <form method="post" action="{% url 'add_project_user' project.slug %}">
         {% csrf_token %}
         {{ project_user_add_form.as_p }}
-        <button type="submit">Add User</button>
+        <button type="submit">{% icon "user-plus" %} Add User</button>
       </form>
     </section>
   {% endif %}

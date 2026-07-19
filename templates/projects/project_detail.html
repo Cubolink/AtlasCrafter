@@ -1,17 +1,18 @@
 {% extends "base.html" %}
+{% load icons %}
 
 {% block title %}{{ project.name }} - BlueMap Web UI Panel{% endblock %}
 
 {% block breadcrumbs %}
-  <li><a href="{% url 'dashboard' %}">Projects</a></li>
-  <li>{{ project.name }}</li>
+  <li><a href="{% url 'dashboard' %}">{% icon "briefcase-business" %} Projects</a></li>
+  <li>{% icon "folder" %} {{ project.name }}</li>
 {% endblock %}
 
 {% block content %}
   <div class="page-heading">
     <div>
       <p class="page-kicker">Project</p>
-      <h1>{{ project.name }}</h1>
+      <h1>{% icon "folder" "icon-heading" %}{{ project.name }}</h1>
       {% if project.description %}
         <p class="mt-2 max-w-3xl text-base-content/70">{{ project.description }}</p>
       {% endif %}
@@ -22,11 +23,11 @@
 
   <section class="panel">
     <div class="row">
-      <h2>Atlases</h2>
+      <h2>{% icon "map" "icon-heading" %}Atlases</h2>
       {% if can_manage_project %}
         <div>
           <a class="btn btn-outline btn-sm" href="{% url 'archived_atlases' project.slug %}">
-            Archived Atlases{% if archived_atlas_count %} ({{ archived_atlas_count }}){% endif %}
+            {% icon "archive" %} Archived Atlases{% if archived_atlas_count %} ({{ archived_atlas_count }}){% endif %}
           </a>
         </div>
       {% endif %}
@@ -37,27 +38,27 @@
           <article class="rounded-lg border border-base-300 p-4">
             <div class="row">
               <div>
-                <h3><a href="{% url 'atlas_detail' atlas.id %}">{{ atlas.display_name }}</a></h3>
-                <p class="muted">{{ atlas.world_folder.source_path }}</p>
+                <h3><a class="inline-flex items-center gap-2" href="{% url 'atlas_detail' atlas.id %}">{% icon "map" %} {{ atlas.display_name }}</a></h3>
+                <p class="muted flex items-center gap-2">{% icon "folder-open" %} {{ atlas.world_folder.source_path }}</p>
               </div>
               <div class="flex flex-wrap gap-2">
-                <span class="badge badge-outline">{{ section.renders.count }} renders</span>
+                <span class="badge badge-outline">{% icon "layers" %} {{ section.renders.count }} renders</span>
                 {% if can_manage_project and section.archived_render_count %}
-                  <span class="badge badge-neutral badge-outline">{{ section.archived_render_count }} archived</span>
+                  <span class="badge badge-neutral badge-outline">{% icon "archive" %} {{ section.archived_render_count }} archived</span>
                 {% endif %}
               </div>
             </div>
             <div class="mt-3 flex flex-wrap gap-2">
-              <a class="btn btn-primary btn-sm" href="{% url 'atlas_detail' atlas.id %}">View Atlas</a>
+              <a class="btn btn-primary btn-sm" href="{% url 'atlas_detail' atlas.id %}">{% icon "eye" %} View Atlas</a>
               {% if can_manage_project %}
                 <div class="dropdown dropdown-end">
-                  <button class="btn btn-ghost btn-sm" tabindex="0" type="button">Manage</button>
+                  <button class="btn btn-ghost btn-sm" tabindex="0" type="button">{% icon "more-horizontal" %} Manage</button>
                   <ul class="dropdown-content menu z-10 w-48 rounded-lg border border-base-300 bg-base-100 p-2 shadow">
-                    <li><a href="{% url 'edit_atlas' atlas.id %}">Edit Atlas</a></li>
+                    <li><a href="{% url 'edit_atlas' atlas.id %}">{% icon "pencil" %} Edit Atlas</a></li>
                     <li>
                       <form method="post" action="{% url 'archive_atlas' atlas.id %}">
                         {% csrf_token %}
-                        <button class="text-error" type="submit">Archive Atlas</button>
+                        <button class="text-error" type="submit">{% icon "archive" %} Archive Atlas</button>
                       </form>
                     </li>
                   </ul>
@@ -67,22 +68,22 @@
           </article>
         {% endwith %}
       {% empty %}
-        <p>No Atlases have been created for this Project.</p>
+        <p class="muted flex items-center gap-2">{% icon "map-minus" %} No Atlases have been created for this Project.</p>
       {% endfor %}
     </div>
   </section>
 
   {% if can_manage_project %}
     <section class="panel">
-      <h2>Create Atlas</h2>
+      <h2>{% icon "plus" "icon-heading" %}Create Atlas</h2>
       {% if project.visible_worlds.exists %}
         <form method="post" action="{% url 'create_atlas' project.slug %}">
           {% csrf_token %}
           {{ atlas_form.as_p }}
-          <button type="submit">Create Atlas</button>
+          <button type="submit">{% icon "plus" %} Create Atlas</button>
         </form>
       {% else %}
-        <p class="muted">No world folders are visible to this Project yet.</p>
+        <p class="muted flex items-center gap-2">{% icon "globe-2" %} No world folders are visible to this Project yet.</p>
       {% endif %}
     </section>
   {% endif %}

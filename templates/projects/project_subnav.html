@@ -1,5 +1,6 @@
+{% load icons %}
 <div class="tabs tabs-bordered mb-5">
-  <a class="tab {% if active_project_tab == 'atlases' %}tab-active{% endif %}" href="{{ project.get_absolute_url }}">Atlases</a>
-  <a class="tab {% if active_project_tab == 'members' %}tab-active{% endif %}" href="{% url 'project_members' project.slug %}">Members</a>
-  <a class="tab {% if active_project_tab == 'worlds' %}tab-active{% endif %}" href="{% url 'project_worlds' project.slug %}">Worlds</a>
+  <a class="tab gap-2 {% if active_project_tab == 'atlases' %}tab-active{% endif %}" href="{{ project.get_absolute_url }}">{% icon "map" %} Atlases</a>
+  <a class="tab gap-2 {% if active_project_tab == 'members' %}tab-active{% endif %}" href="{% url 'project_members' project.slug %}">{% icon "users" %} Members</a>
+  <a class="tab gap-2 {% if active_project_tab == 'worlds' %}tab-active{% endif %}" href="{% url 'project_worlds' project.slug %}">{% icon "globe-2" %} Worlds</a>
 </div>

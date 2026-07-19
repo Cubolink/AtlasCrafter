@@ -1,9 +1,10 @@
 {% extends "base.html" %}
+{% load icons %}
 
 {% block title %}Users - BlueMap Web UI Panel{% endblock %}
 
 {% block breadcrumbs %}
-  <li><a href="{% url 'panel_settings' %}">Panel Settings</a></li>
+  <li><a href="{% url 'panel_settings' %}">{% icon "settings" %} Panel Settings</a></li>
   <li>Users</li>
 {% endblock %}
 
@@ -11,19 +12,19 @@
   <div class="row">
     <div>
       <p class="page-kicker">Panel Settings</p>
-      <h1>Users</h1>
+      <h1>{% icon "users" "icon-heading" %}Users</h1>
     </div>
-    <a class="btn btn-primary btn-sm" href="{% url 'panel_user_create' %}">Add New User</a>
+    <a class="btn btn-primary btn-sm" href="{% url 'panel_user_create' %}">{% icon "user-plus" %} Add New User</a>
   </div>
 
   <section class="panel">
-    <h2>Search Users</h2>
+    <h2>{% icon "search" "icon-heading" %}Search Users</h2>
     <form method="get">
       <label for="user-search">Search users</label>
       <input id="user-search" type="search" name="q" value="{{ query }}" placeholder="Username or email">
-      <button type="submit">Search</button>
+      <button type="submit">{% icon "search" %} Search</button>
       {% if query %}
-        <a class="btn btn-ghost btn-sm" href="{% url 'panel_users' %}">Clear</a>
+        <a class="btn btn-ghost btn-sm" href="{% url 'panel_users' %}">{% icon "x" %} Clear</a>
       {% endif %}
     </form>
   </section>
@@ -49,11 +50,11 @@
                 <span class="muted">No email</span>
               {% endif %}
             </td>
-            <td><a class="action-link" href="{% url 'panel_user_edit' user.id %}">Edit</a></td>
+            <td><a class="action-link" href="{% url 'panel_user_edit' user.id %}">{% icon "pencil" %} Edit</a></td>
           </tr>
         {% empty %}
           <tr>
-            <td colspan="3">No users found.</td>
+            <td colspan="3">{% icon "user-x" %} No users found.</td>
           </tr>
         {% endfor %}
       </tbody>
