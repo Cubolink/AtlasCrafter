@@ -118,11 +118,19 @@
     .app-shell {
       grid-template-columns: var(--app-sidebar-width) minmax(0, 1fr);
     }
+
+    .app-shell > .drawer-side {
+      @apply h-screen overflow-hidden;
+    }
+
+    .app-shell > .drawer-side > .drawer-overlay {
+      @apply hidden;
+    }
   }
 
   .app-sidebar {
     width: var(--app-sidebar-width);
-    @apply min-h-full bg-app-sidebar text-[color:var(--app-sidebar-fg)];
+    @apply min-h-full bg-app-sidebar text-[color:var(--app-sidebar-fg)] lg:h-screen;
   }
 
   .app-sidebar a {

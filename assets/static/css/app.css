@@ -4475,6 +4475,15 @@ html:has(.drawer-toggle:checked) {
   .app-shell {
     grid-template-columns: var(--app-sidebar-width) minmax(0, 1fr);
   }
+
+  .app-shell > .drawer-side {
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  .app-shell > .drawer-side > .drawer-overlay {
+    display: none;
+  }
 }
 
 .app-sidebar {
@@ -4482,6 +4491,12 @@ html:has(.drawer-toggle:checked) {
   min-height: 100%;
   background-color: var(--app-sidebar-bg);
   color: var(--app-sidebar-fg);
+}
+
+@media (min-width: 1024px) {
+  .app-sidebar {
+    height: 100vh;
+  }
 }
 
 .app-sidebar a {
