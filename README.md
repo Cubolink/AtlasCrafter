@@ -1,6 +1,6 @@
-﻿# BlueMap Web UI Panel
+﻿# AtlasCrafter
 
-A Django-based management panel for BlueMap. The application provides a secure web UI for managing Projects, Atlases, and BlueMap Renders, writing BlueMap `.conf` files through forms, triggering renders through the backend, tracking render history, and serving BlueMap viewer assets behind RBAC.
+AtlasCrafter is a Django-based management panel for BlueMap. The application provides a secure web UI for managing Projects, Atlases, and BlueMap Renders, writing BlueMap `.conf` files through forms, triggering renders through the backend, tracking render history, and serving BlueMap viewer assets behind RBAC.
 
 BlueMap remains the renderer and WebGL map viewer technology. This project wraps BlueMap with authentication, authorization, configuration management, render orchestration, and protected delivery.
 

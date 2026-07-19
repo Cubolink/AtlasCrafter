@@ -1,4 +1,4 @@
-"""Django settings for BlueMap Web UI Panel."""
+"""Django settings for AtlasCrafter."""
 
 import os
 

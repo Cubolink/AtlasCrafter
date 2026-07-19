@@ -1,5 +1,5 @@
 {
-  "name": "bluemap-web-ui-panel",
+  "name": "atlascrafter",
   "private": true,
   "scripts": {
     "build:css": "tailwindcss -i ./assets/static/src/app.css -o ./assets/static/css/app.css --minify",

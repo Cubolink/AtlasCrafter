@@ -101,7 +101,7 @@ def ensure_bluemap_runtime_config() -> None:
     write_managed_file(
         settings.BLUEMAP_CONFIG_DIR / "webapp.conf",
         (
-            "## Managed by BlueMap Web UI Panel\n"
+            "## Managed by AtlasCrafter\n"
             "enabled: true\n"
             f'webroot: "{settings.BLUEMAP_WEBROOT_DIR.as_posix()}"\n'
             "update-settings-file: true\n"
@@ -123,7 +123,7 @@ def ensure_bluemap_runtime_config() -> None:
     write_managed_file(
         settings.BLUEMAP_CONFIG_DIR / "storages" / "file.conf",
         (
-            "## Managed by BlueMap Web UI Panel\n"
+            "## Managed by AtlasCrafter\n"
             "storage-type: file\n"
             f'root: "{(settings.BLUEMAP_WEBROOT_DIR / "maps").as_posix()}"\n'
             "compression: gzip\n"
@@ -132,7 +132,7 @@ def ensure_bluemap_runtime_config() -> None:
     write_managed_file(
         settings.BLUEMAP_CONFIG_DIR / "webserver.conf",
         (
-            "## Managed by BlueMap Web UI Panel\n"
+            "## Managed by AtlasCrafter\n"
             "enabled: true\n"
             f'webroot: "{settings.BLUEMAP_WEBROOT_DIR.as_posix()}"\n'
             "port: 8100\n"
@@ -148,7 +148,9 @@ def ensure_bluemap_runtime_config() -> None:
 def write_managed_file(path: Path, content: str) -> None:
     if path.exists():
         existing = path.read_text(encoding="utf-8")
-        is_managed = existing.startswith("## Managed by BlueMap Web UI Panel")
+        is_managed = existing.startswith("## Managed by AtlasCrafter") or existing.startswith(
+            "## Managed by BlueMap Web UI Panel"
+        )
         is_bluemap_example = existing.startswith("##") and "BlueMap" in existing[:200]
         if not is_managed and not is_bluemap_example:
             return

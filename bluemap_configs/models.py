@@ -113,7 +113,7 @@ class BlueMapRenderConfig(models.Model):
 
     def generate_content(self) -> str:
         header = (
-            "# Managed by BlueMap Web UI Panel\n"
+            "# Managed by AtlasCrafter\n"
             f"# Project: {self.render.project.name}\n"
             f"# Atlas: {self.render.atlas.display_name}\n"
             f"# Render: {self.render.display_name}\n"
