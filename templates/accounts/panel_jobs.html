@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% load icons %}
+
+{% block title %}Render Jobs - BlueMap Web UI Panel{% endblock %}
+
+{% block breadcrumbs %}
+  <li><a href="{% url 'panel_settings' %}">{% icon "settings" %} Panel Settings</a></li>
+  <li>{% icon "activity" %} Render Jobs</li>
+{% endblock %}
+
+{% block content %}
+  <div class="page-heading">
+    <div>
+      <p class="page-kicker">Panel Settings</p>
+      <h1>{% icon "activity" "icon-heading" %}Render Jobs</h1>
+      <p class="mt-2 max-w-3xl text-base-content/70">
+        Monitor queued, running, and recently finished BlueMap render jobs.
+      </p>
+    </div>
+    <a class="btn btn-ghost btn-sm" href="{% url 'panel_settings' %}">{% icon "arrow-left" %} Back to Panel Settings</a>
+  </div>
+
+  <section class="panel">
+    <div class="row">
+      <h2>{% icon "loader-circle" "icon-heading" %}Active Jobs</h2>
+      <span class="badge badge-outline">{{ active_jobs|length }} active</span>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Job</th>
+            <th>Render</th>
+            <th>Project</th>
+            <th>Operation</th>
+            <th>Status</th>
+            <th>Requested By</th>
+            <th>Started</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for job in active_jobs %}
+            <tr>
+              <td><a class="inline-flex items-center gap-2" href="{% url 'render_job_detail' job.id %}">{% icon "activity" %} #{{ job.id }}</a></td>
+              <td>{{ job.render.display_name }}</td>
+              <td>{{ job.render.project.name }}</td>
+              <td><span class="badge badge-outline">{{ job.get_operation_display }}</span></td>
+              <td><span class="status-{{ job.status }}">{{ job.get_status_display }}</span></td>
+              <td>
+                {% if job.requested_by %}
+                  {{ job.requested_by.username }}
+                {% else %}
+                  <span class="muted">Unknown</span>
+                {% endif %}
+              </td>
+              <td>{{ job.started_at|default:job.created_at }}</td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="7">{% icon "circle-check" %} No queued or running jobs.</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="row">
+      <h2>{% icon "history" "icon-heading" %}Recent Finished Jobs</h2>
+      <span class="badge badge-outline">Latest 25</span>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Job</th>
+            <th>Render</th>
+            <th>Project</th>
+            <th>Operation</th>
+            <th>Status</th>
+            <th>Requested By</th>
+            <th>Finished</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for job in finished_jobs %}
+            <tr>
+              <td><a class="inline-flex items-center gap-2" href="{% url 'render_job_detail' job.id %}">{% icon "activity" %} #{{ job.id }}</a></td>
+              <td>{{ job.render.display_name }}</td>
+              <td>{{ job.render.project.name }}</td>
+              <td><span class="badge badge-outline">{{ job.get_operation_display }}</span></td>
+              <td><span class="status-{{ job.status }}">{{ job.get_status_display }}</span></td>
+              <td>
+                {% if job.requested_by %}
+                  {{ job.requested_by.username }}
+                {% else %}
+                  <span class="muted">Unknown</span>
+                {% endif %}
+              </td>
+              <td>{{ job.finished_at|default:job.updated_at }}</td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="7">{% icon "clock" %} No finished jobs yet.</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+{% endblock %}

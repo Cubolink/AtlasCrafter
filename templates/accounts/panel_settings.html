@@ -13,7 +13,7 @@
       <p class="page-kicker">Administration</p>
       <h1>{% icon "settings" "icon-heading" %}Panel Settings</h1>
       <p class="mt-2 max-w-3xl text-base-content/70">
-        Manage users, project visibility, and discovered world folders from one place.
+        Manage users, render jobs, project visibility, and discovered world folders from one place.
       </p>
     </div>
   </div>
@@ -25,6 +25,16 @@
         <p class="muted">Search users, edit account details, and assign project access.</p>
         <div class="mt-4">
           <a class="btn btn-outline btn-sm" href="{% url 'panel_users' %}">{% icon "users" %} Manage Users</a>
+        </div>
+      </div>
+    </article>
+
+    <article class="panel">
+      <div>
+        <h2>{% icon "activity" "icon-heading" %}Render Jobs</h2>
+        <p class="muted">Monitor queued, running, and recently finished BlueMap work.</p>
+        <div class="mt-4">
+          <a class="btn btn-outline btn-sm" href="{% url 'panel_jobs' %}">{% icon "activity" %} View Render Jobs</a>
         </div>
       </div>
     </article>

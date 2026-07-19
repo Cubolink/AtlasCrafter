@@ -42,7 +42,7 @@ def get_visible_job_or_404(request, job_id: int):
         .prefetch_related("log_chunks", "artifacts"),
         id=job_id,
     )
-    if not request.user.is_superuser:
+    if not (request.user.is_superuser or request.user.is_staff):
         get_object_or_404(ProjectMembership, user=request.user, project=job.render.project)
     return job
 

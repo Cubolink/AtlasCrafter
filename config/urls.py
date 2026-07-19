@@ -3,6 +3,7 @@ from django.contrib.auth import views as auth_views
 from django.urls import path
 
 from accounts.views import (
+    panel_jobs,
     panel_settings,
     panel_users,
     panel_user_create,
@@ -60,6 +61,7 @@ urlpatterns = [
     path('logout/', auth_views.LogoutView.as_view(), name='logout'),
     path('profile/', profile_settings, name='profile_settings'),
     path('settings/', panel_settings, name='panel_settings'),
+    path('settings/jobs/', panel_jobs, name='panel_jobs'),
     path('settings/projects/', manage_projects, name='manage_projects'),
     path('settings/projects/create/', create_project, name='create_project'),
     path('settings/projects/<int:project_id>/edit/', edit_project, name='edit_project'),

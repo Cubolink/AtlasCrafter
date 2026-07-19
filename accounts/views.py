@@ -8,6 +8,7 @@ from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
+from renders.models import RenderJob
 from .forms import AccountProfileForm, PanelUserCreateForm, PanelUserEditForm, ProjectAccessForm
 from .models import ProjectMembership
 
@@ -53,6 +54,30 @@ def profile_settings(request):
 @user_passes_test(can_access_panel_settings)
 def panel_settings(request):
     return render(request, "accounts/panel_settings.html")
+
+
+@login_required
+@user_passes_test(can_access_panel_settings)
+def panel_jobs(request):
+    jobs = RenderJob.objects.select_related(
+        "render__atlas__project",
+        "requested_by",
+    )
+    active_jobs = jobs.filter(
+        status__in=[RenderJob.Status.QUEUED, RenderJob.Status.RUNNING],
+    ).order_by("created_at")
+    finished_jobs = jobs.exclude(
+        status__in=[RenderJob.Status.QUEUED, RenderJob.Status.RUNNING],
+    ).order_by("-finished_at", "-updated_at")[:25]
+
+    return render(
+        request,
+        "accounts/panel_jobs.html",
+        {
+            "active_jobs": active_jobs,
+            "finished_jobs": finished_jobs,
+        },
+    )
 
 
 @login_required

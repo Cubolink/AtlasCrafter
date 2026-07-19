@@ -2,7 +2,8 @@ from django.contrib.auth.models import User
 from django.test import Client, TestCase
 from django.urls import reverse
 
-from projects.models import Project
+from projects.models import Atlas, Project, ProjectVisibleWorld, Render, WorldFolder
+from renders.models import RenderJob
 from .models import ProjectMembership
 
 
@@ -120,6 +121,51 @@ class PanelSettingsTests(TestCase):
         self.assertContains(response, reverse("panel_users"))
         self.assertContains(response, "Manage Users")
 
+    def test_panel_settings_links_to_render_jobs_page(self):
+        response = self.client.get(reverse("panel_settings"))
+
+        self.assertContains(response, reverse("panel_jobs"))
+        self.assertContains(response, "View Render Jobs")
+
+    def test_panel_jobs_lists_active_and_finished_jobs(self):
+        render = self.create_render()
+        queued_job = RenderJob.objects.create(
+            render=render,
+            requested_by=self.admin,
+            status=RenderJob.Status.QUEUED,
+        )
+        finished_job = RenderJob.objects.create(
+            render=render,
+            requested_by=self.user,
+            status=RenderJob.Status.SUCCEEDED,
+        )
+
+        response = self.client.get(reverse("panel_jobs"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, f"#{queued_job.id}")
+        self.assertContains(response, f"#{finished_job.id}")
+        self.assertContains(response, "Queued")
+        self.assertContains(response, "Succeeded")
+        self.assertContains(response, render.display_name)
+
+    def test_staff_user_can_open_panel_job_detail(self):
+        render = self.create_render()
+        job = RenderJob.objects.create(render=render, status=RenderJob.Status.RUNNING)
+
+        response = self.client.get(reverse("render_job_detail", kwargs={"job_id": job.id}))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, f"Render Job #{job.id}")
+
+    def test_non_staff_user_cannot_access_panel_jobs(self):
+        self.client.force_login(self.user)
+
+        response = self.client.get(reverse("panel_jobs"))
+
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(reverse("login"), response["Location"])
+
     def test_staff_user_can_create_user(self):
         response = self.client.post(
             reverse("panel_user_create"),
@@ -203,3 +249,21 @@ class PanelSettingsTests(TestCase):
 
         self.assertEqual(response.status_code, 302)
         self.assertFalse(ProjectMembership.objects.filter(user=self.user, project=project).exists())
+
+    def create_render(self):
+        project = Project.objects.create(name="Survival")
+        world = WorldFolder.objects.create(
+            display_name="Overworld",
+            source_path="/srv/minecraft/world",
+        )
+        ProjectVisibleWorld.objects.create(project=project, world_folder=world)
+        atlas = Atlas.objects.create(
+            project=project,
+            world_folder=world,
+            display_name="Overworld",
+        )
+        return Render.objects.create(
+            atlas=atlas,
+            display_name="Spawn Render",
+            bluemap_map_id="spawn_render",
+        )

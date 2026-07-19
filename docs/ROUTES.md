@@ -24,6 +24,8 @@ Superadministrator-only unless noted.
 | Method | Path | Name | Purpose |
 | :--- | :--- | :--- | :--- |
 | `GET` | `/settings/` | `panel_settings` | Panel settings landing page. |
+| `GET` | `/settings/jobs/` | `panel_jobs` | Staff-visible render job overview with active and recent finished jobs. |
+| `GET` | `/settings/users/` | `panel_users` | Staff-visible user search/list page. |
 | `GET` | `/settings/users/create/` | `panel_user_create` | New user form. |
 | `POST` | `/settings/users/create/` | `panel_user_create` | Create user with username/password. |
 | `GET` | `/settings/users/<user_id>/edit/` | `panel_user_edit` | Edit user email and project access. |
