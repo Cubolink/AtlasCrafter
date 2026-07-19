@@ -10,29 +10,34 @@
 {% endblock %}
 
 {% block content %}
-  <div class="page-heading">
-    <div>
-      <p class="page-kicker">Atlas</p>
-      <h1>{% icon "map" "icon-heading" %}{{ atlas.display_name }}</h1>
-      <p class="mt-2 flex max-w-3xl items-center gap-2 text-base-content/70">{% icon "folder-open" %} {{ atlas.world_folder.source_path }}</p>
-      {% if atlas.notes %}
-        <p class="mt-2 max-w-3xl text-base-content/70">{{ atlas.notes }}</p>
+  <div class="mb-6">
+    <div class="page-heading mb-2">
+      <div>
+        <p class="page-kicker">Atlas</p>
+        <h1>{% icon "map" "icon-heading" %}{{ atlas.display_name }}</h1>
+        {% if atlas.notes %}
+          <p class="mt-2 max-w-3xl text-base-content/70">{{ atlas.notes }}</p>
+        {% endif %}
+      </div>
+      {% if can_manage_project %}
+        <div class="dropdown dropdown-end">
+          <button class="btn btn-outline btn-sm" tabindex="0" type="button">{% icon "more-horizontal" %} Manage</button>
+          <ul class="dropdown-content menu z-10 w-48 rounded-lg border border-base-300 bg-base-100 p-2 shadow">
+            <li><a href="{% url 'edit_atlas' atlas.id %}">{% icon "pencil" %} Edit Atlas</a></li>
+            <li>
+              <form method="post" action="{% url 'archive_atlas' atlas.id %}">
+                {% csrf_token %}
+                <button class="text-error" type="submit">{% icon "archive" %} Archive Atlas</button>
+              </form>
+            </li>
+          </ul>
+        </div>
       {% endif %}
     </div>
-    {% if can_manage_project %}
-      <div class="dropdown dropdown-end">
-        <button class="btn btn-outline btn-sm" tabindex="0" type="button">{% icon "more-horizontal" %} Manage</button>
-        <ul class="dropdown-content menu z-10 w-48 rounded-lg border border-base-300 bg-base-100 p-2 shadow">
-          <li><a href="{% url 'edit_atlas' atlas.id %}">{% icon "pencil" %} Edit Atlas</a></li>
-          <li>
-            <form method="post" action="{% url 'archive_atlas' atlas.id %}">
-              {% csrf_token %}
-              <button class="text-error" type="submit">{% icon "archive" %} Archive Atlas</button>
-            </form>
-          </li>
-        </ul>
-      </div>
-    {% endif %}
+    <p class="flex min-w-0 items-start gap-2 text-base-content/70">
+      {% icon "folder-open" %}
+      <span class="min-w-0 break-words">{{ atlas.world_folder.source_path }}</span>
+    </p>
   </div>
 
   <section class="panel">
