@@ -16,10 +16,12 @@ The current application is primarily server-rendered Django HTML. Most mutating 
 | :--- | :--- | :--- | :--- |
 | `GET` | `/` | `dashboard` | Main Projects page. Shows active Projects available to the user. |
 | `GET` | `/projects/<slug>/` | `project_detail` | Project detail with active Atlases and active Renders. |
+| `GET` | `/projects/<slug>/members/` | `project_members` | Project member list; Project Admins can add/remove permitted members. |
+| `GET` | `/projects/<slug>/worlds/` | `project_worlds` | Project world folders. Admins see visible worlds; Project Users see worlds used by active Atlases. |
 
 ## Panel Settings
 
-Superadministrator-only unless noted.
+Staff-visible unless noted. Superuser status is still required for global Project and Minecraft Source management.
 
 | Method | Path | Name | Purpose |
 | :--- | :--- | :--- | :--- |
@@ -37,7 +39,7 @@ Superadministrator-only unless noted.
 
 | Method | Path | Name | Purpose |
 | :--- | :--- | :--- | :--- |
-| `GET` | `/settings/projects/` | `manage_projects` | List active and archived Projects for superadmins. |
+| `GET` | `/settings/projects/` | `manage_projects` | Superuser-only list of active and archived Projects. |
 | `GET` | `/settings/projects/create/` | `create_project` | Project creation form. |
 | `POST` | `/settings/projects/create/` | `create_project` | Create Project and assign visible World Folders. |
 | `GET` | `/settings/projects/<project_id>/edit/` | `edit_project` | Project edit form. |
@@ -46,7 +48,7 @@ Superadministrator-only unless noted.
 
 ## World Folder Management
 
-Superadministrator-only. World Folder archive blocks new Atlas selection and new render jobs, but does not hide existing Atlases or Renders by itself.
+Superuser-only. World Folder archive blocks new Atlas selection and new render jobs, but does not hide existing Atlases or Renders by itself.
 
 | Method | Path | Name | Purpose |
 | :--- | :--- | :--- | :--- |
@@ -65,7 +67,7 @@ Superadministrator-only. World Folder archive blocks new Atlas selection and new
 
 ## Atlas and Render Management
 
-Project Administrators for the Project and superadmins can use these routes. Project Users cannot.
+Project Administrators for the Project and superusers can use these routes. Project Users cannot mutate Atlas or Render state.
 
 | Method | Path | Name | Purpose |
 | :--- | :--- | :--- | :--- |
@@ -81,7 +83,7 @@ Project Administrators for the Project and superadmins can use these routes. Pro
 | `POST` | `/renders/<render_id>/edit/` | `edit_render` | Save active Render config fields. |
 | `POST` | `/renders/<render_id>/archive/` | `archive_render` | Archive Render if no queued/running job exists. |
 | `POST` | `/renders/<render_id>/restore/` | `restore_render` | Restore archived Render. |
-| `POST` | `/projects/<slug>/users/add/` | `add_project_user` | Project Admin or superadmin adds an existing user as Project User. |
+| `POST` | `/projects/<slug>/users/add/` | `add_project_user` | Project Admin or superuser adds an existing user as Project User. |
 | `POST` | `/projects/<slug>/memberships/<membership_id>/remove/` | `remove_project_membership` | Remove Project User membership. |
 
 ## Render Viewer and Jobs
@@ -91,9 +93,9 @@ Project Administrators for the Project and superadmins can use these routes. Pro
 | `GET` | `/renders/<render_id>/` | `render_viewer` | Render detail page and scoped BlueMap viewer frame. |
 | `GET` | `/renders/<render_id>/config-preview/` | `render_config_preview` | Preview generated BlueMap map config. |
 | `POST` | `/renders/<render_id>/trigger/` | `trigger_render` | Queue render job, or create failed job if source World Folder is archived/missing. |
-| `POST` | `/renders/<render_id>/rebuild/` | `rebuild_render` | Project Admin-only purge and full rebuild using current config and Minecraft resources. |
+| `POST` | `/renders/<render_id>/rebuild/` | `rebuild_render` | Project Admin-only full rebuild using current config and Minecraft resources. Stages old output, runs BlueMap with `--force-render`, and restores old output on failure. |
 | `GET` | `/renders/<render_id>/status/` | `render_status` | JSON status endpoint used by polling while a job is active. |
-| `GET` | `/jobs/<job_id>/` | `render_job_detail` | Render job detail and logs. |
+| `GET` | `/jobs/<job_id>/` | `render_job_detail` | Render job detail and logs. Staff can inspect all job details; Project members are scoped by Project membership. |
 | `POST` | `/jobs/<job_id>/cancel/` | `cancel_render_job` | Cancel queued job when permitted. |
 | `GET` | `/renders/<render_id>/assets/<path>` | `protected_render_asset` | Authenticated BlueMap asset route. Scopes viewer settings to the requested Render. |
 

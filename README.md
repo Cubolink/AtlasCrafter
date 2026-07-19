@@ -15,9 +15,8 @@ Instead, the panel owns:
 - detection of Minecraft servers and reusable mod/resource sources;
 - UI-driven creation and editing of BlueMap config files;
 - Project, Atlas, and Render organization and metadata;
-- render execution through BlueMap CLI commands;
-- render queue, logs, progress, and history;
-- schedule management;
+- render execution through BlueMap CLI commands, including incremental updates and full rebuilds;
+- render queue, active job overview, logs, elapsed times, and history;
 - protected viewer entry points;
 - protected static asset delivery for BlueMap output.
 
@@ -33,7 +32,7 @@ Instead, the panel owns:
 - **BlueMap CLI or standalone CLI jar** for rendering.
 - **Protected Django asset route** in local development; **Nginx X-Accel-Redirect** is the intended production serving model.
 
-Future production deployments will likely add PostgreSQL and a containerized web/worker split. Celery, Redis, HTMX, Alpine.js, and Django Ninja remain optional future additions rather than current requirements.
+The included Docker Compose setup already uses PostgreSQL plus separate web and worker containers. Celery, Redis, HTMX, Alpine.js, and Django Ninja remain optional future additions rather than current requirements.
 
 ## Domain Model
 
@@ -70,7 +69,7 @@ User
                             Render -- BlueMapRenderConfig -- BlueMapProfile
                               |
                               v
-                            RenderJob -- RenderLogChunk
+                            RenderJob -- RenderLogChunk -- RenderArtifact
 ```
 
 Example sidebar:
@@ -136,9 +135,10 @@ Avoid redirecting users to a public BlueMap webserver if RBAC matters. A public 
 
 | Role | Permissions |
 | :--- | :--- |
-| **Superadministrator** | Full system access. Can create Projects, create users, assign users to Projects with specific roles, configure source roots, and decide which physical Minecraft world folders are visible to each Project. |
-| **Project Administrator** | Full access within a specific Project. Can see all Minecraft world folders visible to that Project, create Atlases from selected visible world folders, define one or more Renders for each Atlas, edit configuration, trigger rendering, manage schedules, and inspect logs. |
-| **Project User** | Read-only access within a specific Project. Can view all defined Atlases and their associated Renders, but cannot trigger new renders or modify configurations. |
+| **Staff** | Can access Panel Settings, manage users, monitor render jobs, and inspect job detail pages. Superuser status is still required for global Project and Minecraft Source administration. |
+| **Superadministrator** | Full system access. Can create Projects, create users, assign users to Projects with specific roles, configure Minecraft Sources, and decide which physical Minecraft world folders are visible to each Project. |
+| **Project Administrator** | Full access within a specific Project. Can see all Minecraft world folders visible to that Project, create Atlases from selected visible world folders, define one or more Renders for each Atlas, edit configuration, trigger incremental renders, rebuild a Render, and inspect logs. |
+| **Project User** | Read-only access within a specific Project. Can view all defined Atlases, project members, Atlas world folders in use, and associated Renders, but cannot trigger new renders or modify configurations. |
 
 ## Configuration Philosophy
 
@@ -179,6 +179,8 @@ Render jobs are processed by a separate worker process. Start it in another term
 ```powershell
 .\.venv\Scripts\python manage.py renderworker
 ```
+
+Unlike `manage.py runserver`, `renderworker` does not autoreload Python code. Restart the worker after changing render execution code.
 
 Local runtime data is kept under `data/` by default:
 
@@ -284,12 +286,14 @@ On the first BlueMap CLI run, BlueMap may generate `core.conf` and ask you to se
 4. Discover world folders under `SOURCE_WORLDS_DIR`.
 5. Let superadministrators define which world folders are visible to each Project.
 6. Let Project Administrators create Atlases from visible world folders.
-7. Create and edit BlueMap Render configs through forms.
-8. Generate BlueMap `.conf` files.
-9. Trigger BlueMap CLI render jobs.
-10. Store render logs, status, exit code, timestamps, and progress fields.
-11. Serve viewer pages and Render assets behind RBAC.
-12. Docker deployment with read-only source worlds.
+7. Create and edit BlueMap Render configs through styled forms, including color pickers, toggles, sliders, start position, render masks, marker sets, and Minecraft resource selection.
+8. Preview generated config content and show a read-only raw config panel.
+9. Generate BlueMap `.conf` files.
+10. Trigger BlueMap CLI render jobs and full Render rebuilds.
+11. Store render logs, status, exit code, operation type, timestamps, elapsed time, and progress fields.
+12. Monitor active and recent finished jobs from Panel Settings.
+13. Serve viewer pages and Render assets behind RBAC.
+14. Docker deployment with read-only source worlds and resource sources.
 
 ## Non-Goals
 
