@@ -6,6 +6,7 @@ from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.http import FileResponse, Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404
+from django.urls import reverse
 
 from accounts.models import ProjectMembership
 from projects.models import Render
@@ -47,11 +48,13 @@ def protected_render_asset(request, render_id: int, asset_path: str):
         return response
 
     internal_root = settings.INTERNAL_ACCEL_ROOT.rstrip("/")
-    response = HttpResponse()
     internal_path = safe_path.as_posix()
     if not asset_file.is_file() and compressed_asset_file.is_file():
-        internal_path = f"{internal_path}.gz"
-        response["Content-Encoding"] = "gzip"
+        asset_file = compressed_asset_file
+    if not asset_file.is_file():
+        raise Http404("Asset not found")
+
+    response = HttpResponse(content_type=content_type_for_requested_path(safe_path, asset_file))
     response["X-Accel-Redirect"] = f"{internal_root}/{internal_path}"
     return response
 
@@ -82,6 +85,12 @@ def scoped_viewer_settings(render_obj: Render):
         viewer_settings = json.load(file)
 
     viewer_settings["maps"] = [resolve_viewer_map_id(render_obj, viewer_settings)]
+    protected_map_root = reverse(
+        "protected_render_asset",
+        kwargs={"render_id": render_obj.id, "asset_path": "maps"},
+    )
+    viewer_settings["mapDataRoot"] = protected_map_root
+    viewer_settings["liveDataRoot"] = protected_map_root
     return JsonResponse(viewer_settings)
 
 
