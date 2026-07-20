@@ -47,10 +47,15 @@ def protected_render_asset(request, render_id: int, asset_path: str):
         return response
 
     internal_root = settings.INTERNAL_ACCEL_ROOT.rstrip("/")
-    response = HttpResponse()
     internal_path = safe_path.as_posix()
     if not asset_file.is_file() and compressed_asset_file.is_file():
+        asset_file = compressed_asset_file
         internal_path = f"{internal_path}.gz"
+    if not asset_file.is_file():
+        raise Http404("Asset not found")
+
+    response = HttpResponse(content_type=content_type_for_requested_path(safe_path, asset_file))
+    if asset_file.suffix == ".gz":
         response["Content-Encoding"] = "gzip"
     response["X-Accel-Redirect"] = f"{internal_root}/{internal_path}"
     return response

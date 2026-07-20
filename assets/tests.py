@@ -148,6 +148,109 @@ class ProtectedRenderAssetTests(TestCase):
                 self.assertEqual(response.headers["Content-Encoding"], "gzip")
                 response.close()
 
+    def test_x_accel_asset_sets_content_type_headers(self):
+        with TemporaryDirectory() as webroot_dir:
+            webroot = Path(webroot_dir)
+            asset_dir = webroot / "assets"
+            asset_dir.mkdir(parents=True)
+            (asset_dir / "index.js").write_text("console.log('BlueMap')", encoding="utf-8")
+
+            with override_settings(
+                DEBUG=False,
+                BLUEMAP_WEBROOT_DIR=webroot,
+                INTERNAL_ACCEL_ROOT="/_protected_bluemap/",
+            ):
+                user = User.objects.create_superuser(
+                    username="admin7",
+                    email="admin7@example.com",
+                    password="password",
+                )
+                project = Project.objects.create(name="Survival Server 7")
+                world = WorldFolder.objects.create(
+                    display_name="Overworld 7",
+                    source_path="/srv/minecraft/world7",
+                )
+                ProjectVisibleWorld.objects.create(project=project, world_folder=world)
+                atlas = Atlas.objects.create(
+                    project=project,
+                    world_folder=world,
+                    display_name="Overworld 7",
+                )
+                render = Render.objects.create(
+                    atlas=atlas,
+                    bluemap_map_id="overworld",
+                    display_name="Overworld",
+                    dimension=Render.Dimension.OVERWORLD,
+                )
+
+                client = Client(HTTP_HOST="localhost")
+                client.force_login(user)
+                response = client.get(
+                    reverse(
+                        "protected_render_asset",
+                        kwargs={"render_id": render.id, "asset_path": "assets/index.js"},
+                    )
+                )
+
+                self.assertEqual(response.status_code, 200)
+                self.assertIn("javascript", response.headers["Content-Type"])
+                self.assertEqual(response.headers["X-Accel-Redirect"], "/_protected_bluemap/assets/index.js")
+
+    def test_x_accel_asset_falls_back_to_gzip_headers(self):
+        with TemporaryDirectory() as webroot_dir:
+            webroot = Path(webroot_dir)
+            asset_dir = webroot / "maps" / "overworld"
+            asset_dir.mkdir(parents=True)
+            (asset_dir / "textures.json.gz").write_bytes(b"\x1f\x8b\x08\x00")
+
+            with override_settings(
+                DEBUG=False,
+                BLUEMAP_WEBROOT_DIR=webroot,
+                INTERNAL_ACCEL_ROOT="/_protected_bluemap/",
+            ):
+                user = User.objects.create_superuser(
+                    username="admin8",
+                    email="admin8@example.com",
+                    password="password",
+                )
+                project = Project.objects.create(name="Survival Server 8")
+                world = WorldFolder.objects.create(
+                    display_name="Overworld 8",
+                    source_path="/srv/minecraft/world8",
+                )
+                ProjectVisibleWorld.objects.create(project=project, world_folder=world)
+                atlas = Atlas.objects.create(
+                    project=project,
+                    world_folder=world,
+                    display_name="Overworld 8",
+                )
+                render = Render.objects.create(
+                    atlas=atlas,
+                    bluemap_map_id="overworld",
+                    display_name="Overworld",
+                    dimension=Render.Dimension.OVERWORLD,
+                )
+
+                client = Client(HTTP_HOST="localhost")
+                client.force_login(user)
+                response = client.get(
+                    reverse(
+                        "protected_render_asset",
+                        kwargs={
+                            "render_id": render.id,
+                            "asset_path": "maps/overworld/textures.json",
+                        },
+                    )
+                )
+
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(response.headers["Content-Type"], "application/json")
+                self.assertEqual(response.headers["Content-Encoding"], "gzip")
+                self.assertEqual(
+                    response.headers["X-Accel-Redirect"],
+                    "/_protected_bluemap/maps/overworld/textures.json.gz",
+                )
+
     def test_root_viewer_settings_are_scoped_to_requested_render(self):
         with TemporaryDirectory() as webroot_dir:
             webroot = Path(webroot_dir)
