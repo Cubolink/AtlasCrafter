@@ -16,16 +16,19 @@ COPY bluemap_configs ./bluemap_configs
 RUN npm run build:css
 
 
+FROM eclipse-temurin:25-jre AS java_runtime
+
+
 FROM python:3.12-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
+ENV JAVA_HOME=/opt/java/openjdk
+ENV PATH="${JAVA_HOME}/bin:${PATH}"
 
 WORKDIR /app
 
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends openjdk-21-jre-headless \
-    && rm -rf /var/lib/apt/lists/*
+COPY --from=java_runtime /opt/java/openjdk /opt/java/openjdk
 
 COPY requirements.txt .
 RUN python -m pip install --no-cache-dir --upgrade pip \
