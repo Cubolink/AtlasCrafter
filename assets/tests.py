@@ -301,6 +301,20 @@ class ProtectedRenderAssetTests(TestCase):
 
                 self.assertEqual(response.status_code, 200)
                 self.assertEqual(response.json()["maps"], ["nether_render"])
+                self.assertEqual(
+                    response.json()["mapDataRoot"],
+                    reverse(
+                        "protected_render_asset",
+                        kwargs={"render_id": render.id, "asset_path": "maps"},
+                    ),
+                )
+                self.assertEqual(
+                    response.json()["liveDataRoot"],
+                    reverse(
+                        "protected_render_asset",
+                        kwargs={"render_id": render.id, "asset_path": "maps"},
+                    ),
+                )
 
     def test_root_viewer_settings_fall_back_to_normalized_render_id(self):
         with TemporaryDirectory() as webroot_dir:

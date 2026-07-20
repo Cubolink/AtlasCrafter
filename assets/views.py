@@ -6,6 +6,7 @@ from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.http import FileResponse, Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404
+from django.urls import reverse
 
 from accounts.models import ProjectMembership
 from projects.models import Render
@@ -87,6 +88,12 @@ def scoped_viewer_settings(render_obj: Render):
         viewer_settings = json.load(file)
 
     viewer_settings["maps"] = [resolve_viewer_map_id(render_obj, viewer_settings)]
+    protected_map_root = reverse(
+        "protected_render_asset",
+        kwargs={"render_id": render_obj.id, "asset_path": "maps"},
+    )
+    viewer_settings["mapDataRoot"] = protected_map_root
+    viewer_settings["liveDataRoot"] = protected_map_root
     return JsonResponse(viewer_settings)
 
 
