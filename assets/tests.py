@@ -245,10 +245,9 @@ class ProtectedRenderAssetTests(TestCase):
 
                 self.assertEqual(response.status_code, 200)
                 self.assertEqual(response.headers["Content-Type"], "application/json")
-                self.assertEqual(response.headers["Content-Encoding"], "gzip")
                 self.assertEqual(
                     response.headers["X-Accel-Redirect"],
-                    "/_protected_bluemap/maps/overworld/textures.json.gz",
+                    "/_protected_bluemap/maps/overworld/textures.json",
                 )
 
     def test_root_viewer_settings_are_scoped_to_requested_render(self):
