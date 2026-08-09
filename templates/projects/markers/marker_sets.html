@@ -2,6 +2,7 @@
 {% load icons %}
 
 {% block title %}Markers - {{ render.display_name }}{% endblock %}
+{% block content_class %}app-content-workspace{% endblock %}
 
 {% block breadcrumbs %}
   <li><a href="{% url 'dashboard' %}">{% icon "briefcase-business" %} Projects</a></li>
@@ -42,10 +43,10 @@
 
   <div class="page-heading">
     <div>
-      <p class="page-kicker">Render Marker Management</p>
+      <p class="page-kicker">Render Marker Workspace</p>
       <h1>{% icon "map-pin" "icon-heading" %}Markers</h1>
       <p class="mt-2 max-w-3xl text-base-content/70">
-        Manage points of interest for {{ render.display_name }} and compare them with the map currently visible to users.
+        Keep the published map visible while creating points, correcting coordinates, and preparing the next publication.
       </p>
     </div>
     <div class="flex flex-wrap items-center gap-2">
@@ -61,30 +62,29 @@
   </div>
 
   {% if active_job %}
-    <div class="alert alert-info mb-5">
+    <div class="alert alert-info mb-4 py-3">
       {% icon "loader-circle" "icon-lg" %}
       <span>
         Job <a href="{% url 'render_job_detail' active_job.id %}">#{{ active_job.id }}</a>
-        is {{ active_job.get_status_display|lower }}. This page will refresh the published map when it finishes.
+        is {{ active_job.get_status_display|lower }}. This workspace will refresh when it finishes.
       </span>
     </div>
   {% elif not marker_state.tracking %}
-    <div class="alert mb-5">
+    <div class="alert mb-4 py-3">
       {% icon "info" "icon-lg" %}
-      <span>
-        Publication tracking has not established a baseline yet. Publish once to identify later additions, edits, and removals.
-      </span>
+      <span>Publication tracking has not established a baseline. Publish once to identify new, modified, and pending-removal markers.</span>
     </div>
   {% elif marker_state.is_dirty %}
-    <div class="alert alert-warning mb-5">
+    <div class="alert alert-warning mb-4 py-3">
       {% icon "triangle-alert" "icon-lg" %}
       <span>
         <strong>Unpublished marker changes.</strong>
-        The badges below identify what differs from the published map.
+        {{ marker_state.change_count }} draft item{{ marker_state.change_count|pluralize }}.
+        The map still shows the last successful publication.
       </span>
     </div>
   {% else %}
-    <div class="alert alert-success mb-5">
+    <div class="alert alert-success mb-4 py-3">
       {% icon "circle-check" "icon-lg" %}
       <span>
         Marker configuration is in sync with the published map.
@@ -93,8 +93,151 @@
     </div>
   {% endif %}
 
+  <div class="grid items-start gap-5 xl:grid-cols-[22rem_minmax(0,1fr)]">
+    <div class="grid min-w-0 gap-4 xl:h-[72vh] xl:min-h-[38rem] xl:grid-rows-[minmax(15rem,1fr)_auto]">
+      <section class="flex min-h-0 flex-col overflow-hidden rounded-lg border border-base-300 bg-base-100 shadow-sm">
+        <div class="flex items-center justify-between gap-3 border-b border-base-300 px-4 py-3">
+          <div>
+            <h2 class="text-base">Marker browser</h2>
+            <p class="text-xs text-base-content/60">Select a point to edit it below.</p>
+          </div>
+          {% if marker_state.is_dirty %}<span class="badge badge-warning badge-sm">{{ marker_state.change_count }} draft</span>{% endif %}
+        </div>
+
+        <div class="min-h-0 flex-1 overflow-y-auto p-3">
+          <div class="grid gap-3">
+            {% for row in marker_state.rows %}
+              <details class="overflow-hidden rounded-lg border border-base-300 bg-base-100" open>
+                <summary class="flex cursor-pointer list-none items-center justify-between gap-2 bg-base-200/60 px-3 py-2 hover:bg-base-200">
+                  <span class="min-w-0">
+                    <span class="block truncate text-sm font-semibold">{{ row.marker_set.label }}</span>
+                    <span class="block text-xs text-base-content/55">{{ row.markers|length }} point{{ row.markers|length|pluralize }}</span>
+                  </span>
+                  {% include "projects/markers/sync_badge.html" with status=row.status %}
+                </summary>
+
+                <div class="border-t border-base-300 p-2">
+                  <div class="mb-2 flex items-center gap-1">
+                    <a
+                      class="btn btn-primary btn-xs flex-1"
+                      href="?create={{ row.marker_set.id }}#marker-editor"
+                    >{% icon "map-pin-plus" %} Add point</a>
+                    <a class="btn btn-ghost btn-xs" href="{% url 'edit_marker_set' row.marker_set.id %}" aria-label="Edit {{ row.marker_set.label }} settings">{% icon "settings" %}</a>
+                    <form class="m-0" method="post" action="{% url 'delete_marker_set' row.marker_set.id %}" onsubmit="return confirm('Delete this marker set and every marker in it?')">
+                      {% csrf_token %}
+                      <button class="btn btn-ghost btn-xs text-error" type="submit" aria-label="Delete {{ row.marker_set.label }}">{% icon "trash-2" %}</button>
+                    </form>
+                  </div>
+
+                  <div class="grid gap-1.5">
+                    {% for marker_row in row.markers %}
+                      <div class="flex items-stretch gap-1">
+                        <a
+                          class="min-w-0 flex-1 rounded-md border px-2.5 py-2 text-base-content hover:no-underline {% if marker_editor.marker.id == marker_row.marker.id %}border-primary bg-primary/10{% else %}border-transparent hover:border-base-300 hover:bg-base-200/60{% endif %}"
+                          href="?edit={{ marker_row.marker.id }}#marker-editor"
+                        >
+                          <span class="flex items-start justify-between gap-2">
+                            <span class="min-w-0">
+                              <span class="block truncate text-sm font-medium">{{ marker_row.marker.label }}</span>
+                              <code class="mt-0.5 block truncate text-xs text-base-content/60">{{ marker_row.marker.position_x }}, {{ marker_row.marker.position_y }}, {{ marker_row.marker.position_z }}</code>
+                            </span>
+                            {% include "projects/markers/sync_badge.html" with status=marker_row.status %}
+                          </span>
+                        </a>
+                        <form class="m-0 flex" method="post" action="{% url 'delete_marker' marker_row.marker.id %}" onsubmit="return confirm('Delete this marker? It will remain on the published map until you publish the change.')">
+                          {% csrf_token %}
+                          <button class="btn btn-ghost btn-xs h-auto px-2 text-error" type="submit" aria-label="Delete {{ marker_row.marker.label }}">{% icon "trash-2" %}</button>
+                        </form>
+                      </div>
+                    {% empty %}
+                      <p class="px-2 py-3 text-center text-xs text-base-content/55">No points in this set yet.</p>
+                    {% endfor %}
+
+                    {% for marker in row.deleted_markers %}
+                      <div class="rounded-md border border-error/30 bg-error/5 px-2.5 py-2">
+                        <div class="flex items-start justify-between gap-2">
+                          <span class="min-w-0">
+                            <span class="block truncate text-sm font-medium line-through">{{ marker.label }}</span>
+                            <code class="mt-0.5 block truncate text-xs text-base-content/60">{{ marker.position_x }}, {{ marker.position_y }}, {{ marker.position_z }}</code>
+                            <span class="mt-1 block text-xs text-error/75">Still visible on the published map.</span>
+                          </span>
+                          {% include "projects/markers/sync_badge.html" with status="deleted" %}
+                        </div>
+                      </div>
+                    {% endfor %}
+                  </div>
+                </div>
+              </details>
+            {% empty %}
+              <div class="flex flex-col items-center gap-3 px-4 py-8 text-center">
+                {% icon "map-pin" "icon-lg" %}
+                <div>
+                  <h2 class="text-base">No marker sets yet</h2>
+                  <p class="mt-1 text-sm text-base-content/60">Create a set before adding points.</p>
+                </div>
+                <a class="btn btn-primary btn-sm" href="{% url 'create_marker_set' render.id %}">{% icon "folder-plus" %} Create Marker Set</a>
+              </div>
+            {% endfor %}
+
+            {% for marker_set in marker_state.deleted_sets %}
+              <div class="rounded-lg border border-error/30 bg-error/5 p-3">
+                <div class="flex items-start justify-between gap-2">
+                  <span>
+                    <span class="block text-sm font-semibold line-through">{{ marker_set.label }}</span>
+                    <span class="text-xs text-base-content/55">Still published with {{ marker_set.markers|length }} point{{ marker_set.markers|length|pluralize }}</span>
+                  </span>
+                  {% include "projects/markers/sync_badge.html" with status="deleted" %}
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+        </div>
+      </section>
+
+      <section id="marker-editor" class="max-h-[55vh] overflow-y-auto rounded-lg border border-base-300 bg-base-100 shadow-sm">
+        {% if marker_editor.form %}
+          {% include "projects/markers/quick_editor.html" %}
+        {% else %}
+          <div class="flex min-h-48 flex-col items-center justify-center gap-3 p-5 text-center">
+            <span class="rounded-full bg-primary/10 p-3 text-primary">{% icon "mouse-pointer-2" "icon-lg" %}</span>
+            <div>
+              <h2 class="text-base">Quick editor</h2>
+              <p class="mt-1 text-sm text-base-content/60">Select a point above, or choose Add point, to edit while keeping the map in view.</p>
+            </div>
+          </div>
+        {% endif %}
+      </section>
+    </div>
+
+    <aside class="min-w-0 xl:sticky xl:top-20">
+      <section class="flex h-[72vh] min-h-[38rem] flex-col overflow-hidden rounded-lg border border-base-300 bg-base-100 shadow-sm">
+        <div class="flex flex-wrap items-start justify-between gap-3 border-b border-base-300 px-4 py-3">
+          <div>
+            <h2 class="text-base">{% icon "monitor" "icon-heading" %}Published Map</h2>
+            <p class="mt-1 text-xs text-base-content/60">Use the visible position as a coordinate guide. Draft badges describe what this map does not show yet.</p>
+          </div>
+          <span class="badge badge-outline badge-sm">Published</span>
+        </div>
+        {% if render_output_exists %}
+          <iframe
+            title="{{ render.display_name }} published BlueMap viewer"
+            src="{% url 'protected_render_asset' render.id 'index.html' %}"
+            class="min-h-0 w-full flex-1 border-0"
+          ></iframe>
+        {% else %}
+          <div class="flex flex-1 items-center justify-center p-6 text-center">
+            <div>
+              {% icon "monitor-x" "icon-xl" %}
+              <p class="mt-3 text-sm text-base-content/60">No published render output is available yet.</p>
+            </div>
+          </div>
+        {% endif %}
+      </section>
+    </aside>
+  </div>
+
   {% if latest_marker_job %}
-    <div class="mb-5 flex flex-wrap items-center gap-2 text-sm text-base-content/70">
+    <div class="mt-4 flex flex-wrap items-center gap-2 text-xs text-base-content/60">
       {% icon "history" %}
       Latest marker publication:
       <a href="{% url 'render_job_detail' latest_marker_job.id %}">job #{{ latest_marker_job.id }}</a>
@@ -102,140 +245,4 @@
       <span>{{ latest_marker_job.updated_at }}</span>
     </div>
   {% endif %}
-
-  <div class="grid items-start gap-5 xl:grid-cols-2">
-    <div class="min-w-0 space-y-5">
-      {% for row in marker_state.rows %}
-        <section class="panel">
-          <div class="row">
-            <div>
-              <div class="flex flex-wrap items-center gap-2">
-                <h2>{% icon "layers" "icon-heading" %}{{ row.marker_set.label }}</h2>
-                {% include "projects/markers/sync_badge.html" with status=row.status %}
-              </div>
-              <p class="muted">
-                {{ row.markers|length }} marker{{ row.markers|length|pluralize }}
-                · sorting {{ row.marker_set.sorting }}
-                · {% if row.marker_set.toggleable %}viewer-toggleable{% else %}always visible{% endif %}
-                {% if row.marker_set.default_hidden %} · hidden by default{% endif %}
-              </p>
-            </div>
-            <div class="flex flex-wrap gap-2">
-              <a class="btn btn-primary btn-sm" href="{% url 'create_marker' row.marker_set.id %}">{% icon "map-pin-plus" %} Add Point</a>
-              <a class="btn btn-ghost btn-sm" href="{% url 'edit_marker_set' row.marker_set.id %}">{% icon "pencil" %} Edit Set</a>
-              <form class="m-0" method="post" action="{% url 'delete_marker_set' row.marker_set.id %}" onsubmit="return confirm('Delete this marker set and every marker in it?')">
-                {% csrf_token %}
-                <button class="btn btn-ghost btn-sm text-error" type="submit">{% icon "trash-2" %} Delete</button>
-              </form>
-            </div>
-          </div>
-
-          <div class="table-wrap mt-4">
-            <table>
-              <thead>
-                <tr>
-                  <th>Point of interest</th>
-                  <th>Coordinates</th>
-                  <th>Publication</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {% for marker_row in row.markers %}
-                  <tr>
-                    <td>
-                      <span class="font-medium">{{ marker_row.marker.label }}</span>
-                      {% if marker_row.marker.detail %}<span class="muted block max-w-xl">{{ marker_row.marker.detail|truncatechars:120 }}</span>{% endif %}
-                    </td>
-                    <td class="whitespace-nowrap"><code>{{ marker_row.marker.position_x }}, {{ marker_row.marker.position_y }}, {{ marker_row.marker.position_z }}</code></td>
-                    <td>
-                      {% include "projects/markers/sync_badge.html" with status=marker_row.status %}
-                      {% if marker_row.status == "published" %}<span class="text-sm text-base-content/60">In sync</span>{% endif %}
-                    </td>
-                    <td>
-                      <div class="flex justify-end gap-1">
-                        <a class="btn btn-ghost btn-sm" href="{% url 'edit_marker' marker_row.marker.id %}">{% icon "pencil" %} Edit</a>
-                        <form class="m-0" method="post" action="{% url 'delete_marker' marker_row.marker.id %}" onsubmit="return confirm('Delete this marker? It will remain on the published map until you publish the change.')">
-                          {% csrf_token %}
-                          <button class="btn btn-ghost btn-sm text-error" type="submit" aria-label="Delete {{ marker_row.marker.label }}">{% icon "trash-2" %}</button>
-                        </form>
-                      </div>
-                    </td>
-                  </tr>
-                {% endfor %}
-
-                {% for marker in row.deleted_markers %}
-                  <tr class="bg-error/5">
-                    <td>
-                      <span class="font-medium line-through">{{ marker.label }}</span>
-                      <span class="muted block">Still visible on the published map until the next publication.</span>
-                    </td>
-                    <td class="whitespace-nowrap"><code>{{ marker.position_x }}, {{ marker.position_y }}, {{ marker.position_z }}</code></td>
-                    <td>{% include "projects/markers/sync_badge.html" with status="deleted" %}</td>
-                    <td></td>
-                  </tr>
-                {% empty %}
-                  {% if not row.markers %}
-                    <tr><td colspan="4" class="muted">No points of interest in this marker set yet.</td></tr>
-                  {% endif %}
-                {% endfor %}
-              </tbody>
-            </table>
-          </div>
-        </section>
-      {% empty %}
-        <section class="panel">
-          <div class="flex flex-col items-center gap-3 py-8 text-center">
-            {% icon "map-pin" "icon-lg" %}
-            <div>
-              <h2>No marker sets yet</h2>
-              <p class="muted">Create a set such as Landmarks, Towns, or Portals before adding points.</p>
-            </div>
-            <a class="btn btn-primary btn-sm" href="{% url 'create_marker_set' render.id %}">{% icon "folder-plus" %} Create Marker Set</a>
-          </div>
-        </section>
-      {% endfor %}
-
-      {% for marker_set in marker_state.deleted_sets %}
-        <section class="panel border-error/40 bg-error/5">
-          <div class="row">
-            <div>
-              <div class="flex flex-wrap items-center gap-2">
-                <h2 class="line-through">{% icon "layers" "icon-heading" %}{{ marker_set.label }}</h2>
-                {% include "projects/markers/sync_badge.html" with status="deleted" %}
-              </div>
-              <p class="muted">
-                This set and its {{ marker_set.markers|length }} marker{{ marker_set.markers|length|pluralize }} remain visible to users until publication.
-              </p>
-            </div>
-          </div>
-        </section>
-      {% endfor %}
-    </div>
-
-    <aside class="min-w-0 xl:sticky xl:top-24">
-      <section class="panel">
-        <div>
-          <div class="flex flex-wrap items-center justify-between gap-2">
-            <h2>{% icon "monitor" "icon-heading" %}Published Map</h2>
-            <span class="badge badge-outline">What users currently see</span>
-          </div>
-          <p class="mt-2 text-sm text-base-content/60">
-            Use the map and its position control as a coordinate guide. Unpublished marker changes appear in the list, not on this map.
-          </p>
-        </div>
-        {% if render_output_exists %}
-          <iframe
-            title="{{ render.display_name }} published BlueMap viewer"
-            src="{% url 'protected_render_asset' render.id 'index.html' %}"
-            class="h-[68vh] min-h-[32rem] w-full border-0 border-t border-base-300"
-          ></iframe>
-        {% else %}
-          <div class="border-t border-base-300">
-            <p class="muted flex items-center gap-2">{% icon "monitor-x" %} No published render output is available yet.</p>
-          </div>
-        {% endif %}
-      </section>
-    </aside>
-  </div>
 {% endblock %}

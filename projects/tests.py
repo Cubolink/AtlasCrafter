@@ -1001,6 +1001,115 @@ class RenderMarkerManagementTests(TestCase):
             ),
         )
 
+    def test_marker_manager_opens_existing_marker_in_quick_editor(self):
+        marker_set = MarkerSet.objects.create(render=self.render, label="Landmarks")
+        marker = Marker.objects.create(
+            marker_set=marker_set,
+            label="Spawn",
+            position_x=10,
+            position_y=64,
+            position_z=-20,
+        )
+
+        response = self.client_for(self.admin).get(
+            f"{reverse('render_markers', kwargs={'render_id': self.render.id})}?edit={marker.id}"
+        )
+
+        self.assertContains(response, "Quick edit")
+        self.assertContains(response, 'name="editor_action" value="edit"', html=False)
+        self.assertContains(response, 'value="Spawn"', html=False)
+        self.assertContains(response, "More options")
+
+    def test_admin_can_create_marker_from_quick_editor(self):
+        marker_set = MarkerSet.objects.create(render=self.render, label="Landmarks")
+
+        response = self.client_for(self.admin).post(
+            reverse("render_markers", kwargs={"render_id": self.render.id}),
+            {
+                "editor_action": "create",
+                "marker_set_id": marker_set.id,
+                "label": "Village",
+                "detail": "Trading hall",
+                "position_x": "120",
+                "position_y": "70",
+                "position_z": "-350",
+                "sorting": "0",
+                "listed": "on",
+                "min_distance": "",
+                "max_distance": "",
+                "submit_action": "save",
+            },
+        )
+
+        marker = Marker.objects.get(marker_set=marker_set, label="Village")
+        self.assertEqual(marker.position_z, Decimal("-350"))
+        self.assertEqual(
+            response.headers["Location"],
+            f"{reverse('render_markers', kwargs={'render_id': self.render.id})}?edit={marker.id}#marker-editor",
+        )
+        self.assertFalse(RenderJob.objects.filter(render=self.render).exists())
+
+    def test_admin_can_update_marker_coordinates_from_quick_editor(self):
+        marker_set = MarkerSet.objects.create(render=self.render, label="Landmarks")
+        marker = Marker.objects.create(
+            marker_set=marker_set,
+            label="Spawn",
+            position_x=0,
+            position_y=64,
+            position_z=0,
+        )
+
+        response = self.client_for(self.admin).post(
+            reverse("render_markers", kwargs={"render_id": self.render.id}),
+            {
+                "editor_action": "edit",
+                "marker_id": marker.id,
+                "label": "Main Spawn",
+                "detail": "",
+                "position_x": "4.5",
+                "position_y": "65",
+                "position_z": "-8.25",
+                "sorting": "0",
+                "listed": "on",
+                "min_distance": "",
+                "max_distance": "",
+                "submit_action": "save",
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        marker.refresh_from_db()
+        self.assertEqual(marker.label, "Main Spawn")
+        self.assertEqual(marker.position_x, Decimal("4.5"))
+        self.assertEqual(marker.position_z, Decimal("-8.25"))
+
+    def test_quick_editor_validation_errors_stay_in_marker_workspace(self):
+        marker_set = MarkerSet.objects.create(render=self.render, label="Landmarks")
+
+        response = self.client_for(self.admin).post(
+            reverse("render_markers", kwargs={"render_id": self.render.id}),
+            {
+                "editor_action": "create",
+                "marker_set_id": marker_set.id,
+                "label": "",
+                "detail": "",
+                "position_x": "not-a-coordinate",
+                "position_y": "64",
+                "position_z": "0",
+                "sorting": "0",
+                "listed": "on",
+                "min_distance": "",
+                "max_distance": "",
+                "submit_action": "save",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "This field is required")
+        self.assertContains(response, "Enter a number")
+        self.assertContains(response, "Published Map")
+        self.assertFalse(Marker.objects.filter(marker_set=marker_set).exists())
+
     def test_admin_can_create_marker_and_publish_in_one_submission(self):
         marker_set = MarkerSet.objects.create(render=self.render, label="Landmarks")
 

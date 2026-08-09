@@ -4,6 +4,7 @@ from django.contrib import messages
 from django.conf import settings
 from django.core.exceptions import PermissionDenied
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.views.decorators.http import require_POST
 
 from accounts.models import ProjectMembership
@@ -607,6 +608,24 @@ def get_manageable_marker_set_or_404(request, marker_set_id: int):
 @login_required
 def render_markers(request, render_id: int):
     render_obj = get_manageable_render_or_404(request, render_id)
+    marker_editor = build_marker_editor(request, render_obj)
+    marker_form = marker_editor["form"]
+
+    if request.method == "POST" and marker_form is not None and marker_form.is_valid():
+        marker = marker_form.save(commit=False)
+        if marker_editor["mode"] == "create":
+            marker.marker_set = marker_editor["marker_set"]
+            marker.marker_type = Marker.Type.POI
+            success_message = f"Marker '{marker.label}' created."
+        else:
+            success_message = f"Marker '{marker.label}' updated."
+        marker.save()
+        messages.success(request, success_message)
+        if request.POST.get("submit_action") == "save_publish":
+            queue_marker_publication(request, render_obj)
+        manager_url = reverse("render_markers", kwargs={"render_id": render_obj.id})
+        return redirect(f"{manager_url}?edit={marker.id}#marker-editor")
+
     active_job = render_obj.jobs.filter(
         status__in=[RenderJob.Status.QUEUED, RenderJob.Status.RUNNING]
     ).first()
@@ -622,8 +641,67 @@ def render_markers(request, render_id: int):
                 operation=RenderJob.Operation.MARKERS
             ).first(),
             "render_output_exists": render_output_exists(render_obj),
+            "marker_editor": marker_editor,
         },
     )
+
+
+def build_marker_editor(request, render_obj) -> dict:
+    mode = None
+    marker_set = None
+    marker = None
+    marker_form = None
+
+    if request.method == "POST":
+        mode = request.POST.get("editor_action")
+        if mode == "create":
+            marker_set = get_object_or_404(
+                render_obj.marker_sets,
+                id=positive_int(request.POST.get("marker_set_id")),
+            )
+            marker_form = POIMarkerForm(request.POST)
+        elif mode == "edit":
+            marker = get_object_or_404(
+                Marker.objects.select_related("marker_set"),
+                id=positive_int(request.POST.get("marker_id")),
+                marker_set__render=render_obj,
+            )
+            marker_set = marker.marker_set
+            marker_form = POIMarkerForm(request.POST, instance=marker)
+    else:
+        marker_id = positive_int(request.GET.get("edit"))
+        marker_set_id = positive_int(request.GET.get("create"))
+        if marker_id is not None:
+            marker = get_object_or_404(
+                Marker.objects.select_related("marker_set"),
+                id=marker_id,
+                marker_set__render=render_obj,
+            )
+            mode = "edit"
+            marker_set = marker.marker_set
+            marker_form = POIMarkerForm(instance=marker)
+        elif marker_set_id is not None:
+            marker_set = get_object_or_404(
+                render_obj.marker_sets,
+                id=marker_set_id,
+            )
+            mode = "create"
+            marker_form = POIMarkerForm()
+
+    return {
+        "mode": mode,
+        "marker_set": marker_set,
+        "marker": marker,
+        "form": marker_form,
+    }
+
+
+def positive_int(value) -> int | None:
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return None
+    return parsed if parsed > 0 else None
 
 
 def queue_marker_publication(request, render_obj) -> RenderJob | None:

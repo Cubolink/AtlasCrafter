@@ -37,7 +37,7 @@
         {% endif %}
       </header>
 
-      <main class="app-content">
+      <main class="app-content {% block content_class %}{% endblock %}">
         {% if messages %}
           <div class="mb-5 grid gap-3">
             {% for message in messages %}
