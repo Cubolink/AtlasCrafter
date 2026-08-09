@@ -10,11 +10,11 @@
         {% if marker_editor.mode == "create" %}Add to {{ marker_editor.marker_set.label }}{% else %}{{ marker_editor.marker.label }}{% endif %}
       </h2>
     </div>
-    <a class="btn btn-ghost btn-xs" href="{% url 'render_markers' render.id %}" aria-label="Close quick editor">{% icon "x" %}</a>
+    <a class="btn btn-ghost btn-xs" href="{% url 'render_markers' render.id %}" aria-label="Close quick editor" data-marker-editor-link>{% icon "x" %}</a>
   </div>
 </div>
 
-<form class="p-4" method="post" action="{% url 'render_markers' render.id %}">
+<form class="p-4" method="post" action="{% url 'render_markers' render.id %}" data-marker-workspace-form>
   {% csrf_token %}
   <input type="hidden" name="editor_action" value="{{ marker_editor.mode }}">
   {% if marker_editor.mode == "create" %}

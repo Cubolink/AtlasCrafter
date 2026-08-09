@@ -1,0 +1,15 @@
+{% load icons %}
+
+<section id="marker-editor" class="max-h-[55vh] overflow-y-auto rounded-lg border border-base-300 bg-base-100 shadow-sm">
+  {% if marker_editor.form %}
+    {% include "projects/markers/quick_editor.html" %}
+  {% else %}
+    <div class="flex min-h-48 flex-col items-center justify-center gap-3 p-5 text-center">
+      <span class="rounded-full bg-primary/10 p-3 text-primary">{% icon "mouse-pointer-2" "icon-lg" %}</span>
+      <div>
+        <h2 class="text-base">Quick editor</h2>
+        <p class="mt-1 text-sm text-base-content/60">Select a point above, or choose Add point, to edit while keeping the map in view.</p>
+      </div>
+    </div>
+  {% endif %}
+</section>

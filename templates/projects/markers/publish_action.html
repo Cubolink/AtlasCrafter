@@ -1,0 +1,14 @@
+{% load icons %}
+
+<form
+  id="marker-publish-action"
+  class="m-0"
+  method="post"
+  action="{% url 'publish_render_markers' render.id %}"
+  data-marker-workspace-form
+>
+  {% csrf_token %}
+  <button class="btn btn-primary btn-sm" type="submit" {% if active_job %}disabled{% endif %}>
+    {% if active_job %}{% icon "loader-circle" %} Job in progress{% else %}{% icon "upload" %} Publish Markers{% endif %}
+  </button>
+</form>

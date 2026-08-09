@@ -1,0 +1,45 @@
+{% load icons %}
+
+<div id="marker-publication-status">
+  {% if active_job %}
+    <div class="alert alert-info mb-4 py-3">
+      {% icon "loader-circle" "icon-lg" %}
+      <span>
+        Job <a href="{% url 'render_job_detail' active_job.id %}">#{{ active_job.id }}</a>
+        is {{ active_job.get_status_display|lower }}. The published map will refresh when it finishes.
+      </span>
+    </div>
+  {% elif not marker_state.tracking %}
+    <div class="alert mb-4 py-3">
+      {% icon "info" "icon-lg" %}
+      <span>Publication tracking has not established a baseline. Publish once to identify new, modified, and pending-removal markers.</span>
+    </div>
+  {% elif marker_state.is_dirty %}
+    <div class="alert alert-warning mb-4 py-3">
+      {% icon "triangle-alert" "icon-lg" %}
+      <span>
+        <strong>Unpublished marker changes.</strong>
+        {{ marker_state.change_count }} draft item{{ marker_state.change_count|pluralize }}.
+        The map still shows the last successful publication.
+      </span>
+    </div>
+  {% else %}
+    <div class="alert alert-success mb-4 py-3">
+      {% icon "circle-check" "icon-lg" %}
+      <span>
+        Marker configuration is in sync with the published map.
+        {% if render.markers_published_at %}Last synchronized {{ render.markers_published_at }}.{% endif %}
+      </span>
+    </div>
+  {% endif %}
+
+  {% if latest_marker_job %}
+    <div class="mb-4 flex flex-wrap items-center gap-2 text-xs text-base-content/60">
+      {% icon "history" %}
+      Latest marker publication:
+      <a href="{% url 'render_job_detail' latest_marker_job.id %}">job #{{ latest_marker_job.id }}</a>
+      <span class="status-{{ latest_marker_job.status }}">{{ latest_marker_job.get_status_display }}</span>
+      <span>{{ latest_marker_job.updated_at }}</span>
+    </div>
+  {% endif %}
+</div>

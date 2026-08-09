@@ -3,7 +3,9 @@ from django.contrib.auth.decorators import user_passes_test
 from django.contrib import messages
 from django.conf import settings
 from django.core.exceptions import PermissionDenied
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.template.loader import render_to_string
 from django.urls import reverse
 from django.views.decorators.http import require_POST
 
@@ -610,40 +612,146 @@ def render_markers(request, render_id: int):
     render_obj = get_manageable_render_or_404(request, render_id)
     marker_editor = build_marker_editor(request, render_obj)
     marker_form = marker_editor["form"]
+    async_request = is_marker_workspace_request(request)
 
-    if request.method == "POST" and marker_form is not None and marker_form.is_valid():
-        marker = marker_form.save(commit=False)
-        if marker_editor["mode"] == "create":
-            marker.marker_set = marker_editor["marker_set"]
-            marker.marker_type = Marker.Type.POI
-            success_message = f"Marker '{marker.label}' created."
-        else:
-            success_message = f"Marker '{marker.label}' updated."
-        marker.save()
-        messages.success(request, success_message)
-        if request.POST.get("submit_action") == "save_publish":
-            queue_marker_publication(request, render_obj)
-        manager_url = reverse("render_markers", kwargs={"render_id": render_obj.id})
-        return redirect(f"{manager_url}?edit={marker.id}#marker-editor")
+    if request.method == "POST":
+        if marker_form is None:
+            if async_request:
+                return JsonResponse({"error": "Invalid marker editor action."}, status=400)
+        elif marker_form.is_valid():
+            marker = marker_form.save(commit=False)
+            if marker_editor["mode"] == "create":
+                marker.marker_set = marker_editor["marker_set"]
+                marker.marker_type = Marker.Type.POI
+                success_message = f"Marker '{marker.label}' created."
+            else:
+                success_message = f"Marker '{marker.label}' updated."
+            marker.save()
+            marker_editor = marker_editor_for_marker(marker)
+            publication = None
+            if request.POST.get("submit_action") == "save_publish":
+                publication = queue_marker_publication(
+                    request,
+                    render_obj,
+                    notify=not async_request,
+                )
+            if async_request:
+                notice = publication or {"level": "success", "message": success_message}
+                if publication and publication["job"] is not None:
+                    notice = {
+                        "level": "success",
+                        "message": f"{success_message} {publication['message']}",
+                    }
+                return marker_workspace_response(
+                    request,
+                    render_obj,
+                    marker_editor,
+                    notice=notice,
+                )
+            messages.success(request, success_message)
+            manager_url = reverse("render_markers", kwargs={"render_id": render_obj.id})
+            return redirect(f"{manager_url}?edit={marker.id}#marker-editor")
+        elif async_request:
+            return marker_workspace_response(
+                request,
+                render_obj,
+                marker_editor,
+                notice={
+                    "level": "error",
+                    "message": "Review the highlighted marker fields.",
+                },
+                status=422,
+            )
 
-    active_job = render_obj.jobs.filter(
-        status__in=[RenderJob.Status.QUEUED, RenderJob.Status.RUNNING]
-    ).first()
-    marker_state = build_marker_management_state(render_obj)
+    if async_request:
+        return marker_workspace_response(request, render_obj, marker_editor)
+    context = marker_workspace_context(render_obj, marker_editor)
     return render(
         request,
         "projects/markers/marker_sets.html",
         {
-            "render": render_obj,
-            "marker_state": marker_state,
-            "active_job": active_job,
-            "latest_marker_job": render_obj.jobs.filter(
-                operation=RenderJob.Operation.MARKERS
-            ).first(),
+            **context,
             "render_output_exists": render_output_exists(render_obj),
-            "marker_editor": marker_editor,
         },
     )
+
+
+def marker_workspace_context(render_obj, marker_editor) -> dict:
+    return {
+        "render": render_obj,
+        "marker_state": build_marker_management_state(render_obj),
+        "active_job": render_obj.jobs.filter(
+            status__in=[RenderJob.Status.QUEUED, RenderJob.Status.RUNNING]
+        ).first(),
+        "latest_marker_job": render_obj.jobs.filter(
+            operation=RenderJob.Operation.MARKERS
+        ).first(),
+        "marker_editor": marker_editor,
+    }
+
+
+def marker_workspace_response(
+    request,
+    render_obj,
+    marker_editor,
+    *,
+    notice=None,
+    status=200,
+):
+    context = marker_workspace_context(render_obj, marker_editor)
+    active_job = context["active_job"]
+    payload = {
+        "marker_browser_html": render_to_string(
+            "projects/markers/marker_browser.html",
+            context,
+            request=request,
+        ),
+        "marker_editor_html": render_to_string(
+            "projects/markers/marker_editor_panel.html",
+            context,
+            request=request,
+        ),
+        "publication_status_html": render_to_string(
+            "projects/markers/publication_status.html",
+            context,
+            request=request,
+        ),
+        "publish_action_html": render_to_string(
+            "projects/markers/publish_action.html",
+            context,
+            request=request,
+        ),
+        "active_job_id": active_job.id if active_job else None,
+        "editor_url": marker_editor_url(render_obj, marker_editor),
+        "notice": notice,
+    }
+    return JsonResponse(payload, status=status)
+
+
+def marker_editor_for_marker(marker) -> dict:
+    return {
+        "mode": "edit",
+        "marker_set": marker.marker_set,
+        "marker": marker,
+        "form": POIMarkerForm(instance=marker),
+    }
+
+
+def empty_marker_editor() -> dict:
+    return {"mode": None, "marker_set": None, "marker": None, "form": None}
+
+
+def marker_editor_url(render_obj, marker_editor) -> str:
+    manager_url = reverse("render_markers", kwargs={"render_id": render_obj.id})
+    if marker_editor["mode"] == "edit":
+        return f"{manager_url}?edit={marker_editor['marker'].id}#marker-editor"
+    if marker_editor["mode"] == "create":
+        return f"{manager_url}?create={marker_editor['marker_set'].id}#marker-editor"
+    return manager_url
+
+
+def is_marker_workspace_request(request) -> bool:
+    return request.headers.get("x-requested-with") == "XMLHttpRequest"
 
 
 def build_marker_editor(request, render_obj) -> dict:
@@ -704,13 +812,16 @@ def positive_int(value) -> int | None:
     return parsed if parsed > 0 else None
 
 
-def queue_marker_publication(request, render_obj) -> RenderJob | None:
+def queue_marker_publication(request, render_obj, *, notify=True) -> dict:
     if has_active_render_job(render_obj):
-        messages.warning(
-            request,
-            "Marker changes were saved, but this Render already has a queued or running job.",
-        )
-        return None
+        result = {
+            "job": None,
+            "level": "warning",
+            "message": "Marker changes were saved, but this Render already has a queued or running job.",
+        }
+        if notify:
+            messages.warning(request, result["message"])
+        return result
     try:
         job = enqueue_render(
             render_obj,
@@ -718,10 +829,18 @@ def queue_marker_publication(request, render_obj) -> RenderJob | None:
             operation=RenderJob.Operation.MARKERS,
         )
     except RenderConfigurationError as exc:
-        messages.error(request, str(exc))
-        return None
-    messages.success(request, f"Marker publishing job #{job.id} queued.")
-    return job
+        result = {"job": None, "level": "error", "message": str(exc)}
+        if notify:
+            messages.error(request, result["message"])
+        return result
+    result = {
+        "job": job,
+        "level": "success",
+        "message": f"Marker publishing job #{job.id} queued.",
+    }
+    if notify:
+        messages.success(request, result["message"])
+    return result
 
 
 @login_required
@@ -775,9 +894,20 @@ def edit_marker_set(request, marker_set_id: int):
 @require_POST
 def delete_marker_set(request, marker_set_id: int):
     marker_set = get_manageable_marker_set_or_404(request, marker_set_id)
+    render_obj = marker_set.render
     render_id = marker_set.render_id
     label = marker_set.label
     marker_set.delete()
+    if is_marker_workspace_request(request):
+        return marker_workspace_response(
+            request,
+            render_obj,
+            empty_marker_editor(),
+            notice={
+                "level": "success",
+                "message": f"Marker set '{label}' deleted.",
+            },
+        )
     messages.success(request, f"Marker set '{label}' deleted.")
     return redirect("render_markers", render_id=render_id)
 
@@ -855,9 +985,17 @@ def delete_marker(request, marker_id: int):
     )
     if not can_manage_project(request.user, marker.render.project):
         raise PermissionDenied("You do not have permission to delete this marker.")
-    render_id = marker.render.id
+    render_obj = marker.render
+    render_id = render_obj.id
     label = marker.label
     marker.delete()
+    if is_marker_workspace_request(request):
+        return marker_workspace_response(
+            request,
+            render_obj,
+            empty_marker_editor(),
+            notice={"level": "success", "message": f"Marker '{label}' deleted."},
+        )
     messages.success(request, f"Marker '{label}' deleted.")
     return redirect("render_markers", render_id=render_id)
 
@@ -866,7 +1004,22 @@ def delete_marker(request, marker_id: int):
 @require_POST
 def publish_render_markers(request, render_id: int):
     render_obj = get_manageable_render_or_404(request, render_id)
-    queue_marker_publication(request, render_obj)
+    async_request = is_marker_workspace_request(request)
+    publication = queue_marker_publication(
+        request,
+        render_obj,
+        notify=not async_request,
+    )
+    if async_request:
+        return marker_workspace_response(
+            request,
+            render_obj,
+            empty_marker_editor(),
+            notice={
+                "level": publication["level"],
+                "message": publication["message"],
+            },
+        )
     return redirect("render_markers", render_id=render_obj.id)
 
 

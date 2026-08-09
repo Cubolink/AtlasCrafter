@@ -854,6 +854,12 @@ class RenderMarkerManagementTests(TestCase):
         client.force_login(user)
         return client
 
+    def async_headers(self):
+        return {
+            "HTTP_ACCEPT": "application/json",
+            "HTTP_X_REQUESTED_WITH": "XMLHttpRequest",
+        }
+
     def test_project_admin_can_create_marker_set_and_poi(self):
         admin_client = self.client_for(self.admin)
         set_response = admin_client.post(
@@ -896,6 +902,8 @@ class RenderMarkerManagementTests(TestCase):
         page = admin_client.get(reverse("render_markers", kwargs={"render_id": self.render.id}))
         self.assertContains(page, "Landmarks")
         self.assertContains(page, "Spawn")
+        self.assertContains(page, "js/marker_workspace.js")
+        self.assertContains(page, "data-marker-editor-link")
         self.assertNotContains(page, 'name="marker_sets"')
 
     def test_project_user_cannot_manage_markers(self):
@@ -1112,6 +1120,166 @@ class RenderMarkerManagementTests(TestCase):
         self.assertContains(response, "Enter a number")
         self.assertContains(response, "Published Map")
         self.assertFalse(Marker.objects.filter(marker_set=marker_set).exists())
+
+    def test_async_marker_selection_returns_workspace_fragments(self):
+        marker_set = MarkerSet.objects.create(render=self.render, label="Landmarks")
+        marker = Marker.objects.create(
+            marker_set=marker_set,
+            label="Spawn",
+            position_x=0,
+            position_y=64,
+            position_z=0,
+        )
+
+        response = self.client_for(self.admin).get(
+            f"{reverse('render_markers', kwargs={'render_id': self.render.id})}?edit={marker.id}",
+            **self.async_headers(),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertIn('id="marker-browser"', payload["marker_browser_html"])
+        self.assertIn('id="marker-editor"', payload["marker_editor_html"])
+        self.assertIn("Quick edit", payload["marker_editor_html"])
+        self.assertIn('value="Spawn"', payload["marker_editor_html"])
+        self.assertEqual(
+            payload["editor_url"],
+            f"{reverse('render_markers', kwargs={'render_id': self.render.id})}?edit={marker.id}#marker-editor",
+        )
+
+    def test_async_quick_edit_updates_marker_without_redirect(self):
+        marker_set = MarkerSet.objects.create(render=self.render, label="Landmarks")
+        marker = Marker.objects.create(
+            marker_set=marker_set,
+            label="Spawn",
+            position_x=0,
+            position_y=64,
+            position_z=0,
+        )
+
+        response = self.client_for(self.admin).post(
+            reverse("render_markers", kwargs={"render_id": self.render.id}),
+            {
+                "editor_action": "edit",
+                "marker_id": marker.id,
+                "label": "Main Spawn",
+                "detail": "",
+                "position_x": "2.5",
+                "position_y": "65",
+                "position_z": "-4",
+                "sorting": "0",
+                "listed": "on",
+                "min_distance": "",
+                "max_distance": "",
+                "submit_action": "save",
+            },
+            **self.async_headers(),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        marker.refresh_from_db()
+        self.assertEqual(marker.label, "Main Spawn")
+        self.assertEqual(marker.position_x, Decimal("2.5"))
+        payload = response.json()
+        self.assertIn("Main Spawn", payload["marker_browser_html"])
+        self.assertEqual(payload["notice"]["level"], "success")
+        self.assertIsNone(payload["active_job_id"])
+
+    def test_async_quick_edit_returns_validation_fragments(self):
+        marker_set = MarkerSet.objects.create(render=self.render, label="Landmarks")
+
+        response = self.client_for(self.admin).post(
+            reverse("render_markers", kwargs={"render_id": self.render.id}),
+            {
+                "editor_action": "create",
+                "marker_set_id": marker_set.id,
+                "label": "",
+                "detail": "",
+                "position_x": "invalid",
+                "position_y": "64",
+                "position_z": "0",
+                "sorting": "0",
+                "listed": "on",
+                "min_distance": "",
+                "max_distance": "",
+                "submit_action": "save",
+            },
+            **self.async_headers(),
+        )
+
+        self.assertEqual(response.status_code, 422)
+        payload = response.json()
+        self.assertIn("This field is required", payload["marker_editor_html"])
+        self.assertIn("Enter a number", payload["marker_editor_html"])
+        self.assertEqual(payload["notice"]["level"], "error")
+
+    def test_async_marker_delete_refreshes_browser_fragment(self):
+        marker_set = MarkerSet.objects.create(render=self.render, label="Landmarks")
+        marker = Marker.objects.create(
+            marker_set=marker_set,
+            label="Temporary Point",
+            position_x=0,
+            position_y=64,
+            position_z=0,
+        )
+
+        response = self.client_for(self.admin).post(
+            reverse("delete_marker", kwargs={"marker_id": marker.id}),
+            {},
+            **self.async_headers(),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(Marker.objects.filter(id=marker.id).exists())
+        payload = response.json()
+        self.assertNotIn("Temporary Point", payload["marker_browser_html"])
+        self.assertIn("Marker 'Temporary Point' deleted", payload["notice"]["message"])
+
+    def test_async_publish_queues_job_and_returns_polling_state(self):
+        response = self.client_for(self.admin).post(
+            reverse("publish_render_markers", kwargs={"render_id": self.render.id}),
+            {},
+            **self.async_headers(),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        job = RenderJob.objects.get(render=self.render)
+        payload = response.json()
+        self.assertEqual(payload["active_job_id"], job.id)
+        self.assertIn("Job in progress", payload["publish_action_html"])
+        self.assertIn(f'href="{reverse("render_job_detail", kwargs={"job_id": job.id})}"', payload["publication_status_html"])
+        self.assertEqual(payload["notice"]["level"], "success")
+
+    def test_async_quick_create_can_save_and_publish_together(self):
+        marker_set = MarkerSet.objects.create(render=self.render, label="Landmarks")
+
+        response = self.client_for(self.admin).post(
+            reverse("render_markers", kwargs={"render_id": self.render.id}),
+            {
+                "editor_action": "create",
+                "marker_set_id": marker_set.id,
+                "label": "Portal",
+                "detail": "",
+                "position_x": "20",
+                "position_y": "70",
+                "position_z": "30",
+                "sorting": "0",
+                "listed": "on",
+                "min_distance": "",
+                "max_distance": "",
+                "submit_action": "save_publish",
+            },
+            **self.async_headers(),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        marker = Marker.objects.get(marker_set=marker_set, label="Portal")
+        job = RenderJob.objects.get(render=self.render)
+        payload = response.json()
+        self.assertEqual(payload["active_job_id"], job.id)
+        self.assertIn(f"?edit={marker.id}#marker-editor", payload["editor_url"])
+        self.assertIn("created", payload["notice"]["message"])
+        self.assertIn("queued", payload["notice"]["message"])
 
     def test_admin_can_create_marker_and_publish_in_one_submission(self):
         marker_set = MarkerSet.objects.create(render=self.render, label="Landmarks")
