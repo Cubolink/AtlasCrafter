@@ -15,6 +15,7 @@ from renders.services import (
     preview_render_config,
     resolve_render_resources,
 )
+from viewer.views import render_output_exists
 from .forms import (
     AtlasCreateForm,
     AtlasEditForm,
@@ -42,6 +43,7 @@ from .models import (
     Render,
     WorldFolder,
 )
+from .markers import build_marker_management_state
 from .permissions import can_manage_project
 from .world_discovery import build_world_tree, scan_source_worlds, world_folder_exists
 
@@ -605,22 +607,43 @@ def get_manageable_marker_set_or_404(request, marker_set_id: int):
 @login_required
 def render_markers(request, render_id: int):
     render_obj = get_manageable_render_or_404(request, render_id)
-    marker_sets = render_obj.marker_sets.prefetch_related("markers").all()
     active_job = render_obj.jobs.filter(
         status__in=[RenderJob.Status.QUEUED, RenderJob.Status.RUNNING]
     ).first()
+    marker_state = build_marker_management_state(render_obj)
     return render(
         request,
         "projects/markers/marker_sets.html",
         {
             "render": render_obj,
-            "marker_sets": marker_sets,
+            "marker_state": marker_state,
             "active_job": active_job,
             "latest_marker_job": render_obj.jobs.filter(
                 operation=RenderJob.Operation.MARKERS
             ).first(),
+            "render_output_exists": render_output_exists(render_obj),
         },
     )
+
+
+def queue_marker_publication(request, render_obj) -> RenderJob | None:
+    if has_active_render_job(render_obj):
+        messages.warning(
+            request,
+            "Marker changes were saved, but this Render already has a queued or running job.",
+        )
+        return None
+    try:
+        job = enqueue_render(
+            render_obj,
+            requested_by=request.user,
+            operation=RenderJob.Operation.MARKERS,
+        )
+    except RenderConfigurationError as exc:
+        messages.error(request, str(exc))
+        return None
+    messages.success(request, f"Marker publishing job #{job.id} queued.")
+    return job
 
 
 @login_required
@@ -632,6 +655,8 @@ def create_marker_set(request, render_id: int):
         marker_set.render = render_obj
         marker_set.save()
         messages.success(request, f"Marker set '{marker_set.label}' created.")
+        if request.POST.get("submit_action") == "save_publish":
+            queue_marker_publication(request, render_obj)
         return redirect("render_markers", render_id=render_obj.id)
     return render(
         request,
@@ -652,6 +677,8 @@ def edit_marker_set(request, marker_set_id: int):
     if request.method == "POST" and form.is_valid():
         marker_set = form.save()
         messages.success(request, f"Marker set '{marker_set.label}' updated.")
+        if request.POST.get("submit_action") == "save_publish":
+            queue_marker_publication(request, marker_set.render)
         return redirect("render_markers", render_id=marker_set.render_id)
     return render(
         request,
@@ -687,6 +714,8 @@ def create_marker(request, marker_set_id: int):
         marker.marker_type = Marker.Type.POI
         marker.save()
         messages.success(request, f"Marker '{marker.label}' created.")
+        if request.POST.get("submit_action") == "save_publish":
+            queue_marker_publication(request, marker_set.render)
         return redirect("render_markers", render_id=marker_set.render_id)
     return render(
         request,
@@ -719,6 +748,8 @@ def edit_marker(request, marker_id: int):
     if request.method == "POST" and form.is_valid():
         marker = form.save()
         messages.success(request, f"Marker '{marker.label}' updated.")
+        if request.POST.get("submit_action") == "save_publish":
+            queue_marker_publication(request, marker.render)
         return redirect("render_markers", render_id=marker.render.id)
     return render(
         request,
@@ -757,19 +788,7 @@ def delete_marker(request, marker_id: int):
 @require_POST
 def publish_render_markers(request, render_id: int):
     render_obj = get_manageable_render_or_404(request, render_id)
-    if has_active_render_job(render_obj):
-        messages.warning(request, "This Render already has a queued or running job.")
-        return redirect("render_markers", render_id=render_obj.id)
-    try:
-        job = enqueue_render(
-            render_obj,
-            requested_by=request.user,
-            operation=RenderJob.Operation.MARKERS,
-        )
-    except RenderConfigurationError as exc:
-        messages.error(request, str(exc))
-    else:
-        messages.success(request, f"Marker publishing job #{job.id} queued.")
+    queue_marker_publication(request, render_obj)
     return redirect("render_markers", render_id=render_obj.id)
 
 

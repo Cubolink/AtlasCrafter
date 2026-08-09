@@ -270,6 +270,12 @@ class RenderRunnerTests(TestCase):
             run.assert_called_once()
             world.refresh_from_db()
             self.assertTrue(world.is_active)
+            render.refresh_from_db()
+            self.assertEqual(
+                render.published_marker_snapshot,
+                {"version": 1, "sets": {}},
+            )
+            self.assertIsNotNone(render.markers_published_at)
 
     def test_enqueue_render_fails_and_archives_world_when_world_folder_is_missing(self):
         render = self.create_render()
@@ -381,6 +387,8 @@ class RenderRunnerTests(TestCase):
             self.assertTrue((map_dir / "old-tile").exists())
             self.assertFalse((map_dir / "partial-tile").exists())
             self.assertFalse(any((webroot / "maps").glob(".rebuild-job-*")))
+            render.refresh_from_db()
+            self.assertIsNone(render.published_marker_snapshot)
 
     def test_claim_next_queued_job_respects_global_running_limit(self):
         first_render = self.create_render()

@@ -18,6 +18,7 @@ from bluemap_configs.models import (
     GeneratedConfigFile,
 )
 from projects.models import Render
+from projects.markers import build_marker_snapshot
 from projects.world_discovery import detect_server_minecraft_version, world_folder_exists
 from .models import RenderJob, RenderLogChunk
 
@@ -63,13 +64,17 @@ def preview_render_config(render: Render) -> tuple[BlueMapRenderConfig, str]:
     return render_config, render_config.generate_content()
 
 
-def write_render_config(render_config: BlueMapRenderConfig, user=None) -> Path:
+def write_render_config(
+    render_config: BlueMapRenderConfig,
+    user=None,
+    marker_snapshot=None,
+) -> Path:
     ensure_bluemap_runtime_config()
     path = render_config.config_path()
     path.parent.mkdir(parents=True, exist_ok=True)
 
     old_content = path.read_text(encoding="utf-8") if path.exists() else ""
-    new_content = render_config.generate_content()
+    new_content = render_config.generate_content(marker_snapshot=marker_snapshot)
     path.write_text(new_content, encoding="utf-8")
 
     ConfigRevision.objects.create(
@@ -391,6 +396,7 @@ def execute_render_job(job: RenderJob) -> RenderJob:
     render = job.render
     command = []
     rebuild_paths = []
+    marker_snapshot = None
     try:
         if (
             job.operation != RenderJob.Operation.MARKERS
@@ -402,7 +408,12 @@ def execute_render_job(job: RenderJob) -> RenderJob:
             return job
 
         render_config = get_or_create_render_config(render)
-        write_render_config(render_config, job.requested_by)
+        marker_snapshot = build_marker_snapshot(render)
+        write_render_config(
+            render_config,
+            job.requested_by,
+            marker_snapshot=marker_snapshot,
+        )
         if job.operation == RenderJob.Operation.MARKERS:
             command = build_marker_command(render_config)
         else:
@@ -487,6 +498,16 @@ def execute_render_job(job: RenderJob) -> RenderJob:
                     stream="stderr",
                     content=f"Could not finalize the Render rebuild: {exc}",
                 )
+        if job.status == RenderJob.Status.SUCCEEDED and marker_snapshot is not None:
+            render.published_marker_snapshot = marker_snapshot
+            render.markers_published_at = timezone.now()
+            render.save(
+                update_fields=[
+                    "published_marker_snapshot",
+                    "markers_published_at",
+                    "updated_at",
+                ]
+            )
         job.finished_at = timezone.now()
         job.save(update_fields=["status", "exit_code", "finished_at", "updated_at"])
 

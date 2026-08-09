@@ -92,7 +92,7 @@ Project Administrators for the Project and superusers can use these routes. Proj
 | :--- | :--- | :--- | :--- |
 | `GET` | `/renders/<render_id>/` | `render_viewer` | Render detail page and scoped BlueMap viewer frame. |
 | `GET` | `/renders/<render_id>/config-preview/` | `render_config_preview` | Preview generated BlueMap map config. |
-| `GET` | `/renders/<render_id>/markers/` | `render_markers` | Project Admin marker-set and point-of-interest management. |
+| `GET` | `/renders/<render_id>/markers/` | `render_markers` | Project Admin marker management, published-map coordinate guide, and draft publication status. |
 | `GET/POST` | `/renders/<render_id>/markers/create-set/` | `create_marker_set` | Create a marker set owned by the Render. |
 | `POST` | `/renders/<render_id>/markers/publish/` | `publish_render_markers` | Queue a BlueMap `--markers` publication job without rendering terrain. |
 | `GET/POST` | `/marker-sets/<marker_set_id>/edit/` | `edit_marker_set` | Edit a Render marker set. |

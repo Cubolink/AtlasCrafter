@@ -78,7 +78,7 @@ class BlueMapRenderConfig(models.Model):
     def __str__(self) -> str:
         return f"Config for {self.render}"
 
-    def context(self) -> dict[str, str]:
+    def context(self, marker_snapshot=None) -> dict[str, str]:
         render = self.render
         return {
             "project": render.project.name,
@@ -107,7 +107,7 @@ class BlueMapRenderConfig(models.Model):
             "enable_hires": hocon_bool(render.enable_hires),
             "storage": render.storage_profile or "file",
             "ignore_missing_light_data": hocon_bool(render.ignore_missing_light_data),
-            "marker_sets": format_marker_sets(render),
+            "marker_sets": format_marker_sets(render, marker_snapshot),
             "bluemap_cli": settings.BLUEMAP_CLI_PATH,
             "config_dir": settings.BLUEMAP_CONFIG_DIR.as_posix(),
             "config_file": self.config_path().as_posix(),
@@ -117,7 +117,7 @@ class BlueMapRenderConfig(models.Model):
     def config_path(self) -> Path:
         return settings.BLUEMAP_CONFIG_DIR / "maps" / f"{self.render.bluemap_map_id}.conf"
 
-    def generate_content(self) -> str:
+    def generate_content(self, marker_snapshot=None) -> str:
         header = (
             "# Managed by AtlasCrafter\n"
             f"# Project: {self.render.project.name}\n"
@@ -125,7 +125,9 @@ class BlueMapRenderConfig(models.Model):
             f"# Render: {self.render.display_name}\n"
             f"# Last generated: {timezone.now().isoformat()}\n\n"
         )
-        return header + self.profile.config_template.format(**self.context())
+        return header + self.profile.config_template.format(
+            **self.context(marker_snapshot=marker_snapshot)
+        )
 
 
 class ConfigRevision(models.Model):

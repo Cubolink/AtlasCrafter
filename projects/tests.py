@@ -1,14 +1,17 @@
 import uuid
 from decimal import Decimal
+from pathlib import Path
+from tempfile import TemporaryDirectory
 
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
-from django.test import Client, TestCase
+from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 
 from accounts.models import ProjectMembership
 from bluemap_configs.models import BlueMapProfile
 from renders.models import RenderJob
+from .markers import build_marker_snapshot
 from .models import Atlas, Marker, MarkerSet, Project, ProjectVisibleWorld, Render, WorldFolder
 
 
@@ -911,6 +914,117 @@ class RenderMarkerManagementTests(TestCase):
             response,
             reverse("render_markers", kwargs={"render_id": self.render.id}),
         )
+        job = RenderJob.objects.get(render=self.render)
+        self.assertEqual(job.operation, RenderJob.Operation.MARKERS)
+        self.assertEqual(job.status, RenderJob.Status.QUEUED)
+
+    def test_marker_manager_marks_new_and_modified_markers(self):
+        marker_set = MarkerSet.objects.create(render=self.render, label="Landmarks")
+        published_marker = Marker.objects.create(
+            marker_set=marker_set,
+            label="Spawn",
+            position_x=0,
+            position_y=64,
+            position_z=0,
+        )
+        self.render.published_marker_snapshot = build_marker_snapshot(self.render)
+        self.render.save(update_fields=["published_marker_snapshot"])
+        published_marker.label = "Main Spawn"
+        published_marker.save(update_fields=["label", "updated_at"])
+        Marker.objects.create(
+            marker_set=marker_set,
+            label="Village",
+            position_x=100,
+            position_y=70,
+            position_z=-100,
+        )
+
+        response = self.client_for(self.admin).get(
+            reverse("render_markers", kwargs={"render_id": self.render.id})
+        )
+
+        self.assertContains(response, "Unpublished marker changes")
+        self.assertContains(response, "Modified")
+        self.assertContains(response, "New")
+        self.assertContains(response, "Published Map")
+
+    def test_marker_manager_keeps_deleted_marker_as_pending_removal(self):
+        marker_set = MarkerSet.objects.create(render=self.render, label="Landmarks")
+        marker = Marker.objects.create(
+            marker_set=marker_set,
+            label="Old Spawn",
+            position_x=0,
+            position_y=64,
+            position_z=0,
+        )
+        self.render.published_marker_snapshot = build_marker_snapshot(self.render)
+        self.render.save(update_fields=["published_marker_snapshot"])
+        marker.delete()
+
+        response = self.client_for(self.admin).get(
+            reverse("render_markers", kwargs={"render_id": self.render.id})
+        )
+
+        self.assertContains(response, "Old Spawn")
+        self.assertContains(response, "Pending removal")
+        self.assertContains(response, "Still visible on the published map")
+
+    def test_marker_manager_explains_unknown_publication_baseline(self):
+        MarkerSet.objects.create(render=self.render, label="Landmarks")
+
+        response = self.client_for(self.admin).get(
+            reverse("render_markers", kwargs={"render_id": self.render.id})
+        )
+
+        self.assertContains(response, "Publication tracking has not established a baseline")
+        self.assertContains(response, "Not tracked yet")
+
+    def test_marker_manager_embeds_only_available_published_output(self):
+        with TemporaryDirectory() as webroot_dir:
+            webroot = Path(webroot_dir)
+            map_dir = webroot / "maps" / self.render.bluemap_map_id
+            map_dir.mkdir(parents=True)
+            (webroot / "index.html").write_text("<html>BlueMap</html>", encoding="utf-8")
+            (map_dir / "settings.json").write_text("{}", encoding="utf-8")
+
+            with override_settings(BLUEMAP_WEBROOT_DIR=webroot):
+                response = self.client_for(self.admin).get(
+                    reverse("render_markers", kwargs={"render_id": self.render.id})
+                )
+
+        self.assertContains(response, "<iframe", html=False)
+        self.assertContains(
+            response,
+            reverse(
+                "protected_render_asset",
+                kwargs={"render_id": self.render.id, "asset_path": "index.html"},
+            ),
+        )
+
+    def test_admin_can_create_marker_and_publish_in_one_submission(self):
+        marker_set = MarkerSet.objects.create(render=self.render, label="Landmarks")
+
+        response = self.client_for(self.admin).post(
+            reverse("create_marker", kwargs={"marker_set_id": marker_set.id}),
+            {
+                "label": "Spawn",
+                "detail": "",
+                "position_x": "0",
+                "position_y": "64",
+                "position_z": "0",
+                "sorting": "0",
+                "listed": "on",
+                "min_distance": "",
+                "max_distance": "",
+                "submit_action": "save_publish",
+            },
+        )
+
+        self.assertRedirects(
+            response,
+            reverse("render_markers", kwargs={"render_id": self.render.id}),
+        )
+        self.assertTrue(Marker.objects.filter(marker_set=marker_set, label="Spawn").exists())
         job = RenderJob.objects.get(render=self.render)
         self.assertEqual(job.operation, RenderJob.Operation.MARKERS)
         self.assertEqual(job.status, RenderJob.Status.QUEUED)

@@ -290,6 +290,8 @@ class Render(TimeStampedModel):
     start_position = models.JSONField(default=dict, blank=True)
     render_mask = models.JSONField(default=list, blank=True)
     legacy_marker_sets_hocon = models.TextField(default="{}", blank=True, editable=False)
+    published_marker_snapshot = models.JSONField(null=True, blank=True, editable=False)
+    markers_published_at = models.DateTimeField(null=True, blank=True, editable=False)
     lighting_options = models.JSONField(default=dict, blank=True)
     cave_options = models.JSONField(default=dict, blank=True)
     region = models.ForeignKey(Region, on_delete=models.SET_NULL, null=True, blank=True)

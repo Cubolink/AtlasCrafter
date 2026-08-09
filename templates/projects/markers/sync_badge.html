@@ -1,0 +1,9 @@
+{% if status == "new" %}
+  <span class="badge badge-info badge-outline">New</span>
+{% elif status == "modified" %}
+  <span class="badge badge-warning badge-outline">Modified</span>
+{% elif status == "deleted" %}
+  <span class="badge badge-error badge-outline">Pending removal</span>
+{% elif status == "unknown" %}
+  <span class="badge badge-ghost">Not tracked yet</span>
+{% endif %}
