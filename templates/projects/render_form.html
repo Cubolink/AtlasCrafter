@@ -241,13 +241,6 @@
                       </div>
                     </div>
                   {% elif field.name == 'render_mask_subtract' or field.name == 'render_mask_min_x' or field.name == 'render_mask_max_x' or field.name == 'render_mask_min_y' or field.name == 'render_mask_max_y' or field.name == 'render_mask_min_z' or field.name == 'render_mask_max_z' or field.name == 'render_mask_center_x' or field.name == 'render_mask_center_z' or field.name == 'render_mask_radius' %}
-                  {% elif field.name == 'marker_sets' %}
-                    <div class="form-field form-field-wide">
-                      {{ field.label_tag }}
-                      {{ field }}
-                      {% if field.help_text %}<span class="form-help">{{ field.help_text }}</span>{% endif %}
-                      {% if field.errors %}<div class="form-errors">{{ field.errors }}</div>{% endif %}
-                    </div>
                   {% else %}
                   <div class="form-field {% if field.name == 'storage_profile' %}form-field-wide{% endif %} {% if field.field.widget.input_type == 'checkbox' %}flex items-center justify-between gap-4{% endif %}">
                     {% if field.field.widget.input_type == 'checkbox' %}

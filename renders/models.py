@@ -5,6 +5,7 @@ class RenderJob(models.Model):
     class Operation(models.TextChoices):
         UPDATE = "update", "Update"
         REBUILD = "rebuild", "Rebuild"
+        MARKERS = "markers", "Publish markers"
 
     class Status(models.TextChoices):
         QUEUED = "queued", "Queued"

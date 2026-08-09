@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+{% load icons %}
+
+{% block title %}Markers - {{ render.display_name }}{% endblock %}
+
+{% block breadcrumbs %}
+  <li><a href="{% url 'dashboard' %}">{% icon "briefcase-business" %} Projects</a></li>
+  <li><a href="{{ render.project.get_absolute_url }}">{% icon "folder" %} {{ render.project.name }}</a></li>
+  <li><a href="{% url 'atlas_detail' render.atlas.id %}">{% icon "map" %} {{ render.atlas.display_name }}</a></li>
+  <li><a href="{% url 'render_viewer' render.id %}">{% icon "map-pinned" %} {{ render.display_name }}</a></li>
+  <li>Markers</li>
+{% endblock %}
+
+{% block content %}
+  <div class="page-heading">
+    <div>
+      <p class="page-kicker">Render Markers</p>
+      <h1>{% icon "map-pin" "icon-heading" %}Markers</h1>
+      <p class="mt-2 max-w-3xl text-base-content/70">
+        Organize points of interest for {{ render.display_name }}, then publish the changes to BlueMap without rendering terrain again.
+      </p>
+    </div>
+    <div class="flex flex-wrap items-center gap-2">
+      <a class="btn btn-ghost btn-sm" href="{% url 'render_viewer' render.id %}">{% icon "arrow-left" %} Back to Render</a>
+      <a class="btn btn-outline btn-sm" href="{% url 'create_marker_set' render.id %}">{% icon "folder-plus" %} Create Marker Set</a>
+      <form class="m-0" method="post" action="{% url 'publish_render_markers' render.id %}">
+        {% csrf_token %}
+        <button class="btn btn-primary btn-sm" type="submit" {% if active_job %}disabled{% endif %}>
+          {% if active_job %}{% icon "loader-circle" %} Job in progress{% else %}{% icon "upload" %} Publish Markers{% endif %}
+        </button>
+      </form>
+    </div>
+  </div>
+
+  {% if active_job %}
+    <div class="alert mb-5">
+      {% icon "activity" %}
+      <span>
+        Job <a href="{% url 'render_job_detail' active_job.id %}">#{{ active_job.id }}</a>
+        is {{ active_job.get_status_display|lower }}. Marker publishing will be available when it finishes.
+      </span>
+    </div>
+  {% elif latest_marker_job %}
+    <div class="mb-5 flex flex-wrap items-center gap-2 text-sm text-base-content/70">
+      {% icon "history" %}
+      Last publication:
+      <a href="{% url 'render_job_detail' latest_marker_job.id %}">job #{{ latest_marker_job.id }}</a>
+      <span class="status-{{ latest_marker_job.status }}">{{ latest_marker_job.get_status_display }}</span>
+      <span>{{ latest_marker_job.updated_at }}</span>
+    </div>
+  {% endif %}
+
+  <div class="space-y-5">
+    {% for marker_set in marker_sets %}
+      <section class="panel">
+        <div class="row">
+          <div>
+            <h2>{% icon "layers" "icon-heading" %}{{ marker_set.label }}</h2>
+            <p class="muted">
+              {{ marker_set.markers.all|length }} marker{{ marker_set.markers.all|length|pluralize }}
+              · sorting {{ marker_set.sorting }}
+              · {% if marker_set.toggleable %}viewer-toggleable{% else %}always visible{% endif %}
+              {% if marker_set.default_hidden %} · hidden by default{% endif %}
+            </p>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <a class="btn btn-primary btn-sm" href="{% url 'create_marker' marker_set.id %}">{% icon "map-pin-plus" %} Add Point</a>
+            <a class="btn btn-ghost btn-sm" href="{% url 'edit_marker_set' marker_set.id %}">{% icon "pencil" %} Edit Set</a>
+            <form class="m-0" method="post" action="{% url 'delete_marker_set' marker_set.id %}" onsubmit="return confirm('Delete this marker set and every marker in it?')">
+              {% csrf_token %}
+              <button class="btn btn-ghost btn-sm text-error" type="submit">{% icon "trash-2" %} Delete</button>
+            </form>
+          </div>
+        </div>
+
+        <div class="table-wrap mt-4">
+          <table>
+            <thead>
+              <tr>
+                <th>Point of interest</th>
+                <th>Coordinates</th>
+                <th>Visibility</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for marker in marker_set.markers.all %}
+                <tr>
+                  <td>
+                    <span class="font-medium">{{ marker.label }}</span>
+                    {% if marker.detail %}<span class="muted block max-w-xl">{{ marker.detail|truncatechars:140 }}</span>{% endif %}
+                  </td>
+                  <td class="whitespace-nowrap"><code>{{ marker.position_x }}, {{ marker.position_y }}, {{ marker.position_z }}</code></td>
+                  <td>
+                    {% if marker.listed %}<span class="badge badge-outline">Listed</span>{% else %}<span class="badge badge-ghost">Map only</span>{% endif %}
+                    {% if marker.min_distance != None or marker.max_distance != None %}
+                      <span class="muted block text-xs">{{ marker.min_distance|default:"0" }} – {{ marker.max_distance|default:"∞" }} blocks</span>
+                    {% endif %}
+                  </td>
+                  <td>
+                    <div class="flex justify-end gap-1">
+                      <a class="btn btn-ghost btn-sm" href="{% url 'edit_marker' marker.id %}">{% icon "pencil" %} Edit</a>
+                      <form class="m-0" method="post" action="{% url 'delete_marker' marker.id %}" onsubmit="return confirm('Delete this marker?')">
+                        {% csrf_token %}
+                        <button class="btn btn-ghost btn-sm text-error" type="submit">{% icon "trash-2" %}</button>
+                      </form>
+                    </div>
+                  </td>
+                </tr>
+              {% empty %}
+                <tr><td colspan="4" class="muted">No points of interest in this marker set yet.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    {% empty %}
+      <section class="panel">
+        <div class="flex flex-col items-center gap-3 py-8 text-center">
+          {% icon "map-pin" "icon-lg" %}
+          <div>
+            <h2>No marker sets yet</h2>
+            <p class="muted">Create a set such as Landmarks, Towns, or Portals before adding points.</p>
+          </div>
+          <a class="btn btn-primary btn-sm" href="{% url 'create_marker_set' render.id %}">{% icon "folder-plus" %} Create Marker Set</a>
+        </div>
+      </section>
+    {% endfor %}
+  </div>
+{% endblock %}

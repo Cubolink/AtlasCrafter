@@ -2,6 +2,8 @@ from django.contrib import admin
 
 from .models import (
     Atlas,
+    Marker,
+    MarkerSet,
     MinecraftResourceSource,
     MinecraftServer,
     Project,
@@ -97,6 +99,31 @@ class RenderAdmin(admin.ModelAdmin):
     readonly_fields = ("bluemap_map_id",)
     search_fields = ("display_name", "bluemap_map_id", "atlas__display_name", "atlas__project__name")
     autocomplete_fields = ("atlas", "region", "resource_source")
+
+
+class MarkerInline(admin.TabularInline):
+    model = Marker
+    extra = 0
+    readonly_fields = ("bluemap_id", "marker_type", "icon", "anchor_x", "anchor_y")
+
+
+@admin.register(MarkerSet)
+class MarkerSetAdmin(admin.ModelAdmin):
+    list_display = ("label", "render", "sorting", "toggleable", "default_hidden")
+    list_filter = ("toggleable", "default_hidden")
+    search_fields = ("label", "bluemap_id", "render__display_name")
+    readonly_fields = ("bluemap_id",)
+    autocomplete_fields = ("render",)
+    inlines = (MarkerInline,)
+
+
+@admin.register(Marker)
+class MarkerAdmin(admin.ModelAdmin):
+    list_display = ("label", "marker_set", "marker_type", "listed", "sorting")
+    list_filter = ("marker_type", "listed")
+    search_fields = ("label", "bluemap_id", "marker_set__label")
+    readonly_fields = ("bluemap_id", "marker_type", "icon", "anchor_x", "anchor_y")
+    autocomplete_fields = ("marker_set",)
 
 
 @admin.register(Region)

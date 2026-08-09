@@ -162,14 +162,49 @@ def build_command(
     *,
     force_render: bool = False,
 ) -> list[str]:
-    command_string = render_config.profile.command_template.format(**render_config.context())
-    command = shlex.split(command_string, posix=os.name != "nt")
-    command = [argument.strip('"') for argument in command]
+    command = parse_command_template(
+        render_config.profile.command_template,
+        render_config,
+    )
     command = add_bluemap_render_options(command, render_config.render)
     if force_render and not has_command_option(command, "-f", "--force-render"):
         command.append("--force-render")
+    return wrap_cli_jar(command)
+
+
+def build_marker_command(render_config: BlueMapRenderConfig) -> list[str]:
+    if "{marker_sets}" not in render_config.profile.config_template:
+        raise RenderConfigurationError(
+            f"BlueMap profile '{render_config.profile.name}' cannot publish markers because "
+            "its map config template does not include {marker_sets}."
+        )
+    command = parse_command_template(
+        render_config.profile.marker_command_template,
+        render_config,
+    )
+    if has_command_option(command, "-r", "--render"):
+        raise RenderConfigurationError(
+            "The BlueMap marker command cannot include -r or --render."
+        )
+    if has_command_option(command, "-m", "--maps"):
+        raise RenderConfigurationError(
+            "The BlueMap marker command cannot include -m or --maps. "
+            "BlueMap 5.22 can silently skip marker publication when map filtering is enabled."
+        )
+    if not has_command_option(command, "--markers"):
+        command.append("--markers")
+    return wrap_cli_jar(command)
+
+
+def parse_command_template(template: str, render_config: BlueMapRenderConfig) -> list[str]:
+    command_string = template.format(**render_config.context())
+    command = shlex.split(command_string, posix=os.name != "nt")
+    return [argument.strip('"') for argument in command]
+
+
+def wrap_cli_jar(command: list[str]) -> list[str]:
     if command and command[0].lower().endswith(".jar"):
-        command = [
+        return [
             settings.BLUEMAP_JAVA_PATH,
             f"-Djava.io.tmpdir={settings.BLUEMAP_TMP_DIR.as_posix()}",
             "-jar",
@@ -289,7 +324,10 @@ def enqueue_render(
     if operation not in RenderJob.Operation.values:
         raise RenderConfigurationError(f"Unsupported Render job operation: {operation}")
 
-    if not render_world_folder_is_available(render):
+    if operation == RenderJob.Operation.MARKERS:
+        build_marker_command(get_or_create_render_config(render))
+
+    if operation != RenderJob.Operation.MARKERS and not render_world_folder_is_available(render):
         job = RenderJob.objects.create(
             render=render,
             requested_by=requested_by,
@@ -354,7 +392,10 @@ def execute_render_job(job: RenderJob) -> RenderJob:
     command = []
     rebuild_paths = []
     try:
-        if not render_world_folder_is_available(render):
+        if (
+            job.operation != RenderJob.Operation.MARKERS
+            and not render_world_folder_is_available(render)
+        ):
             log_world_folder_unavailable(render, job)
             job.status = RenderJob.Status.FAILED
             job.exit_code = None
@@ -362,10 +403,13 @@ def execute_render_job(job: RenderJob) -> RenderJob:
 
         render_config = get_or_create_render_config(render)
         write_render_config(render_config, job.requested_by)
-        command = build_command(
-            render_config,
-            force_render=job.operation == RenderJob.Operation.REBUILD,
-        )
+        if job.operation == RenderJob.Operation.MARKERS:
+            command = build_marker_command(render_config)
+        else:
+            command = build_command(
+                render_config,
+                force_render=job.operation == RenderJob.Operation.REBUILD,
+            )
         settings.BLUEMAP_TMP_DIR.mkdir(parents=True, exist_ok=True)
         process_env = os.environ.copy()
         process_env["TMP"] = str(settings.BLUEMAP_TMP_DIR)

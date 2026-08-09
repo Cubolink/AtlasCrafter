@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% load icons %}
+
+{% block title %}{{ title }} - {{ render.display_name }}{% endblock %}
+
+{% block breadcrumbs %}
+  <li><a href="{% url 'render_viewer' render.id %}">{% icon "map-pinned" %} {{ render.display_name }}</a></li>
+  <li><a href="{% url 'render_markers' render.id %}">{% icon "map-pin" %} Markers</a></li>
+  <li>{{ title }}</li>
+{% endblock %}
+
+{% block content %}
+  <div class="page-heading">
+    <div>
+      <p class="page-kicker">{{ marker_set.label }}</p>
+      <h1>{% icon "map-pin" "icon-heading" %}{{ title }}</h1>
+      <p class="mt-2 max-w-3xl text-base-content/70">Descriptions are plain text and are safely escaped before BlueMap receives them.</p>
+    </div>
+    <a class="btn btn-ghost btn-sm" href="{% url 'render_markers' render.id %}">{% icon "arrow-left" %} Back to Markers</a>
+  </div>
+
+  <section class="panel">
+    <form method="post">
+      {% csrf_token %}
+      <div class="form-grid">
+        <div class="form-field">{{ form.label.label_tag }}{{ form.label }}{% if form.label.help_text %}<span class="form-help">{{ form.label.help_text }}</span>{% endif %}{{ form.label.errors }}</div>
+        <div class="form-field">{{ form.sorting.label_tag }}{{ form.sorting }}{% if form.sorting.help_text %}<span class="form-help">{{ form.sorting.help_text }}</span>{% endif %}{{ form.sorting.errors }}</div>
+        <div class="form-field form-field-wide">{{ form.detail.label_tag }}{{ form.detail }}{% if form.detail.help_text %}<span class="form-help">{{ form.detail.help_text }}</span>{% endif %}{{ form.detail.errors }}</div>
+
+        <div class="form-field form-field-wide">
+          <label>Position</label>
+          <div class="grid gap-3 sm:grid-cols-3">
+            <div>{{ form.position_x.label_tag }}{{ form.position_x }}{{ form.position_x.errors }}</div>
+            <div>{{ form.position_y.label_tag }}{{ form.position_y }}{{ form.position_y.errors }}</div>
+            <div>{{ form.position_z.label_tag }}{{ form.position_z }}{{ form.position_z.errors }}</div>
+          </div>
+          <span class="form-help">Minecraft world coordinates. Decimal positions are supported.</span>
+        </div>
+
+        <div class="form-field">{{ form.min_distance.label_tag }}{{ form.min_distance }}{% if form.min_distance.help_text %}<span class="form-help">{{ form.min_distance.help_text }}</span>{% endif %}{{ form.min_distance.errors }}</div>
+        <div class="form-field">{{ form.max_distance.label_tag }}{{ form.max_distance }}{% if form.max_distance.help_text %}<span class="form-help">{{ form.max_distance.help_text }}</span>{% endif %}{{ form.max_distance.errors }}</div>
+        <div class="form-field form-field-wide flex items-center justify-between gap-4">
+          <div>{{ form.listed.label_tag }}{% if form.listed.help_text %}<span class="form-help">{{ form.listed.help_text }}</span>{% endif %}{{ form.listed.errors }}</div>
+          {{ form.listed }}
+        </div>
+      </div>
+      {{ form.non_field_errors }}
+      <div class="mt-5"><button type="submit">{% icon "save" %} {{ submit_label }}</button></div>
+    </form>
+  </section>
+{% endblock %}

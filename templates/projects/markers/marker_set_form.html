@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% load icons %}
+
+{% block title %}{{ title }} - {{ render.display_name }}{% endblock %}
+
+{% block breadcrumbs %}
+  <li><a href="{% url 'render_viewer' render.id %}">{% icon "map-pinned" %} {{ render.display_name }}</a></li>
+  <li><a href="{% url 'render_markers' render.id %}">{% icon "map-pin" %} Markers</a></li>
+  <li>{{ title }}</li>
+{% endblock %}
+
+{% block content %}
+  <div class="page-heading">
+    <div>
+      <p class="page-kicker">Marker Set</p>
+      <h1>{% icon "layers" "icon-heading" %}{{ title }}</h1>
+    </div>
+    <a class="btn btn-ghost btn-sm" href="{% url 'render_markers' render.id %}">{% icon "arrow-left" %} Back to Markers</a>
+  </div>
+
+  <section class="panel">
+    <form method="post">
+      {% csrf_token %}
+      <div class="form-grid">
+        {% for field in form %}
+          <div class="form-field {% if field.field.widget.input_type == 'checkbox' %}flex items-center justify-between gap-4{% endif %}">
+            {% if field.field.widget.input_type == 'checkbox' %}
+              <div>{{ field.label_tag }}{% if field.help_text %}<span class="form-help">{{ field.help_text }}</span>{% endif %}{{ field.errors }}</div>
+              {{ field }}
+            {% else %}
+              {{ field.label_tag }}{{ field }}{% if field.help_text %}<span class="form-help">{{ field.help_text }}</span>{% endif %}{{ field.errors }}
+            {% endif %}
+          </div>
+        {% endfor %}
+      </div>
+      {{ form.non_field_errors }}
+      <div class="mt-5"><button type="submit">{% icon "save" %} {{ submit_label }}</button></div>
+    </form>
+  </section>
+{% endblock %}

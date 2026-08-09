@@ -4,6 +4,8 @@ from django.conf import settings
 from django.db import models
 from django.utils import timezone
 
+from projects.markers import format_marker_sets
+
 
 class BlueMapProfile(models.Model):
     name = models.CharField(max_length=160, unique=True)
@@ -39,6 +41,10 @@ class BlueMapProfile(models.Model):
     command_template = models.CharField(
         max_length=500,
         default='"{bluemap_cli}" -c "{config_dir}" -r',
+    )
+    marker_command_template = models.CharField(
+        max_length=500,
+        default='"{bluemap_cli}" -c "{config_dir}" --markers',
     )
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -101,7 +107,7 @@ class BlueMapRenderConfig(models.Model):
             "enable_hires": hocon_bool(render.enable_hires),
             "storage": render.storage_profile or "file",
             "ignore_missing_light_data": hocon_bool(render.ignore_missing_light_data),
-            "marker_sets": render.marker_sets.strip() or "{}",
+            "marker_sets": format_marker_sets(render),
             "bluemap_cli": settings.BLUEMAP_CLI_PATH,
             "config_dir": settings.BLUEMAP_CONFIG_DIR.as_posix(),
             "config_file": self.config_path().as_posix(),

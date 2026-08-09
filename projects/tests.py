@@ -9,7 +9,7 @@ from django.urls import reverse
 from accounts.models import ProjectMembership
 from bluemap_configs.models import BlueMapProfile
 from renders.models import RenderJob
-from .models import Atlas, Project, ProjectVisibleWorld, Render, WorldFolder
+from .models import Atlas, Marker, MarkerSet, Project, ProjectVisibleWorld, Render, WorldFolder
 
 
 class ProjectAtlasRenderModelTests(TestCase):
@@ -442,7 +442,6 @@ class ProjectSetupViewTests(TestCase):
                 "render_mask_center_x": "",
                 "render_mask_center_z": "",
                 "render_mask_radius": "",
-                "marker_sets": "{}",
             },
         )
 
@@ -524,7 +523,8 @@ class ProjectSetupViewTests(TestCase):
         self.assertContains(response, "Start Position")
         self.assertContains(response, "Render Mask")
         self.assertContains(response, "data-render-mask-type")
-        self.assertContains(response, "marker-sets")
+        self.assertNotContains(response, 'name="marker_sets"')
+        self.assertNotContains(response, "Raw BlueMap marker-sets HOCON")
         self.assertContains(response, "Minecraft Resources")
         self.assertContains(response, "Use world or server default")
         self.assertContains(response, "Vanilla resources only")
@@ -807,3 +807,110 @@ class ProjectSetupViewTests(TestCase):
 
         self.assertEqual(response.status_code, 403)
         self.assertTrue(ProjectMembership.objects.filter(id=membership.id).exists())
+
+
+class RenderMarkerManagementTests(TestCase):
+    def setUp(self):
+        self.admin = User.objects.create_user(username="marker-admin", password="password")
+        self.viewer = User.objects.create_user(username="marker-viewer", password="password")
+        self.project = Project.objects.create(name="Marker Project")
+        self.profile = BlueMapProfile.objects.create(
+            name="Marker Profile",
+            slug="marker-profile",
+        )
+        self.project.default_bluemap_profile = self.profile
+        self.project.save(update_fields=["default_bluemap_profile"])
+        self.world = WorldFolder.objects.create(
+            display_name="Marker World",
+            source_path="/srv/minecraft/marker-world",
+        )
+        ProjectVisibleWorld.objects.create(project=self.project, world_folder=self.world)
+        self.atlas = Atlas.objects.create(
+            project=self.project,
+            world_folder=self.world,
+            display_name="Marker Atlas",
+        )
+        self.render = Render.objects.create(
+            atlas=self.atlas,
+            display_name="Marker Render",
+            dimension=Render.Dimension.OVERWORLD,
+        )
+        ProjectMembership.objects.create(
+            user=self.admin,
+            project=self.project,
+            role=ProjectMembership.Role.PROJECT_ADMINISTRATOR,
+        )
+        ProjectMembership.objects.create(
+            user=self.viewer,
+            project=self.project,
+            role=ProjectMembership.Role.PROJECT_USER,
+        )
+
+    def client_for(self, user):
+        client = Client(HTTP_HOST="localhost")
+        client.force_login(user)
+        return client
+
+    def test_project_admin_can_create_marker_set_and_poi(self):
+        admin_client = self.client_for(self.admin)
+        set_response = admin_client.post(
+            reverse("create_marker_set", kwargs={"render_id": self.render.id}),
+            {
+                "label": "Landmarks",
+                "sorting": 1,
+                "toggleable": "on",
+                "default_hidden": "",
+            },
+        )
+
+        self.assertRedirects(
+            set_response,
+            reverse("render_markers", kwargs={"render_id": self.render.id}),
+        )
+        marker_set = MarkerSet.objects.get(render=self.render)
+        marker_response = admin_client.post(
+            reverse("create_marker", kwargs={"marker_set_id": marker_set.id}),
+            {
+                "label": "Spawn",
+                "detail": "Welcome <script>alert(1)</script>",
+                "position_x": "10.5",
+                "position_y": "80",
+                "position_z": "-20",
+                "sorting": 0,
+                "listed": "on",
+                "min_distance": "",
+                "max_distance": "5000",
+            },
+        )
+
+        self.assertRedirects(
+            marker_response,
+            reverse("render_markers", kwargs={"render_id": self.render.id}),
+        )
+        marker = Marker.objects.get(marker_set=marker_set)
+        self.assertEqual(marker.label, "Spawn")
+        self.assertIn("<script>", marker.detail)
+        page = admin_client.get(reverse("render_markers", kwargs={"render_id": self.render.id}))
+        self.assertContains(page, "Landmarks")
+        self.assertContains(page, "Spawn")
+        self.assertNotContains(page, 'name="marker_sets"')
+
+    def test_project_user_cannot_manage_markers(self):
+        response = self.client_for(self.viewer).get(
+            reverse("render_markers", kwargs={"render_id": self.render.id})
+        )
+
+        self.assertEqual(response.status_code, 403)
+
+    def test_project_admin_can_queue_marker_publication_without_world_on_disk(self):
+        response = self.client_for(self.admin).post(
+            reverse("publish_render_markers", kwargs={"render_id": self.render.id})
+        )
+
+        self.assertRedirects(
+            response,
+            reverse("render_markers", kwargs={"render_id": self.render.id}),
+        )
+        job = RenderJob.objects.get(render=self.render)
+        self.assertEqual(job.operation, RenderJob.Operation.MARKERS)
+        self.assertEqual(job.status, RenderJob.Status.QUEUED)

@@ -77,6 +77,7 @@
                 <button class="btn btn-ghost btn-sm" tabindex="0" type="button">{% icon "more-horizontal" %} Manage</button>
                 <ul class="dropdown-content menu z-10 w-52 rounded-lg border border-base-300 bg-base-100 p-2 shadow">
                   <li><a href="{% url 'edit_render' render.id %}">{% icon "pencil" %} Edit Render</a></li>
+                  <li><a href="{% url 'render_markers' render.id %}">{% icon "map-pin" %} Manage Markers</a></li>
                   <li><a href="{% url 'render_config_preview' render.id %}">{% icon "file-code" %} Preview Config</a></li>
                   <li>
                     <form method="post" action="{% url 'archive_render' render.id %}">

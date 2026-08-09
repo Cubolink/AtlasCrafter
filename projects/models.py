@@ -3,7 +3,12 @@ from decimal import Decimal
 from pathlib import Path
 
 from django.core.exceptions import ValidationError
-from django.core.validators import MaxValueValidator, MinValueValidator, RegexValidator
+from django.core.validators import (
+    MaxLengthValidator,
+    MaxValueValidator,
+    MinValueValidator,
+    RegexValidator,
+)
 from django.db import models
 from django.urls import reverse
 from django.utils.text import slugify
@@ -11,6 +16,14 @@ from django.utils.text import slugify
 
 def generate_bluemap_map_id() -> str:
     return f"render-{uuid.uuid4()}"
+
+
+def generate_marker_set_id() -> str:
+    return f"marker-set-{uuid.uuid4()}"
+
+
+def generate_marker_id() -> str:
+    return f"marker-{uuid.uuid4()}"
 
 
 hex_color_validator = RegexValidator(
@@ -276,7 +289,7 @@ class Render(TimeStampedModel):
     )
     start_position = models.JSONField(default=dict, blank=True)
     render_mask = models.JSONField(default=list, blank=True)
-    marker_sets = models.TextField(default="{}", blank=True)
+    legacy_marker_sets_hocon = models.TextField(default="{}", blank=True, editable=False)
     lighting_options = models.JSONField(default=dict, blank=True)
     cave_options = models.JSONField(default=dict, blank=True)
     region = models.ForeignKey(Region, on_delete=models.SET_NULL, null=True, blank=True)
@@ -368,3 +381,80 @@ class Render(TimeStampedModel):
 
     def __str__(self) -> str:
         return f"{self.atlas} / {self.display_name}"
+
+
+class MarkerSet(TimeStampedModel):
+    render = models.ForeignKey(Render, on_delete=models.CASCADE, related_name="marker_sets")
+    bluemap_id = models.SlugField(
+        max_length=180,
+        editable=False,
+        default=generate_marker_set_id,
+    )
+    label = models.CharField(max_length=160)
+    toggleable = models.BooleanField(default=True)
+    default_hidden = models.BooleanField(default=False)
+    sorting = models.IntegerField(default=0)
+
+    class Meta:
+        ordering = ["sorting", "label", "id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["render", "bluemap_id"],
+                name="unique_marker_set_bluemap_id_per_render",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.render} / {self.label}"
+
+
+class Marker(TimeStampedModel):
+    class Type(models.TextChoices):
+        POI = "poi", "Point of interest"
+
+    marker_set = models.ForeignKey(MarkerSet, on_delete=models.CASCADE, related_name="markers")
+    bluemap_id = models.SlugField(
+        max_length=180,
+        editable=False,
+        default=generate_marker_id,
+    )
+    marker_type = models.CharField(max_length=20, choices=Type.choices, default=Type.POI)
+    label = models.CharField(max_length=160)
+    detail = models.TextField(blank=True, validators=[MaxLengthValidator(4000)])
+    position_x = models.DecimalField(max_digits=14, decimal_places=3)
+    position_y = models.DecimalField(max_digits=14, decimal_places=3)
+    position_z = models.DecimalField(max_digits=14, decimal_places=3)
+    sorting = models.IntegerField(default=0)
+    listed = models.BooleanField(default=True)
+    min_distance = models.PositiveIntegerField(null=True, blank=True)
+    max_distance = models.PositiveIntegerField(null=True, blank=True)
+    icon = models.CharField(max_length=255, default="assets/poi.svg", editable=False)
+    anchor_x = models.IntegerField(default=25, editable=False)
+    anchor_y = models.IntegerField(default=45, editable=False)
+
+    class Meta:
+        ordering = ["sorting", "label", "id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["marker_set", "bluemap_id"],
+                name="unique_marker_bluemap_id_per_set",
+            ),
+        ]
+
+    def clean(self):
+        super().clean()
+        if (
+            self.min_distance is not None
+            and self.max_distance is not None
+            and self.max_distance < self.min_distance
+        ):
+            raise ValidationError(
+                {"max_distance": "Maximum distance must be greater than or equal to minimum distance."}
+            )
+
+    @property
+    def render(self):
+        return self.marker_set.render
+
+    def __str__(self) -> str:
+        return f"{self.marker_set} / {self.label}"

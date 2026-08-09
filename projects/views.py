@@ -8,10 +8,18 @@ from django.views.decorators.http import require_POST
 
 from accounts.models import ProjectMembership
 from renders.models import RenderJob
-from renders.services import preview_render_config, resolve_render_resources
+from renders.services import (
+    RenderConfigurationError,
+    enqueue_render,
+    has_active_render_job,
+    preview_render_config,
+    resolve_render_resources,
+)
 from .forms import (
     AtlasCreateForm,
     AtlasEditForm,
+    MarkerSetForm,
+    POIMarkerForm,
     ProjectManageForm,
     ProjectUserAddForm,
     RENDER_ADVANCED_FIELDS,
@@ -24,7 +32,16 @@ from .forms import (
     MinecraftResourceSourceForm,
     WorldFolderForm,
 )
-from .models import Atlas, MinecraftResourceSource, MinecraftServer, Project, Render, WorldFolder
+from .models import (
+    Atlas,
+    Marker,
+    MarkerSet,
+    MinecraftResourceSource,
+    MinecraftServer,
+    Project,
+    Render,
+    WorldFolder,
+)
 from .permissions import can_manage_project
 from .world_discovery import build_world_tree, scan_source_worlds, world_folder_exists
 
@@ -554,6 +571,206 @@ def edit_render(request, render_id: int):
             "submit_label": "Save Render",
         },
     )
+
+
+def get_manageable_render_or_404(request, render_id: int):
+    render_obj = get_object_or_404(
+        Render.objects.select_related("atlas__project", "atlas__world_folder"),
+        id=render_id,
+        is_enabled=True,
+        atlas__is_active=True,
+        atlas__project__is_active=True,
+    )
+    if not can_manage_project(request.user, render_obj.project):
+        raise PermissionDenied("You do not have permission to manage markers for this Render.")
+    return render_obj
+
+
+def get_manageable_marker_set_or_404(request, marker_set_id: int):
+    marker_set = get_object_or_404(
+        MarkerSet.objects.select_related(
+            "render__atlas__project",
+            "render__atlas__world_folder",
+        ),
+        id=marker_set_id,
+        render__is_enabled=True,
+        render__atlas__is_active=True,
+        render__atlas__project__is_active=True,
+    )
+    if not can_manage_project(request.user, marker_set.render.project):
+        raise PermissionDenied("You do not have permission to manage this marker set.")
+    return marker_set
+
+
+@login_required
+def render_markers(request, render_id: int):
+    render_obj = get_manageable_render_or_404(request, render_id)
+    marker_sets = render_obj.marker_sets.prefetch_related("markers").all()
+    active_job = render_obj.jobs.filter(
+        status__in=[RenderJob.Status.QUEUED, RenderJob.Status.RUNNING]
+    ).first()
+    return render(
+        request,
+        "projects/markers/marker_sets.html",
+        {
+            "render": render_obj,
+            "marker_sets": marker_sets,
+            "active_job": active_job,
+            "latest_marker_job": render_obj.jobs.filter(
+                operation=RenderJob.Operation.MARKERS
+            ).first(),
+        },
+    )
+
+
+@login_required
+def create_marker_set(request, render_id: int):
+    render_obj = get_manageable_render_or_404(request, render_id)
+    form = MarkerSetForm(request.POST or None)
+    if request.method == "POST" and form.is_valid():
+        marker_set = form.save(commit=False)
+        marker_set.render = render_obj
+        marker_set.save()
+        messages.success(request, f"Marker set '{marker_set.label}' created.")
+        return redirect("render_markers", render_id=render_obj.id)
+    return render(
+        request,
+        "projects/markers/marker_set_form.html",
+        {
+            "render": render_obj,
+            "form": form,
+            "title": "Create Marker Set",
+            "submit_label": "Create Marker Set",
+        },
+    )
+
+
+@login_required
+def edit_marker_set(request, marker_set_id: int):
+    marker_set = get_manageable_marker_set_or_404(request, marker_set_id)
+    form = MarkerSetForm(request.POST or None, instance=marker_set)
+    if request.method == "POST" and form.is_valid():
+        marker_set = form.save()
+        messages.success(request, f"Marker set '{marker_set.label}' updated.")
+        return redirect("render_markers", render_id=marker_set.render_id)
+    return render(
+        request,
+        "projects/markers/marker_set_form.html",
+        {
+            "render": marker_set.render,
+            "marker_set": marker_set,
+            "form": form,
+            "title": "Edit Marker Set",
+            "submit_label": "Save Marker Set",
+        },
+    )
+
+
+@login_required
+@require_POST
+def delete_marker_set(request, marker_set_id: int):
+    marker_set = get_manageable_marker_set_or_404(request, marker_set_id)
+    render_id = marker_set.render_id
+    label = marker_set.label
+    marker_set.delete()
+    messages.success(request, f"Marker set '{label}' deleted.")
+    return redirect("render_markers", render_id=render_id)
+
+
+@login_required
+def create_marker(request, marker_set_id: int):
+    marker_set = get_manageable_marker_set_or_404(request, marker_set_id)
+    form = POIMarkerForm(request.POST or None)
+    if request.method == "POST" and form.is_valid():
+        marker = form.save(commit=False)
+        marker.marker_set = marker_set
+        marker.marker_type = Marker.Type.POI
+        marker.save()
+        messages.success(request, f"Marker '{marker.label}' created.")
+        return redirect("render_markers", render_id=marker_set.render_id)
+    return render(
+        request,
+        "projects/markers/marker_form.html",
+        {
+            "render": marker_set.render,
+            "marker_set": marker_set,
+            "form": form,
+            "title": "Create Point of Interest",
+            "submit_label": "Create Marker",
+        },
+    )
+
+
+@login_required
+def edit_marker(request, marker_id: int):
+    marker = get_object_or_404(
+        Marker.objects.select_related(
+            "marker_set__render__atlas__project",
+            "marker_set__render__atlas__world_folder",
+        ),
+        id=marker_id,
+        marker_set__render__is_enabled=True,
+        marker_set__render__atlas__is_active=True,
+        marker_set__render__atlas__project__is_active=True,
+    )
+    if not can_manage_project(request.user, marker.render.project):
+        raise PermissionDenied("You do not have permission to manage this marker.")
+    form = POIMarkerForm(request.POST or None, instance=marker)
+    if request.method == "POST" and form.is_valid():
+        marker = form.save()
+        messages.success(request, f"Marker '{marker.label}' updated.")
+        return redirect("render_markers", render_id=marker.render.id)
+    return render(
+        request,
+        "projects/markers/marker_form.html",
+        {
+            "render": marker.render,
+            "marker_set": marker.marker_set,
+            "marker": marker,
+            "form": form,
+            "title": "Edit Point of Interest",
+            "submit_label": "Save Marker",
+        },
+    )
+
+
+@login_required
+@require_POST
+def delete_marker(request, marker_id: int):
+    marker = get_object_or_404(
+        Marker.objects.select_related("marker_set__render__atlas__project"),
+        id=marker_id,
+        marker_set__render__is_enabled=True,
+        marker_set__render__atlas__is_active=True,
+        marker_set__render__atlas__project__is_active=True,
+    )
+    if not can_manage_project(request.user, marker.render.project):
+        raise PermissionDenied("You do not have permission to delete this marker.")
+    render_id = marker.render.id
+    label = marker.label
+    marker.delete()
+    messages.success(request, f"Marker '{label}' deleted.")
+    return redirect("render_markers", render_id=render_id)
+
+
+@login_required
+@require_POST
+def publish_render_markers(request, render_id: int):
+    render_obj = get_manageable_render_or_404(request, render_id)
+    if has_active_render_job(render_obj):
+        messages.warning(request, "This Render already has a queued or running job.")
+        return redirect("render_markers", render_id=render_obj.id)
+    try:
+        job = enqueue_render(
+            render_obj,
+            requested_by=request.user,
+            operation=RenderJob.Operation.MARKERS,
+        )
+    except RenderConfigurationError as exc:
+        messages.error(request, str(exc))
+    else:
+        messages.success(request, f"Marker publishing job #{job.id} queued.")
+    return redirect("render_markers", render_id=render_obj.id)
 
 
 def effective_resource_summary(render_obj: Render) -> str:

@@ -8,7 +8,15 @@ from django.contrib.auth import get_user_model
 from django.db.models import Q
 
 from accounts.models import ProjectMembership
-from .models import Atlas, MinecraftResourceSource, Project, Render, WorldFolder
+from .models import (
+    Atlas,
+    Marker,
+    MarkerSet,
+    MinecraftResourceSource,
+    Project,
+    Render,
+    WorldFolder,
+)
 from .world_discovery import detect_dimensions, world_folder_exists
 
 
@@ -51,7 +59,6 @@ RENDER_ADVANCED_FIELDS = [
     "render_mask_center_x",
     "render_mask_center_z",
     "render_mask_radius",
-    "marker_sets",
 ]
 RENDER_RESOURCE_FIELDS = [
     "resource_mode",
@@ -376,11 +383,7 @@ class RenderEditForm(forms.ModelForm):
             "enable_free_flight_view",
             "enable_hires",
             "ignore_missing_light_data",
-            "marker_sets",
         ]
-        widgets = {
-            "marker_sets": forms.Textarea(attrs={"rows": 8}),
-        }
 
     def __init__(self, *args, allow_custom_paths=False, **kwargs):
         self.allow_custom_paths = allow_custom_paths
@@ -443,12 +446,6 @@ class RenderEditForm(forms.ModelForm):
             {"min": "0", "max": "15", "step": "1", "data-range-value": ""}
         )
         self.fields["render_mask_type"].widget.attrs["data-render-mask-type"] = ""
-        self.fields["marker_sets"].widget.attrs.update(
-            {
-                "class": "textarea textarea-bordered min-h-48 w-full font-mono text-sm",
-                "placeholder": "{}",
-            }
-        )
 
     def set_config_initials(self):
         start_position = self.instance.start_position or {}
@@ -628,7 +625,6 @@ def apply_render_form_attrs(fields):
         "render_mask_center_x": "Circle mask center X coordinate.",
         "render_mask_center_z": "Circle mask center Z coordinate.",
         "render_mask_radius": "Circle mask radius in blocks.",
-        "marker_sets": "Raw BlueMap marker-sets HOCON. Use {} when this render has no static markers.",
     }
     for field_name, help_text in help_texts.items():
         if field_name in fields:
@@ -646,6 +642,62 @@ def apply_render_form_attrs(fields):
     if "storage_profile" in fields:
         fields["storage_profile"].label = "Storage config id"
         fields["storage_profile"].widget.attrs["placeholder"] = "file"
+
+
+class MarkerSetForm(forms.ModelForm):
+    class Meta:
+        model = MarkerSet
+        fields = ["label", "sorting", "toggleable", "default_hidden"]
+        help_texts = {
+            "label": "Name shown for this group in BlueMap's marker menu.",
+            "sorting": "Lower numbers appear earlier in the marker menu.",
+            "toggleable": "Allow viewers to show or hide this entire marker set.",
+            "default_hidden": "Start with this marker set hidden when a viewer opens the map.",
+        }
+        widgets = {
+            "toggleable": forms.CheckboxInput(attrs={"class": "toggle toggle-primary"}),
+            "default_hidden": forms.CheckboxInput(attrs={"class": "toggle toggle-primary"}),
+        }
+
+
+class POIMarkerForm(forms.ModelForm):
+    class Meta:
+        model = Marker
+        fields = [
+            "label",
+            "detail",
+            "position_x",
+            "position_y",
+            "position_z",
+            "sorting",
+            "listed",
+            "min_distance",
+            "max_distance",
+        ]
+        labels = {
+            "detail": "Description",
+            "position_x": "X",
+            "position_y": "Y",
+            "position_z": "Z",
+            "listed": "Show in marker list",
+            "min_distance": "Minimum visible distance",
+            "max_distance": "Maximum visible distance",
+        }
+        help_texts = {
+            "label": "Name shown on the map and in BlueMap's marker list.",
+            "detail": "Plain text shown when the marker is selected. HTML is not accepted.",
+            "sorting": "Lower numbers appear earlier within this marker set.",
+            "listed": "Display this marker in BlueMap's searchable marker list.",
+            "min_distance": "Optional closest camera distance at which the marker remains visible.",
+            "max_distance": "Optional furthest camera distance at which the marker remains visible.",
+        }
+        widgets = {
+            "detail": forms.Textarea(attrs={"rows": 4, "maxlength": 4000}),
+            "listed": forms.CheckboxInput(attrs={"class": "toggle toggle-primary"}),
+        }
+
+    def clean_detail(self):
+        return self.cleaned_data["detail"].strip()
 
 
 class ProjectUserAddForm(forms.Form):
