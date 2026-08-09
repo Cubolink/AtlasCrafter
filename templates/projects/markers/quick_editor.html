@@ -95,8 +95,6 @@
   </details>
 
   {{ marker_editor.form.non_field_errors }}
-  <div class="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
-    <button class="btn btn-primary btn-sm" type="submit" name="submit_action" value="save_publish">{% icon "upload" %} Save &amp; publish</button>
-    <button class="btn btn-outline btn-sm" type="submit" name="submit_action" value="save">{% icon "save" %} Save draft</button>
-  </div>
+  <p class="mt-4 text-xs text-base-content/55">Saved changes remain drafts until you use Publish Markers.</p>
+  <button class="btn btn-primary btn-sm mt-2 w-full" type="submit" name="submit_action" value="save">{% icon "save" %} Save</button>
 </form>

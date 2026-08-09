@@ -1030,6 +1030,29 @@ class RenderMarkerManagementTests(TestCase):
         self.assertContains(response, 'name="position_x" value="10"', html=False)
         self.assertNotContains(response, "10.000, 64.000, -20.000")
         self.assertContains(response, "More options")
+        self.assertContains(response, "Saved changes remain drafts")
+        self.assertContains(response, 'name="submit_action" value="save"', html=False)
+        self.assertNotContains(response, 'value="save_publish"', html=False)
+        self.assertContains(response, "Publish Markers")
+
+    def test_standalone_marker_forms_only_offer_save(self):
+        marker_set = MarkerSet.objects.create(render=self.render, label="Landmarks")
+        marker = Marker.objects.create(
+            marker_set=marker_set,
+            label="Spawn",
+            position_x=0,
+            position_y=64,
+            position_z=0,
+        )
+
+        for url in [
+            reverse("edit_marker", kwargs={"marker_id": marker.id}),
+            reverse("edit_marker_set", kwargs={"marker_set_id": marker_set.id}),
+        ]:
+            with self.subTest(url=url):
+                response = self.client_for(self.admin).get(url)
+                self.assertContains(response, 'name="submit_action" value="save"', html=False)
+                self.assertNotContains(response, 'value="save_publish"', html=False)
 
     def test_admin_can_create_marker_from_quick_editor(self):
         marker_set = MarkerSet.objects.create(render=self.render, label="Landmarks")
@@ -1249,62 +1272,3 @@ class RenderMarkerManagementTests(TestCase):
         self.assertIn("Job in progress", payload["publish_action_html"])
         self.assertIn(f'href="{reverse("render_job_detail", kwargs={"job_id": job.id})}"', payload["publication_status_html"])
         self.assertEqual(payload["notice"]["level"], "success")
-
-    def test_async_quick_create_can_save_and_publish_together(self):
-        marker_set = MarkerSet.objects.create(render=self.render, label="Landmarks")
-
-        response = self.client_for(self.admin).post(
-            reverse("render_markers", kwargs={"render_id": self.render.id}),
-            {
-                "editor_action": "create",
-                "marker_set_id": marker_set.id,
-                "label": "Portal",
-                "detail": "",
-                "position_x": "20",
-                "position_y": "70",
-                "position_z": "30",
-                "sorting": "0",
-                "listed": "on",
-                "min_distance": "",
-                "max_distance": "",
-                "submit_action": "save_publish",
-            },
-            **self.async_headers(),
-        )
-
-        self.assertEqual(response.status_code, 200)
-        marker = Marker.objects.get(marker_set=marker_set, label="Portal")
-        job = RenderJob.objects.get(render=self.render)
-        payload = response.json()
-        self.assertEqual(payload["active_job_id"], job.id)
-        self.assertIn(f"?edit={marker.id}#marker-editor", payload["editor_url"])
-        self.assertIn("created", payload["notice"]["message"])
-        self.assertIn("queued", payload["notice"]["message"])
-
-    def test_admin_can_create_marker_and_publish_in_one_submission(self):
-        marker_set = MarkerSet.objects.create(render=self.render, label="Landmarks")
-
-        response = self.client_for(self.admin).post(
-            reverse("create_marker", kwargs={"marker_set_id": marker_set.id}),
-            {
-                "label": "Spawn",
-                "detail": "",
-                "position_x": "0",
-                "position_y": "64",
-                "position_z": "0",
-                "sorting": "0",
-                "listed": "on",
-                "min_distance": "",
-                "max_distance": "",
-                "submit_action": "save_publish",
-            },
-        )
-
-        self.assertRedirects(
-            response,
-            reverse("render_markers", kwargs={"render_id": self.render.id}),
-        )
-        self.assertTrue(Marker.objects.filter(marker_set=marker_set, label="Spawn").exists())
-        job = RenderJob.objects.get(render=self.render)
-        self.assertEqual(job.operation, RenderJob.Operation.MARKERS)
-        self.assertEqual(job.status, RenderJob.Status.QUEUED)

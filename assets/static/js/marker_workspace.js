@@ -84,9 +84,15 @@
     if (options.replaceEditor !== false) {
       replaceFragment("marker-editor", payload.marker_editor_html);
     }
-    replaceFragment("marker-publication-status", payload.publication_status_html);
-    replaceFragment("marker-publish-action", payload.publish_action_html);
-    workspace.dataset.activeJobId = payload.active_job_id || "";
+    if (options.replacePublicationStatus !== false) {
+      replaceFragment("marker-publication-status", payload.publication_status_html);
+    }
+    if (options.replacePublishAction !== false) {
+      replaceFragment("marker-publish-action", payload.publish_action_html);
+    }
+    if (options.updateJobState !== false) {
+      workspace.dataset.activeJobId = payload.active_job_id || "";
+    }
     if (!options.preserveEditorUrl) {
       workspace.dataset.editorUrl = payload.editor_url || workspaceUrl;
     }
@@ -98,7 +104,9 @@
       window.history.replaceState({}, "", payload.editor_url);
     }
 
-    startPolling(payload.active_job_id);
+    if (options.updateJobState !== false) {
+      startPolling(payload.active_job_id);
+    }
   }
 
   async function fetchPayload(url, options) {
@@ -126,7 +134,12 @@
     try {
       var payload = await fetchPayload(url);
       if (sequence !== requestSequence) return;
-      applyPayload(payload, { history: historyMode || false });
+      applyPayload(payload, {
+        history: historyMode || false,
+        replacePublicationStatus: false,
+        replacePublishAction: false,
+        updateJobState: false
+      });
     } catch (error) {
       showRequestError(error.message);
     } finally {
@@ -155,7 +168,9 @@
         history: isPublishAction ? false : "replace",
         replaceBrowser: !isPublishAction,
         replaceEditor: !isPublishAction,
-        preserveEditorUrl: isPublishAction
+        replacePublishAction: isPublishAction,
+        preserveEditorUrl: isPublishAction,
+        updateJobState: isPublishAction
       });
     } catch (error) {
       if (submitter) submitter.disabled = false;

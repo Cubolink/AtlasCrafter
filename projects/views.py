@@ -628,25 +628,12 @@ def render_markers(request, render_id: int):
                 success_message = f"Marker '{marker.label}' updated."
             marker.save()
             marker_editor = marker_editor_for_marker(marker)
-            publication = None
-            if request.POST.get("submit_action") == "save_publish":
-                publication = queue_marker_publication(
-                    request,
-                    render_obj,
-                    notify=not async_request,
-                )
             if async_request:
-                notice = publication or {"level": "success", "message": success_message}
-                if publication and publication["job"] is not None:
-                    notice = {
-                        "level": "success",
-                        "message": f"{success_message} {publication['message']}",
-                    }
                 return marker_workspace_response(
                     request,
                     render_obj,
                     marker_editor,
-                    notice=notice,
+                    notice={"level": "success", "message": success_message},
                 )
             messages.success(request, success_message)
             manager_url = reverse("render_markers", kwargs={"render_id": render_obj.id})
@@ -817,7 +804,7 @@ def queue_marker_publication(request, render_obj, *, notify=True) -> dict:
         result = {
             "job": None,
             "level": "warning",
-            "message": "Marker changes were saved, but this Render already has a queued or running job.",
+            "message": "This Render already has a queued or running job. Publish Markers was not queued.",
         }
         if notify:
             messages.warning(request, result["message"])
@@ -852,8 +839,6 @@ def create_marker_set(request, render_id: int):
         marker_set.render = render_obj
         marker_set.save()
         messages.success(request, f"Marker set '{marker_set.label}' created.")
-        if request.POST.get("submit_action") == "save_publish":
-            queue_marker_publication(request, render_obj)
         return redirect("render_markers", render_id=render_obj.id)
     return render(
         request,
@@ -874,8 +859,6 @@ def edit_marker_set(request, marker_set_id: int):
     if request.method == "POST" and form.is_valid():
         marker_set = form.save()
         messages.success(request, f"Marker set '{marker_set.label}' updated.")
-        if request.POST.get("submit_action") == "save_publish":
-            queue_marker_publication(request, marker_set.render)
         return redirect("render_markers", render_id=marker_set.render_id)
     return render(
         request,
@@ -922,8 +905,6 @@ def create_marker(request, marker_set_id: int):
         marker.marker_type = Marker.Type.POI
         marker.save()
         messages.success(request, f"Marker '{marker.label}' created.")
-        if request.POST.get("submit_action") == "save_publish":
-            queue_marker_publication(request, marker_set.render)
         return redirect("render_markers", render_id=marker_set.render_id)
     return render(
         request,
@@ -956,8 +937,6 @@ def edit_marker(request, marker_id: int):
     if request.method == "POST" and form.is_valid():
         marker = form.save()
         messages.success(request, f"Marker '{marker.label}' updated.")
-        if request.POST.get("submit_action") == "save_publish":
-            queue_marker_publication(request, marker.render)
         return redirect("render_markers", render_id=marker.render.id)
     return render(
         request,
