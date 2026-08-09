@@ -50,21 +50,91 @@
     if (scrollRegion) scrollRegion.scrollTop = state.scrollTop;
   }
 
-  function showNotice(notice) {
-    if (!notice || !notice.message) return;
+  function announce(message) {
+    var liveRegion = document.getElementById("marker-workspace-live");
+    if (!liveRegion) return;
+    liveRegion.textContent = "";
+    window.setTimeout(function () {
+      liveRegion.textContent = message;
+    }, 0);
+  }
+
+  function showSavedState(notice) {
+    var button = document.querySelector("#marker-editor [data-marker-save-button]");
+    if (!button) return;
+    var originalHtml = button.innerHTML;
+    var originalClassName = button.className;
+    var originalLabel = button.getAttribute("aria-label");
+
+    button.classList.remove("btn-primary");
+    button.classList.add("btn-success");
+    button.innerHTML = '<span aria-hidden="true">&#10003;</span> Saved';
+    button.setAttribute("aria-label", notice.message);
+    announce(notice.message);
+
+    window.setTimeout(function () {
+      if (!button.isConnected) return;
+      button.innerHTML = originalHtml;
+      button.className = originalClassName;
+      if (originalLabel === null) {
+        button.removeAttribute("aria-label");
+      } else {
+        button.setAttribute("aria-label", originalLabel);
+      }
+    }, 2000);
+  }
+
+  function dismissToast(toast) {
+    if (!toast || !toast.isConnected || toast.classList.contains("is-leaving")) return;
+    toast.classList.add("is-leaving");
+    window.setTimeout(function () {
+      if (toast.isConnected) toast.remove();
+    }, 160);
+  }
+
+  function showToast(notice) {
     var notices = document.getElementById("marker-workspace-notices");
     if (!notices) return;
-    var alert = document.createElement("div");
     var level = notice.level || "info";
-    var alertClass = level === "error" ? "alert-error" :
-      level === "warning" ? "alert-warning" :
-      level === "success" ? "alert-success" : "alert-info";
-    alert.className = "alert " + alertClass + " py-3";
-    alert.textContent = notice.message;
-    notices.replaceChildren(alert);
-    window.setTimeout(function () {
-      if (alert.isConnected) alert.remove();
-    }, 6000);
+    var levelClass = level === "error" ? "marker-workspace-toast-error" :
+      level === "warning" ? "marker-workspace-toast-warning" :
+      level === "success" ? "marker-workspace-toast-success" : "marker-workspace-toast-info";
+    var toast = document.createElement("div");
+    toast.className = "marker-workspace-toast " + levelClass;
+    toast.setAttribute("role", level === "error" ? "alert" : "status");
+
+    var indicator = document.createElement("span");
+    indicator.className = "marker-workspace-toast-indicator";
+    indicator.setAttribute("aria-hidden", "true");
+    indicator.textContent = level === "success" ? "\u2713" :
+      level === "warning" ? "!" : level === "error" ? "\u00d7" : "i";
+
+    var message = document.createElement("span");
+    message.className = "min-w-0 flex-1 leading-5";
+    message.textContent = notice.message;
+
+    var close = document.createElement("button");
+    close.type = "button";
+    close.className = "btn btn-ghost btn-xs btn-square -mr-1 -mt-1 shrink-0 text-base-content/50";
+    close.setAttribute("aria-label", "Dismiss notification");
+    close.textContent = "\u00d7";
+    close.addEventListener("click", function () { dismissToast(toast); });
+
+    toast.append(indicator, message, close);
+    while (notices.children.length >= 3) notices.firstElementChild.remove();
+    notices.appendChild(toast);
+
+    var timeout = level === "error" ? 10000 : level === "warning" ? 7000 : 4000;
+    window.setTimeout(function () { dismissToast(toast); }, timeout);
+  }
+
+  function showNotice(notice) {
+    if (!notice || !notice.message) return;
+    if (notice.presentation === "inline-save") {
+      showSavedState(notice);
+      return;
+    }
+    showToast(notice);
   }
 
   function showRequestError(message) {

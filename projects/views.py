@@ -633,7 +633,11 @@ def render_markers(request, render_id: int):
                     request,
                     render_obj,
                     marker_editor,
-                    notice={"level": "success", "message": success_message},
+                    notice={
+                        "level": "success",
+                        "message": success_message,
+                        "presentation": "inline-save",
+                    },
                 )
             messages.success(request, success_message)
             manager_url = reverse("render_markers", kwargs={"render_id": render_obj.id})

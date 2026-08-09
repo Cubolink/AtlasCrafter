@@ -182,6 +182,121 @@
     @apply text-sm font-medium text-base-content/60;
   }
 
+  .marker-publication-rail {
+    @apply mb-4 flex min-h-12 items-center gap-3 rounded-lg border px-3 py-2 text-sm shadow-sm;
+  }
+
+  .marker-publication-rail-success {
+    @apply border-success/25 bg-success/5;
+  }
+
+  .marker-publication-rail-warning {
+    @apply border-warning/30 bg-warning/10;
+  }
+
+  .marker-publication-rail-info {
+    @apply border-info/25 bg-info/5;
+  }
+
+  .marker-publication-rail-neutral {
+    @apply border-base-300 bg-base-100;
+  }
+
+  .marker-publication-icon {
+    @apply flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-base-100/80 text-base-content/65;
+  }
+
+  .marker-publication-rail-success .marker-publication-icon {
+    @apply bg-success/10 text-success;
+  }
+
+  .marker-publication-rail-warning .marker-publication-icon {
+    @apply bg-warning/15 text-warning-content;
+  }
+
+  .marker-publication-rail-info .marker-publication-icon {
+    @apply bg-info/10 text-info;
+  }
+
+  .marker-publication-meta {
+    @apply mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-base-content/55;
+  }
+
+  .marker-workspace-toasts {
+    position: fixed;
+    right: 1rem;
+    top: calc(var(--app-header-height) + 1rem);
+    z-index: 50;
+    width: min(24rem, calc(100vw - 2rem));
+    @apply pointer-events-none grid gap-2;
+  }
+
+  .marker-workspace-toast {
+    @apply pointer-events-auto flex items-start gap-3 rounded-lg border bg-base-100 px-3 py-3 text-sm text-base-content shadow-lg;
+    animation: marker-toast-in 160ms ease-out both;
+  }
+
+  .marker-workspace-toast-success {
+    @apply border-success/30;
+  }
+
+  .marker-workspace-toast-warning {
+    @apply border-warning/40;
+  }
+
+  .marker-workspace-toast-error {
+    @apply border-error/35;
+  }
+
+  .marker-workspace-toast-info {
+    @apply border-info/30;
+  }
+
+  .marker-workspace-toast-indicator {
+    @apply flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-base-200 text-xs font-semibold;
+  }
+
+  .marker-workspace-toast-success .marker-workspace-toast-indicator {
+    @apply bg-success/10 text-success;
+  }
+
+  .marker-workspace-toast-warning .marker-workspace-toast-indicator {
+    @apply bg-warning/15 text-warning-content;
+  }
+
+  .marker-workspace-toast-error .marker-workspace-toast-indicator {
+    @apply bg-error/10 text-error;
+  }
+
+  .marker-workspace-toast-info .marker-workspace-toast-indicator {
+    @apply bg-info/10 text-info;
+  }
+
+  .marker-workspace-toast.is-leaving {
+    animation: marker-toast-out 140ms ease-in both;
+  }
+
+  @keyframes marker-toast-in {
+    from {
+      opacity: 0;
+      transform: translateY(-0.4rem);
+    }
+  }
+
+  @keyframes marker-toast-out {
+    to {
+      opacity: 0;
+      transform: translateY(-0.3rem);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .marker-workspace-toast,
+    .marker-workspace-toast.is-leaving {
+      animation: none;
+    }
+  }
+
   .status-active {
     @apply badge badge-success badge-outline;
   }

@@ -34,7 +34,8 @@
       </div>
     </div>
 
-    <div id="marker-workspace-notices" class="grid gap-3" aria-live="polite"></div>
+    <div id="marker-workspace-notices" class="marker-workspace-toasts" aria-live="polite" aria-atomic="true"></div>
+    <div id="marker-workspace-live" class="sr-only" aria-live="polite"></div>
     {% include "projects/markers/publication_status.html" %}
 
     <div class="grid items-start gap-5 xl:grid-cols-[22rem_minmax(0,1fr)]">

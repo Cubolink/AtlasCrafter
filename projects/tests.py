@@ -952,6 +952,7 @@ class RenderMarkerManagementTests(TestCase):
         )
 
         self.assertContains(response, "Unpublished marker changes")
+        self.assertContains(response, "marker-publication-rail-warning")
         self.assertContains(response, "Modified")
         self.assertContains(response, "New")
         self.assertContains(response, "Published Map")
@@ -985,7 +986,21 @@ class RenderMarkerManagementTests(TestCase):
         )
 
         self.assertContains(response, "Publication tracking has not established a baseline")
+        self.assertContains(response, "marker-publication-rail-neutral")
         self.assertContains(response, "Not tracked yet")
+
+    def test_marker_manager_uses_compact_status_for_synchronized_markers(self):
+        MarkerSet.objects.create(render=self.render, label="Landmarks")
+        self.render.published_marker_snapshot = build_marker_snapshot(self.render)
+        self.render.save(update_fields=["published_marker_snapshot"])
+
+        response = self.client_for(self.admin).get(
+            reverse("render_markers", kwargs={"render_id": self.render.id})
+        )
+
+        self.assertContains(response, "In sync")
+        self.assertContains(response, "marker-publication-rail-success")
+        self.assertNotContains(response, "alert alert-success")
 
     def test_marker_manager_embeds_only_available_published_output(self):
         with TemporaryDirectory() as webroot_dir:
@@ -1033,6 +1048,7 @@ class RenderMarkerManagementTests(TestCase):
         self.assertContains(response, "More options")
         self.assertContains(response, "Saved changes remain drafts")
         self.assertContains(response, 'name="submit_action" value="save"', html=False)
+        self.assertContains(response, "data-marker-save-button")
         self.assertNotContains(response, 'value="save_publish"', html=False)
         self.assertContains(response, "Publish Markers")
 
@@ -1207,6 +1223,7 @@ class RenderMarkerManagementTests(TestCase):
         payload = response.json()
         self.assertIn("Main Spawn", payload["marker_browser_html"])
         self.assertEqual(payload["notice"]["level"], "success")
+        self.assertEqual(payload["notice"]["presentation"], "inline-save")
         self.assertIsNone(payload["active_job_id"])
 
     def test_async_quick_edit_returns_validation_fragments(self):
