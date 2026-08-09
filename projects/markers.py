@@ -227,5 +227,7 @@ def hocon_bool(value: bool) -> str:
 
 def format_number(value) -> str:
     if isinstance(value, Decimal):
+        if value == 0:
+            return "0"
         return f"{value.normalize():f}"
     return str(value)

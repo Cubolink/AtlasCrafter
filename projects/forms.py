@@ -17,6 +17,7 @@ from .models import (
     Render,
     WorldFolder,
 )
+from .markers import format_number
 from .world_discovery import detect_dimensions, world_folder_exists
 
 
@@ -695,6 +696,12 @@ class POIMarkerForm(forms.ModelForm):
             "detail": forms.Textarea(attrs={"rows": 4, "maxlength": 4000}),
             "listed": forms.CheckboxInput(attrs={"class": "toggle toggle-primary"}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if not self.is_bound and self.instance.pk:
+            for field_name in ["position_x", "position_y", "position_z"]:
+                self.initial[field_name] = format_number(getattr(self.instance, field_name))
 
     def clean_detail(self):
         return self.cleaned_data["detail"].strip()

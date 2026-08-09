@@ -1018,6 +1018,9 @@ class RenderMarkerManagementTests(TestCase):
         self.assertContains(response, "Quick edit")
         self.assertContains(response, 'name="editor_action" value="edit"', html=False)
         self.assertContains(response, 'value="Spawn"', html=False)
+        self.assertContains(response, ">10, 64, -20</code>", html=False)
+        self.assertContains(response, 'name="position_x" value="10"', html=False)
+        self.assertNotContains(response, "10.000, 64.000, -20.000")
         self.assertContains(response, "More options")
 
     def test_admin_can_create_marker_from_quick_editor(self):
