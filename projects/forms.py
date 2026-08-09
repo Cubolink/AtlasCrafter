@@ -694,6 +694,9 @@ class POIMarkerForm(forms.ModelForm):
         }
         widgets = {
             "detail": forms.Textarea(attrs={"rows": 4, "maxlength": 4000}),
+            "position_x": forms.NumberInput(attrs={"step": "any"}),
+            "position_y": forms.NumberInput(attrs={"step": "any"}),
+            "position_z": forms.NumberInput(attrs={"step": "any"}),
             "listed": forms.CheckboxInput(attrs={"class": "toggle toggle-primary"}),
         }
 

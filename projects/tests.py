@@ -1028,6 +1028,7 @@ class RenderMarkerManagementTests(TestCase):
         self.assertContains(response, 'value="Spawn"', html=False)
         self.assertContains(response, ">10, 64, -20</code>", html=False)
         self.assertContains(response, 'name="position_x" value="10"', html=False)
+        self.assertContains(response, 'name="position_x" value="10" step="any"', html=False)
         self.assertNotContains(response, "10.000, 64.000, -20.000")
         self.assertContains(response, "More options")
         self.assertContains(response, "Saved changes remain drafts")
