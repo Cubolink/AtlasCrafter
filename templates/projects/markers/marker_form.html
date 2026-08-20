@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load icons %}
+{% load static icons %}
 
 {% block title %}{{ title }} - {{ render.display_name }}{% endblock %}
 
@@ -14,7 +14,9 @@
     <div>
       <p class="page-kicker">{{ marker_set.label }}</p>
       <h1>{% icon "map-pin" "icon-heading" %}{{ title }}</h1>
-      <p class="mt-2 max-w-3xl text-base-content/70">Descriptions are plain text and are safely escaped before BlueMap receives them.</p>
+      <p class="mt-2 max-w-3xl text-base-content/70">
+        {% if marker_type == 'html' %}Appearance is generated from safe controls; users never enter HTML or CSS.{% else %}Descriptions are plain text and are safely escaped before BlueMap receives them.{% endif %}
+      </p>
     </div>
     <a class="btn btn-ghost btn-sm" href="{% url 'render_markers' render.id %}">{% icon "arrow-left" %} Back to Markers</a>
   </div>
@@ -22,10 +24,31 @@
   <section class="panel">
     <form method="post">
       {% csrf_token %}
+      {% if not marker %}<input type="hidden" name="marker_type" value="{{ marker_type }}">{% endif %}
       <div class="form-grid">
         <div class="form-field">{{ form.label.label_tag }}{{ form.label }}{% if form.label.help_text %}<span class="form-help">{{ form.label.help_text }}</span>{% endif %}{{ form.label.errors }}</div>
         <div class="form-field">{{ form.sorting.label_tag }}{{ form.sorting }}{% if form.sorting.help_text %}<span class="form-help">{{ form.sorting.help_text }}</span>{% endif %}{{ form.sorting.errors }}</div>
-        <div class="form-field form-field-wide">{{ form.detail.label_tag }}{{ form.detail }}{% if form.detail.help_text %}<span class="form-help">{{ form.detail.help_text }}</span>{% endif %}{{ form.detail.errors }}</div>
+        {% if marker_type == 'poi' %}
+          <div class="form-field form-field-wide">{{ form.detail.label_tag }}{{ form.detail }}{% if form.detail.help_text %}<span class="form-help">{{ form.detail.help_text }}</span>{% endif %}{{ form.detail.errors }}</div>
+        {% else %}
+          <div class="form-field form-field-wide">
+            <label>Preview</label>
+            <div class="html-marker-preview-canvas">
+              <div class="html-marker-preview" data-html-marker-preview>
+                <span data-html-marker-preview-symbol></span>
+                <span data-html-marker-preview-label>Styled label</span>
+              </div>
+            </div>
+            <span class="form-help">This preview is assembled from safe, fixed styles.</span>
+          </div>
+          <div class="form-field">{{ form.html_variant.label_tag }}{{ form.html_variant }}{% if form.html_variant.help_text %}<span class="form-help">{{ form.html_variant.help_text }}</span>{% endif %}{{ form.html_variant.errors }}</div>
+          <div class="form-field">{{ form.html_size.label_tag }}{{ form.html_size }}{{ form.html_size.errors }}</div>
+          <div class="form-field">{{ form.html_symbol.label_tag }}{{ form.html_symbol }}{{ form.html_symbol.errors }}</div>
+          <div class="form-field grid grid-cols-2 gap-3">
+            <div>{{ form.html_text_color.label_tag }}{{ form.html_text_color }}{{ form.html_text_color.errors }}</div>
+            <div>{{ form.html_background_color.label_tag }}{{ form.html_background_color }}{{ form.html_background_color.errors }}</div>
+          </div>
+        {% endif %}
 
         <div class="form-field form-field-wide">
           <label>Position</label>
@@ -50,4 +73,5 @@
       </div>
     </form>
   </section>
+  {% if marker_type == 'html' %}<script src="{% static 'js/html_marker_preview.js' %}" defer></script>{% endif %}
 {% endblock %}

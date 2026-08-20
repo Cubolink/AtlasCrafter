@@ -59,6 +59,12 @@
     }, 0);
   }
 
+  function initializeHTMLMarkerPreview() {
+    if (window.AtlasCrafterHTMLMarkerPreview) {
+      window.AtlasCrafterHTMLMarkerPreview.refresh(document.getElementById("marker-editor"));
+    }
+  }
+
   function showSavedState(notice) {
     var button = document.querySelector("#marker-editor [data-marker-save-button]");
     if (!button) return;
@@ -153,6 +159,7 @@
     }
     if (options.replaceEditor !== false) {
       replaceFragment("marker-editor", payload.marker_editor_html);
+      initializeHTMLMarkerPreview();
     }
     if (options.replacePublicationStatus !== false) {
       replaceFragment("marker-publication-status", payload.publication_status_html);
@@ -307,5 +314,6 @@
   });
 
   workspace.dataset.editorUrl = window.location.pathname + window.location.search + window.location.hash;
+  initializeHTMLMarkerPreview();
   startPolling(workspace.dataset.activeJobId || null);
 })();

@@ -4,7 +4,7 @@
   <div class="flex items-start justify-between gap-3">
     <div class="min-w-0">
       <p class="text-xs font-medium uppercase tracking-wide text-base-content/50">
-        {% if marker_editor.mode == "create" %}New point{% else %}Quick edit{% endif %}
+        {% if marker_editor.mode == "create" %}New marker{% else %}Quick edit{% endif %}
       </p>
       <h2 class="mt-0.5 truncate text-base">
         {% if marker_editor.mode == "create" %}Add to {{ marker_editor.marker_set.label }}{% else %}{{ marker_editor.marker.label }}{% endif %}
@@ -19,8 +19,25 @@
   <input type="hidden" name="editor_action" value="{{ marker_editor.mode }}">
   {% if marker_editor.mode == "create" %}
     <input type="hidden" name="marker_set_id" value="{{ marker_editor.marker_set.id }}">
+    <input type="hidden" name="marker_type" value="{{ marker_editor.marker_type }}">
+    <div class="mb-4 grid grid-cols-2 rounded-lg bg-base-200 p-1" aria-label="Marker type">
+      <a
+        class="rounded-md px-2 py-1.5 text-center text-xs font-medium hover:no-underline {% if marker_editor.marker_type == 'poi' %}bg-base-100 text-primary shadow-sm{% else %}text-base-content/65{% endif %}"
+        href="?create={{ marker_editor.marker_set.id }}&amp;type=poi#marker-editor"
+        data-marker-editor-link
+      >{% icon "map-pin" %} Point</a>
+      <a
+        class="rounded-md px-2 py-1.5 text-center text-xs font-medium hover:no-underline {% if marker_editor.marker_type == 'html' %}bg-base-100 text-primary shadow-sm{% else %}text-base-content/65{% endif %}"
+        href="?create={{ marker_editor.marker_set.id }}&amp;type=html#marker-editor"
+        data-marker-editor-link
+      >{% icon "badge" %} Styled label</a>
+    </div>
   {% else %}
     <input type="hidden" name="marker_id" value="{{ marker_editor.marker.id }}">
+    <div class="mb-3 flex items-center gap-2 text-xs text-base-content/55">
+      {% if marker_editor.marker_type == 'html' %}{% icon "badge" %}{% else %}{% icon "map-pin" %}{% endif %}
+      {{ marker_editor.marker.get_marker_type_display }}
+    </div>
   {% endif %}
 
   <div class="grid gap-3">
@@ -53,18 +70,61 @@
     </div>
   </div>
 
+  {% if marker_editor.marker_type == 'html' %}
+    <div class="mt-4">
+      <label>Preview</label>
+      <div class="html-marker-preview-canvas">
+        <div class="html-marker-preview" data-html-marker-preview>
+          <span data-html-marker-preview-symbol></span>
+          <span data-html-marker-preview-label>Styled label</span>
+        </div>
+      </div>
+      <p class="mt-1.5 text-xs text-base-content/55">AtlasCrafter generates this marker from safe, fixed styles. No HTML or CSS is accepted.</p>
+    </div>
+
+    <div class="mt-4 grid grid-cols-2 gap-3">
+      <div>
+        {{ marker_editor.form.html_variant.label_tag }}
+        {{ marker_editor.form.html_variant }}
+        {{ marker_editor.form.html_variant.errors }}
+      </div>
+      <div>
+        {{ marker_editor.form.html_size.label_tag }}
+        {{ marker_editor.form.html_size }}
+        {{ marker_editor.form.html_size.errors }}
+      </div>
+      <div class="col-span-2">
+        {{ marker_editor.form.html_symbol.label_tag }}
+        {{ marker_editor.form.html_symbol }}
+        {{ marker_editor.form.html_symbol.errors }}
+      </div>
+      <div>
+        {{ marker_editor.form.html_text_color.label_tag }}
+        {{ marker_editor.form.html_text_color }}
+        {{ marker_editor.form.html_text_color.errors }}
+      </div>
+      <div>
+        {{ marker_editor.form.html_background_color.label_tag }}
+        {{ marker_editor.form.html_background_color }}
+        {{ marker_editor.form.html_background_color.errors }}
+      </div>
+    </div>
+  {% endif %}
+
   <details class="mt-4 rounded-lg border border-base-300" {% if marker_editor.form.errors %}open{% endif %}>
     <summary class="flex cursor-pointer list-none items-center justify-between px-3 py-2 text-sm font-medium hover:bg-base-200/60">
       <span class="flex items-center gap-2">{% icon "sliders-horizontal" %} More options</span>
       {% icon "chevron-down" %}
     </summary>
     <div class="grid gap-3 border-t border-base-300 p-3">
-      <div>
-        {{ marker_editor.form.detail.label_tag }}
-        {{ marker_editor.form.detail }}
-        {% if marker_editor.form.detail.help_text %}<span class="form-help">{{ marker_editor.form.detail.help_text }}</span>{% endif %}
-        {{ marker_editor.form.detail.errors }}
-      </div>
+      {% if marker_editor.marker_type == 'poi' %}
+        <div>
+          {{ marker_editor.form.detail.label_tag }}
+          {{ marker_editor.form.detail }}
+          {% if marker_editor.form.detail.help_text %}<span class="form-help">{{ marker_editor.form.detail.help_text }}</span>{% endif %}
+          {{ marker_editor.form.detail.errors }}
+        </div>
+      {% endif %}
       <div>
         {{ marker_editor.form.sorting.label_tag }}
         {{ marker_editor.form.sorting }}

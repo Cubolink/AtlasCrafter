@@ -413,6 +413,26 @@ class MarkerSet(TimeStampedModel):
 class Marker(TimeStampedModel):
     class Type(models.TextChoices):
         POI = "poi", "Point of interest"
+        HTML = "html", "Styled label"
+
+    class HTMLVariant(models.TextChoices):
+        LABEL = "label", "Floating label"
+        BADGE = "badge", "Rounded badge"
+        SIGN = "sign", "Sign"
+
+    class HTMLSize(models.TextChoices):
+        SMALL = "small", "Small"
+        MEDIUM = "medium", "Medium"
+        LARGE = "large", "Large"
+
+    class HTMLSymbol(models.TextChoices):
+        NONE = "none", "No symbol"
+        PIN = "pin", "Map pin"
+        STAR = "star", "Star"
+        HOME = "home", "Home"
+        SHOP = "shop", "Shop"
+        PORTAL = "portal", "Portal"
+        WARNING = "warning", "Warning"
 
     marker_set = models.ForeignKey(MarkerSet, on_delete=models.CASCADE, related_name="markers")
     bluemap_id = models.SlugField(
@@ -433,6 +453,31 @@ class Marker(TimeStampedModel):
     icon = models.CharField(max_length=255, default="assets/poi.svg", editable=False)
     anchor_x = models.IntegerField(default=25, editable=False)
     anchor_y = models.IntegerField(default=45, editable=False)
+    html_variant = models.CharField(
+        max_length=20,
+        choices=HTMLVariant.choices,
+        default=HTMLVariant.BADGE,
+    )
+    html_size = models.CharField(
+        max_length=10,
+        choices=HTMLSize.choices,
+        default=HTMLSize.MEDIUM,
+    )
+    html_symbol = models.CharField(
+        max_length=20,
+        choices=HTMLSymbol.choices,
+        default=HTMLSymbol.PIN,
+    )
+    html_text_color = models.CharField(
+        max_length=7,
+        default="#ffffff",
+        validators=[hex_color_validator],
+    )
+    html_background_color = models.CharField(
+        max_length=7,
+        default="#2563eb",
+        validators=[hex_color_validator],
+    )
 
     class Meta:
         ordering = ["sorting", "label", "id"]

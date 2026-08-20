@@ -4,7 +4,7 @@
   <div class="flex items-center justify-between gap-3 border-b border-base-300 px-4 py-3">
     <div>
       <h2 class="text-base">Marker browser</h2>
-      <p class="text-xs text-base-content/60">Select a point to edit it below.</p>
+      <p class="text-xs text-base-content/60">Select a marker to edit it below.</p>
     </div>
     {% if marker_state.is_dirty %}<span class="badge badge-warning badge-sm">{{ marker_state.change_count }} draft</span>{% endif %}
   </div>
@@ -16,7 +16,7 @@
           <summary class="flex cursor-pointer list-none items-center justify-between gap-2 bg-base-200/60 px-3 py-2 hover:bg-base-200">
             <span class="min-w-0">
               <span class="block truncate text-sm font-semibold">{{ row.marker_set.label }}</span>
-              <span class="block text-xs text-base-content/55">{{ row.markers|length }} point{{ row.markers|length|pluralize }}</span>
+              <span class="block text-xs text-base-content/55">{{ row.markers|length }} marker{{ row.markers|length|pluralize }}</span>
             </span>
             {% include "projects/markers/sync_badge.html" with status=row.status %}
           </summary>
@@ -27,7 +27,7 @@
                 class="btn btn-primary btn-xs flex-1"
                 href="?create={{ row.marker_set.id }}#marker-editor"
                 data-marker-editor-link
-              >{% icon "map-pin-plus" %} Add point</a>
+              >{% icon "map-pin-plus" %} Add marker</a>
               <a class="btn btn-ghost btn-xs" href="{% url 'edit_marker_set' row.marker_set.id %}" aria-label="Edit {{ row.marker_set.label }} settings">{% icon "settings" %}</a>
               <form
                 class="m-0"
@@ -51,7 +51,10 @@
                   >
                     <span class="flex items-start justify-between gap-2">
                       <span class="min-w-0">
-                        <span class="block truncate text-sm font-medium">{{ marker_row.marker.label }}</span>
+                        <span class="flex items-center gap-1.5 truncate text-sm font-medium">
+                          {% if marker_row.marker.marker_type == 'html' %}{% icon "badge" %}{% endif %}
+                          {{ marker_row.marker.label }}
+                        </span>
                         <code class="mt-0.5 block truncate text-xs text-base-content/60">{{ marker_row.marker.position_x|compact_coordinate }}, {{ marker_row.marker.position_y|compact_coordinate }}, {{ marker_row.marker.position_z|compact_coordinate }}</code>
                       </span>
                       {% include "projects/markers/sync_badge.html" with status=marker_row.status %}
@@ -69,7 +72,7 @@
                   </form>
                 </div>
               {% empty %}
-                <p class="px-2 py-3 text-center text-xs text-base-content/55">No points in this set yet.</p>
+                <p class="px-2 py-3 text-center text-xs text-base-content/55">No markers in this set yet.</p>
               {% endfor %}
 
               {% for marker in row.deleted_markers %}
@@ -103,7 +106,7 @@
           <div class="flex items-start justify-between gap-2">
             <span>
               <span class="block text-sm font-semibold line-through">{{ marker_set.label }}</span>
-              <span class="text-xs text-base-content/55">Still published with {{ marker_set.markers|length }} point{{ marker_set.markers|length|pluralize }}</span>
+              <span class="text-xs text-base-content/55">Still published with {{ marker_set.markers|length }} marker{{ marker_set.markers|length|pluralize }}</span>
             </span>
             {% include "projects/markers/sync_badge.html" with status="deleted" %}
           </div>

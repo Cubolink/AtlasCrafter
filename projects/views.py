@@ -22,6 +22,7 @@ from viewer.views import render_output_exists
 from .forms import (
     AtlasCreateForm,
     AtlasEditForm,
+    HTMLMarkerForm,
     MarkerSetForm,
     POIMarkerForm,
     ProjectManageForm,
@@ -622,7 +623,7 @@ def render_markers(request, render_id: int):
             marker = marker_form.save(commit=False)
             if marker_editor["mode"] == "create":
                 marker.marker_set = marker_editor["marker_set"]
-                marker.marker_type = Marker.Type.POI
+                marker.marker_type = marker_editor["marker_type"]
                 success_message = f"Marker '{marker.label}' created."
             else:
                 success_message = f"Marker '{marker.label}' updated."
@@ -724,12 +725,19 @@ def marker_editor_for_marker(marker) -> dict:
         "mode": "edit",
         "marker_set": marker.marker_set,
         "marker": marker,
-        "form": POIMarkerForm(instance=marker),
+        "marker_type": marker.marker_type,
+        "form": marker_form_class(marker.marker_type)(instance=marker),
     }
 
 
 def empty_marker_editor() -> dict:
-    return {"mode": None, "marker_set": None, "marker": None, "form": None}
+    return {
+        "mode": None,
+        "marker_set": None,
+        "marker": None,
+        "marker_type": None,
+        "form": None,
+    }
 
 
 def marker_editor_url(render_obj, marker_editor) -> str:
@@ -737,7 +745,10 @@ def marker_editor_url(render_obj, marker_editor) -> str:
     if marker_editor["mode"] == "edit":
         return f"{manager_url}?edit={marker_editor['marker'].id}#marker-editor"
     if marker_editor["mode"] == "create":
-        return f"{manager_url}?create={marker_editor['marker_set'].id}#marker-editor"
+        return (
+            f"{manager_url}?create={marker_editor['marker_set'].id}"
+            f"&type={marker_editor['marker_type']}#marker-editor"
+        )
     return manager_url
 
 
@@ -749,6 +760,7 @@ def build_marker_editor(request, render_obj) -> dict:
     mode = None
     marker_set = None
     marker = None
+    marker_type = None
     marker_form = None
 
     if request.method == "POST":
@@ -758,7 +770,8 @@ def build_marker_editor(request, render_obj) -> dict:
                 render_obj.marker_sets,
                 id=positive_int(request.POST.get("marker_set_id")),
             )
-            marker_form = POIMarkerForm(request.POST)
+            marker_type = normalize_marker_type(request.POST.get("marker_type"))
+            marker_form = marker_form_class(marker_type)(request.POST)
         elif mode == "edit":
             marker = get_object_or_404(
                 Marker.objects.select_related("marker_set"),
@@ -766,7 +779,8 @@ def build_marker_editor(request, render_obj) -> dict:
                 marker_set__render=render_obj,
             )
             marker_set = marker.marker_set
-            marker_form = POIMarkerForm(request.POST, instance=marker)
+            marker_type = marker.marker_type
+            marker_form = marker_form_class(marker_type)(request.POST, instance=marker)
     else:
         marker_id = positive_int(request.GET.get("edit"))
         marker_set_id = positive_int(request.GET.get("create"))
@@ -778,21 +792,34 @@ def build_marker_editor(request, render_obj) -> dict:
             )
             mode = "edit"
             marker_set = marker.marker_set
-            marker_form = POIMarkerForm(instance=marker)
+            marker_type = marker.marker_type
+            marker_form = marker_form_class(marker_type)(instance=marker)
         elif marker_set_id is not None:
             marker_set = get_object_or_404(
                 render_obj.marker_sets,
                 id=marker_set_id,
             )
             mode = "create"
-            marker_form = POIMarkerForm()
+            marker_type = normalize_marker_type(request.GET.get("type"))
+            marker_form = marker_form_class(marker_type)()
 
     return {
         "mode": mode,
         "marker_set": marker_set,
         "marker": marker,
+        "marker_type": marker_type,
         "form": marker_form,
     }
+
+
+def normalize_marker_type(value) -> str:
+    return value if value in Marker.Type.values else Marker.Type.POI
+
+
+def marker_form_class(marker_type):
+    if marker_type == Marker.Type.HTML:
+        return HTMLMarkerForm
+    return POIMarkerForm
 
 
 def positive_int(value) -> int | None:
@@ -902,11 +929,14 @@ def delete_marker_set(request, marker_set_id: int):
 @login_required
 def create_marker(request, marker_set_id: int):
     marker_set = get_manageable_marker_set_or_404(request, marker_set_id)
-    form = POIMarkerForm(request.POST or None)
+    marker_type = normalize_marker_type(
+        request.POST.get("marker_type") if request.method == "POST" else request.GET.get("type")
+    )
+    form = marker_form_class(marker_type)(request.POST or None)
     if request.method == "POST" and form.is_valid():
         marker = form.save(commit=False)
         marker.marker_set = marker_set
-        marker.marker_type = Marker.Type.POI
+        marker.marker_type = marker_type
         marker.save()
         messages.success(request, f"Marker '{marker.label}' created.")
         return redirect("render_markers", render_id=marker_set.render_id)
@@ -916,8 +946,9 @@ def create_marker(request, marker_set_id: int):
         {
             "render": marker_set.render,
             "marker_set": marker_set,
+            "marker_type": marker_type,
             "form": form,
-            "title": "Create Point of Interest",
+            "title": f"Create {Marker.Type(marker_type).label}",
             "submit_label": "Create Marker",
         },
     )
@@ -937,7 +968,7 @@ def edit_marker(request, marker_id: int):
     )
     if not can_manage_project(request.user, marker.render.project):
         raise PermissionDenied("You do not have permission to manage this marker.")
-    form = POIMarkerForm(request.POST or None, instance=marker)
+    form = marker_form_class(marker.marker_type)(request.POST or None, instance=marker)
     if request.method == "POST" and form.is_valid():
         marker = form.save()
         messages.success(request, f"Marker '{marker.label}' updated.")
@@ -949,8 +980,9 @@ def edit_marker(request, marker_id: int):
             "render": marker.render,
             "marker_set": marker.marker_set,
             "marker": marker,
+            "marker_type": marker.marker_type,
             "form": form,
-            "title": "Edit Point of Interest",
+            "title": f"Edit {marker.get_marker_type_display()}",
             "submit_label": "Save Marker",
         },
     )

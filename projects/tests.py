@@ -11,7 +11,7 @@ from django.urls import reverse
 from accounts.models import ProjectMembership
 from bluemap_configs.models import BlueMapProfile
 from renders.models import RenderJob
-from .markers import build_marker_snapshot
+from .markers import build_marker_snapshot, format_marker_sets, safe_html_marker
 from .models import Atlas, Marker, MarkerSet, Project, ProjectVisibleWorld, Render, WorldFolder
 
 
@@ -1051,6 +1051,120 @@ class RenderMarkerManagementTests(TestCase):
         self.assertContains(response, "data-marker-save-button")
         self.assertNotContains(response, 'value="save_publish"', html=False)
         self.assertContains(response, "Publish Markers")
+
+    def test_marker_manager_offers_safe_styled_label_editor(self):
+        marker_set = MarkerSet.objects.create(render=self.render, label="Labels")
+
+        response = self.client_for(self.admin).get(
+            f"{reverse('render_markers', kwargs={'render_id': self.render.id})}"
+            f"?create={marker_set.id}&type=html"
+        )
+
+        self.assertContains(response, "Styled label")
+        self.assertContains(response, 'name="marker_type" value="html"', html=False)
+        self.assertContains(response, "data-html-marker-preview")
+        self.assertContains(response, 'type="color"', html=False)
+        self.assertContains(response, "No HTML or CSS is accepted")
+        self.assertNotContains(response, 'name="detail"', html=False)
+        self.assertNotContains(response, 'name="html"', html=False)
+        self.assertNotContains(response, 'name="css"', html=False)
+
+    def test_admin_can_create_styled_label_from_quick_editor(self):
+        marker_set = MarkerSet.objects.create(render=self.render, label="Labels")
+
+        response = self.client_for(self.admin).post(
+            reverse("render_markers", kwargs={"render_id": self.render.id}),
+            {
+                "editor_action": "create",
+                "marker_set_id": marker_set.id,
+                "marker_type": "html",
+                "label": "Market",
+                "position_x": "20.5",
+                "position_y": "70",
+                "position_z": "-12",
+                "html_variant": "sign",
+                "html_size": "large",
+                "html_symbol": "star",
+                "html_text_color": "#fff4cc",
+                "html_background_color": "#7c3aed",
+                "sorting": "2",
+                "listed": "on",
+                "min_distance": "",
+                "max_distance": "5000",
+                "submit_action": "save",
+            },
+            **self.async_headers(),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        marker = Marker.objects.get(marker_set=marker_set)
+        self.assertEqual(marker.marker_type, Marker.Type.HTML)
+        self.assertEqual(marker.html_variant, Marker.HTMLVariant.SIGN)
+        self.assertEqual(marker.html_size, Marker.HTMLSize.LARGE)
+        self.assertEqual(marker.html_symbol, Marker.HTMLSymbol.STAR)
+        self.assertEqual(marker.html_background_color, "#7c3aed")
+        self.assertEqual(response.json()["notice"]["presentation"], "inline-save")
+
+        marker_config = format_marker_sets(self.render)
+        self.assertIn('type: "html"', marker_config)
+        self.assertIn("font-size:22px", marker_config)
+        self.assertIn("background:#7c3aed", marker_config)
+        self.assertIn("★", marker_config)
+        self.assertIn("anchor: { x: 0, y: 0 }", marker_config)
+
+    def test_styled_label_generated_html_escapes_user_text(self):
+        marker_set = MarkerSet.objects.create(render=self.render, label="Labels")
+        marker = Marker.objects.create(
+            marker_set=marker_set,
+            marker_type=Marker.Type.HTML,
+            label='<img src=x onerror="alert(1)">',
+            position_x=0,
+            position_y=64,
+            position_z=0,
+            html_variant=Marker.HTMLVariant.BADGE,
+            html_symbol=Marker.HTMLSymbol.PIN,
+        )
+        marker_data = build_marker_snapshot(self.render)["sets"][marker_set.bluemap_id][
+            "markers"
+        ][marker.bluemap_id]
+
+        generated_html = safe_html_marker(marker_data)
+
+        self.assertNotIn("<img", generated_html)
+        self.assertIn("&lt;img", generated_html)
+        self.assertIn("&quot;alert(1)&quot;", generated_html)
+        self.assertTrue(generated_html.startswith('<div style="'))
+
+    def test_styled_label_rejects_unlisted_styles_and_invalid_colors(self):
+        marker_set = MarkerSet.objects.create(render=self.render, label="Labels")
+
+        response = self.client_for(self.admin).post(
+            reverse("render_markers", kwargs={"render_id": self.render.id}),
+            {
+                "editor_action": "create",
+                "marker_set_id": marker_set.id,
+                "marker_type": "html",
+                "label": "Unsafe",
+                "position_x": "0",
+                "position_y": "64",
+                "position_z": "0",
+                "html_variant": "custom-css",
+                "html_size": "medium",
+                "html_symbol": "pin",
+                "html_text_color": "#ffffff",
+                "html_background_color": "#fff;position:fixed",
+                "sorting": "0",
+                "listed": "on",
+                "min_distance": "",
+                "max_distance": "",
+                "submit_action": "save",
+            },
+            **self.async_headers(),
+        )
+
+        self.assertEqual(response.status_code, 422)
+        self.assertFalse(Marker.objects.filter(marker_set=marker_set).exists())
+        self.assertIn("Select a valid choice", response.json()["marker_editor_html"])
 
     def test_standalone_marker_forms_only_offer_save(self):
         marker_set = MarkerSet.objects.create(render=self.render, label="Landmarks")

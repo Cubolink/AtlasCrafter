@@ -661,7 +661,15 @@ class MarkerSetForm(forms.ModelForm):
         }
 
 
-class POIMarkerForm(forms.ModelForm):
+class BaseMarkerForm(forms.ModelForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if not self.is_bound and self.instance.pk:
+            for field_name in ["position_x", "position_y", "position_z"]:
+                self.initial[field_name] = format_number(getattr(self.instance, field_name))
+
+
+class POIMarkerForm(BaseMarkerForm):
     class Meta:
         model = Marker
         fields = [
@@ -700,14 +708,65 @@ class POIMarkerForm(forms.ModelForm):
             "listed": forms.CheckboxInput(attrs={"class": "toggle toggle-primary"}),
         }
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        if not self.is_bound and self.instance.pk:
-            for field_name in ["position_x", "position_y", "position_z"]:
-                self.initial[field_name] = format_number(getattr(self.instance, field_name))
-
     def clean_detail(self):
         return self.cleaned_data["detail"].strip()
+
+
+class HTMLMarkerForm(BaseMarkerForm):
+    class Meta:
+        model = Marker
+        fields = [
+            "label",
+            "position_x",
+            "position_y",
+            "position_z",
+            "html_variant",
+            "html_size",
+            "html_symbol",
+            "html_text_color",
+            "html_background_color",
+            "sorting",
+            "listed",
+            "min_distance",
+            "max_distance",
+        ]
+        labels = {
+            "position_x": "X",
+            "position_y": "Y",
+            "position_z": "Z",
+            "html_variant": "Style",
+            "html_size": "Size",
+            "html_symbol": "Symbol",
+            "html_text_color": "Text color",
+            "html_background_color": "Background color (badge and sign)",
+            "listed": "Show in marker list",
+            "min_distance": "Minimum visible distance",
+            "max_distance": "Maximum visible distance",
+        }
+        help_texts = {
+            "label": "Text shown directly on the map and in BlueMap's marker list.",
+            "html_variant": "Choose a server-designed appearance. HTML and CSS are never entered by users.",
+            "sorting": "Lower numbers appear earlier within this marker set.",
+            "listed": "Display this marker in BlueMap's searchable marker list.",
+            "min_distance": "Optional closest camera distance at which the marker remains visible.",
+            "max_distance": "Optional furthest camera distance at which the marker remains visible.",
+        }
+        widgets = {
+            "position_x": forms.NumberInput(attrs={"step": "any"}),
+            "position_y": forms.NumberInput(attrs={"step": "any"}),
+            "position_z": forms.NumberInput(attrs={"step": "any"}),
+            "html_variant": forms.Select(attrs={"data-html-marker-variant": ""}),
+            "html_size": forms.Select(attrs={"data-html-marker-size": ""}),
+            "html_symbol": forms.Select(attrs={"data-html-marker-symbol": ""}),
+            "html_text_color": forms.TextInput(
+                attrs={"type": "color", "data-html-marker-text-color": ""}
+            ),
+            "html_background_color": forms.TextInput(
+                attrs={"type": "color", "data-html-marker-background-color": ""}
+            ),
+            "label": forms.TextInput(attrs={"data-html-marker-label": ""}),
+            "listed": forms.CheckboxInput(attrs={"class": "toggle toggle-primary"}),
+        }
 
 
 class ProjectUserAddForm(forms.Form):
