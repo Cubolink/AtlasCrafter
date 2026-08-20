@@ -1,3 +1,4 @@
+import json
 import re
 from decimal import Decimal
 from pathlib import Path
@@ -8,7 +9,16 @@ from django.contrib.auth import get_user_model
 from django.db.models import Q
 
 from accounts.models import ProjectMembership
-from .models import Atlas, MinecraftResourceSource, Project, Render, WorldFolder
+from .models import (
+    Atlas,
+    Marker,
+    MarkerSet,
+    MinecraftResourceSource,
+    Project,
+    Render,
+    WorldFolder,
+)
+from .markers import format_number
 from .world_discovery import detect_dimensions, world_folder_exists
 
 
@@ -51,7 +61,6 @@ RENDER_ADVANCED_FIELDS = [
     "render_mask_center_x",
     "render_mask_center_z",
     "render_mask_radius",
-    "marker_sets",
 ]
 RENDER_RESOURCE_FIELDS = [
     "resource_mode",
@@ -376,11 +385,7 @@ class RenderEditForm(forms.ModelForm):
             "enable_free_flight_view",
             "enable_hires",
             "ignore_missing_light_data",
-            "marker_sets",
         ]
-        widgets = {
-            "marker_sets": forms.Textarea(attrs={"rows": 8}),
-        }
 
     def __init__(self, *args, allow_custom_paths=False, **kwargs):
         self.allow_custom_paths = allow_custom_paths
@@ -443,12 +448,6 @@ class RenderEditForm(forms.ModelForm):
             {"min": "0", "max": "15", "step": "1", "data-range-value": ""}
         )
         self.fields["render_mask_type"].widget.attrs["data-render-mask-type"] = ""
-        self.fields["marker_sets"].widget.attrs.update(
-            {
-                "class": "textarea textarea-bordered min-h-48 w-full font-mono text-sm",
-                "placeholder": "{}",
-            }
-        )
 
     def set_config_initials(self):
         start_position = self.instance.start_position or {}
@@ -628,7 +627,6 @@ def apply_render_form_attrs(fields):
         "render_mask_center_x": "Circle mask center X coordinate.",
         "render_mask_center_z": "Circle mask center Z coordinate.",
         "render_mask_radius": "Circle mask radius in blocks.",
-        "marker_sets": "Raw BlueMap marker-sets HOCON. Use {} when this render has no static markers.",
     }
     for field_name, help_text in help_texts.items():
         if field_name in fields:
@@ -646,6 +644,371 @@ def apply_render_form_attrs(fields):
     if "storage_profile" in fields:
         fields["storage_profile"].label = "Storage config id"
         fields["storage_profile"].widget.attrs["placeholder"] = "file"
+
+
+class MarkerSetForm(forms.ModelForm):
+    class Meta:
+        model = MarkerSet
+        fields = ["label", "sorting", "toggleable", "default_hidden"]
+        help_texts = {
+            "label": "Name shown for this group in BlueMap's marker menu.",
+            "sorting": "Lower numbers appear earlier in the marker menu.",
+            "toggleable": "Allow viewers to show or hide this entire marker set.",
+            "default_hidden": "Start with this marker set hidden when a viewer opens the map.",
+        }
+        widgets = {
+            "toggleable": forms.CheckboxInput(attrs={"class": "toggle toggle-primary"}),
+            "default_hidden": forms.CheckboxInput(attrs={"class": "toggle toggle-primary"}),
+        }
+
+
+class BaseMarkerForm(forms.ModelForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if not self.is_bound and self.instance.pk:
+            for field_name in ["position_x", "position_y", "position_z"]:
+                self.initial[field_name] = format_number(getattr(self.instance, field_name))
+
+
+class POIMarkerForm(BaseMarkerForm):
+    class Meta:
+        model = Marker
+        fields = [
+            "label",
+            "detail",
+            "position_x",
+            "position_y",
+            "position_z",
+            "sorting",
+            "listed",
+            "min_distance",
+            "max_distance",
+        ]
+        labels = {
+            "detail": "Description",
+            "position_x": "X",
+            "position_y": "Y",
+            "position_z": "Z",
+            "listed": "Show in marker list",
+            "min_distance": "Minimum visible distance",
+            "max_distance": "Maximum visible distance",
+        }
+        help_texts = {
+            "label": "Name shown on the map and in BlueMap's marker list.",
+            "detail": "Plain text shown when the marker is selected. HTML is not accepted.",
+            "sorting": "Lower numbers appear earlier within this marker set.",
+            "listed": "Display this marker in BlueMap's searchable marker list.",
+            "min_distance": "Optional closest camera distance at which the marker remains visible.",
+            "max_distance": "Optional furthest camera distance at which the marker remains visible.",
+        }
+        widgets = {
+            "detail": forms.Textarea(attrs={"rows": 4, "maxlength": 4000}),
+            "position_x": forms.NumberInput(attrs={"step": "any"}),
+            "position_y": forms.NumberInput(attrs={"step": "any"}),
+            "position_z": forms.NumberInput(attrs={"step": "any"}),
+            "listed": forms.CheckboxInput(attrs={"class": "toggle toggle-primary"}),
+        }
+
+    def clean_detail(self):
+        return self.cleaned_data["detail"].strip()
+
+
+class HTMLMarkerForm(BaseMarkerForm):
+    class Meta:
+        model = Marker
+        fields = [
+            "label",
+            "position_x",
+            "position_y",
+            "position_z",
+            "html_variant",
+            "html_size",
+            "html_symbol",
+            "html_text_color",
+            "html_background_color",
+            "sorting",
+            "listed",
+            "min_distance",
+            "max_distance",
+        ]
+        labels = {
+            "position_x": "X",
+            "position_y": "Y",
+            "position_z": "Z",
+            "html_variant": "Style",
+            "html_size": "Size",
+            "html_symbol": "Symbol",
+            "html_text_color": "Text color",
+            "html_background_color": "Background color (badge and sign)",
+            "listed": "Show in marker list",
+            "min_distance": "Minimum visible distance",
+            "max_distance": "Maximum visible distance",
+        }
+        help_texts = {
+            "label": "Text shown directly on the map and in BlueMap's marker list.",
+            "html_variant": "Choose a server-designed appearance. HTML and CSS are never entered by users.",
+            "sorting": "Lower numbers appear earlier within this marker set.",
+            "listed": "Display this marker in BlueMap's searchable marker list.",
+            "min_distance": "Optional closest camera distance at which the marker remains visible.",
+            "max_distance": "Optional furthest camera distance at which the marker remains visible.",
+        }
+        widgets = {
+            "position_x": forms.NumberInput(attrs={"step": "any"}),
+            "position_y": forms.NumberInput(attrs={"step": "any"}),
+            "position_z": forms.NumberInput(attrs={"step": "any"}),
+            "html_variant": forms.Select(attrs={"data-html-marker-variant": ""}),
+            "html_size": forms.Select(attrs={"data-html-marker-size": ""}),
+            "html_symbol": forms.Select(attrs={"data-html-marker-symbol": ""}),
+            "html_text_color": forms.TextInput(
+                attrs={"type": "color", "data-html-marker-text-color": ""}
+            ),
+            "html_background_color": forms.TextInput(
+                attrs={"type": "color", "data-html-marker-background-color": ""}
+            ),
+            "label": forms.TextInput(attrs={"data-html-marker-label": ""}),
+            "listed": forms.CheckboxInput(attrs={"class": "toggle toggle-primary"}),
+        }
+
+
+class GeometryMarkerForm(BaseMarkerForm):
+    vertices = forms.CharField(
+        label="Vertices",
+        widget=forms.HiddenInput(attrs={"data-geometry-value": ""}),
+    )
+    geometry_dimensions = ()
+    minimum_vertices = 0
+    maximum_vertices = 200
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if not self.is_bound:
+            geometry = self.instance.geometry if self.instance.pk else []
+            self.initial["vertices"] = json.dumps(geometry)
+        for field_name in ["line_opacity", "fill_opacity"]:
+            if field_name in self.fields:
+                self.fields[field_name].widget.attrs.update(
+                    {"min": "0", "max": "1", "step": "0.05"}
+                )
+
+    def clean_vertices(self):
+        raw_value = self.cleaned_data["vertices"]
+        try:
+            vertices = json.loads(raw_value)
+        except (TypeError, ValueError) as exc:
+            raise forms.ValidationError(
+                "The vertex list could not be read. Try reloading the editor."
+            ) from exc
+        if not isinstance(vertices, list):
+            raise forms.ValidationError("The vertex list must be a list of coordinates.")
+        if len(vertices) < self.minimum_vertices:
+            noun = "vertices" if self.minimum_vertices != 1 else "vertex"
+            raise forms.ValidationError(
+                f"Add at least {self.minimum_vertices} {noun} to define this marker."
+            )
+        if len(vertices) > self.maximum_vertices:
+            raise forms.ValidationError(
+                f"A marker can contain at most {self.maximum_vertices} vertices."
+            )
+
+        coordinate_field = forms.DecimalField(max_digits=14, decimal_places=3)
+        normalized = []
+        for index, vertex in enumerate(vertices, start=1):
+            if not isinstance(vertex, dict):
+                raise forms.ValidationError(f"Vertex {index} is not a coordinate.")
+            point = {}
+            for dimension in self.geometry_dimensions:
+                try:
+                    coordinate = coordinate_field.clean(vertex.get(dimension))
+                except forms.ValidationError as exc:
+                    raise forms.ValidationError(
+                        f"Vertex {index} needs a valid {dimension.upper()} coordinate with up to 3 decimal places."
+                    ) from exc
+                point[dimension] = format_number(coordinate)
+            normalized.append(point)
+        return normalized
+
+    def clean_detail(self):
+        return self.cleaned_data["detail"].strip()
+
+    def clean_link(self):
+        return self.cleaned_data["link"].strip()
+
+    def clean(self):
+        cleaned_data = super().clean()
+        if not cleaned_data.get("link"):
+            cleaned_data["new_tab"] = False
+        if (
+            self.geometry_dimensions == ("x", "z")
+            and "shape_min_y" in self.fields
+            and cleaned_data.get("shape_min_y") is not None
+            and cleaned_data.get("shape_max_y") is not None
+            and cleaned_data["shape_max_y"] < cleaned_data["shape_min_y"]
+        ):
+            self.add_error("shape_max_y", "Top Y must be greater than or equal to bottom Y.")
+        return cleaned_data
+
+    def save(self, commit=True):
+        marker = super().save(commit=False)
+        geometry = self.cleaned_data["vertices"]
+        marker.geometry = geometry
+        marker.position_x = self.average_coordinate(geometry, "x")
+        marker.position_z = self.average_coordinate(geometry, "z")
+        if self.geometry_dimensions == ("x", "y", "z"):
+            marker.position_y = self.average_coordinate(geometry, "y")
+        elif "shape_min_y" in self.fields:
+            marker.position_y = (
+                self.cleaned_data["shape_min_y"] + self.cleaned_data["shape_max_y"]
+            ) / Decimal("2")
+            marker.position_y = marker.position_y.quantize(Decimal("0.001"))
+        else:
+            marker.position_y = self.cleaned_data["position_y"]
+        if commit:
+            marker.save()
+        return marker
+
+    @staticmethod
+    def average_coordinate(geometry, dimension):
+        average = sum(Decimal(point[dimension]) for point in geometry) / Decimal(len(geometry))
+        return average.quantize(Decimal("0.001"))
+
+
+GEOMETRY_COMMON_FIELDS = [
+    "label",
+    "detail",
+    "vertices",
+    "line_width",
+    "line_color",
+    "line_opacity",
+    "depth_test",
+    "link",
+    "new_tab",
+    "sorting",
+    "listed",
+    "min_distance",
+    "max_distance",
+]
+
+GEOMETRY_LABELS = {
+    "detail": "Description",
+    "line_width": "Line width",
+    "line_color": "Line color",
+    "line_opacity": "Line opacity",
+    "depth_test": "Hide behind terrain",
+    "link": "Link",
+    "new_tab": "Open link in a new tab",
+    "listed": "Show in marker list",
+    "min_distance": "Minimum visible distance",
+    "max_distance": "Maximum visible distance",
+}
+
+GEOMETRY_HELP_TEXTS = {
+    "label": "Name shown on the map and in BlueMap's marker list.",
+    "detail": "Optional plain-text description. HTML is not accepted.",
+    "line_width": "Width of the outline in screen pixels.",
+    "depth_test": "Let terrain and buildings obscure the marker when they are in front of it.",
+    "link": "Optional http or https link opened when the marker is selected.",
+    "sorting": "Lower numbers appear earlier within this marker set.",
+    "listed": "Display this marker in BlueMap's searchable marker list.",
+}
+
+GEOMETRY_WIDGETS = {
+    "detail": forms.Textarea(attrs={"rows": 3, "maxlength": 4000}),
+    "line_color": forms.TextInput(attrs={"type": "color"}),
+    "fill_color": forms.TextInput(attrs={"type": "color"}),
+    "depth_test": forms.CheckboxInput(attrs={"class": "toggle toggle-primary"}),
+    "new_tab": forms.CheckboxInput(attrs={"class": "toggle toggle-primary"}),
+    "listed": forms.CheckboxInput(attrs={"class": "toggle toggle-primary"}),
+    "link": forms.URLInput(attrs={"placeholder": "https://example.com"}),
+}
+
+
+class LineMarkerForm(GeometryMarkerForm):
+    geometry_dimensions = ("x", "y", "z")
+    minimum_vertices = 2
+
+    class Meta:
+        model = Marker
+        fields = GEOMETRY_COMMON_FIELDS
+        labels = GEOMETRY_LABELS
+        help_texts = GEOMETRY_HELP_TEXTS
+        widgets = GEOMETRY_WIDGETS
+
+
+class ShapeMarkerForm(GeometryMarkerForm):
+    geometry_dimensions = ("x", "z")
+    minimum_vertices = 3
+
+    class Meta:
+        model = Marker
+        fields = [
+            "label",
+            "detail",
+            "position_y",
+            "vertices",
+            "line_width",
+            "line_color",
+            "line_opacity",
+            "fill_color",
+            "fill_opacity",
+            "depth_test",
+            "link",
+            "new_tab",
+            "sorting",
+            "listed",
+            "min_distance",
+            "max_distance",
+        ]
+        labels = {
+            **GEOMETRY_LABELS,
+            "position_y": "Y level",
+            "fill_color": "Fill color",
+            "fill_opacity": "Fill opacity",
+        }
+        help_texts = GEOMETRY_HELP_TEXTS
+        widgets = {
+            **GEOMETRY_WIDGETS,
+            "position_y": forms.NumberInput(attrs={"step": "any"}),
+        }
+
+
+class ExtrudeMarkerForm(GeometryMarkerForm):
+    geometry_dimensions = ("x", "z")
+    minimum_vertices = 3
+
+    class Meta:
+        model = Marker
+        fields = [
+            "label",
+            "detail",
+            "shape_min_y",
+            "shape_max_y",
+            "vertices",
+            "line_width",
+            "line_color",
+            "line_opacity",
+            "fill_color",
+            "fill_opacity",
+            "depth_test",
+            "link",
+            "new_tab",
+            "sorting",
+            "listed",
+            "min_distance",
+            "max_distance",
+        ]
+        labels = {
+            **GEOMETRY_LABELS,
+            "shape_min_y": "Bottom Y",
+            "shape_max_y": "Top Y",
+            "fill_color": "Fill color",
+            "fill_opacity": "Fill opacity",
+        }
+        help_texts = GEOMETRY_HELP_TEXTS
+        widgets = {
+            **GEOMETRY_WIDGETS,
+            "shape_min_y": forms.NumberInput(attrs={"step": "any"}),
+            "shape_max_y": forms.NumberInput(attrs={"step": "any"}),
+        }
 
 
 class ProjectUserAddForm(forms.Form):

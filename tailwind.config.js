@@ -21,6 +21,23 @@ module.exports = {
     "./renders/**/*.py",
     "./bluemap_configs/**/*.py",
   ],
+  safelist: [
+    "marker-workspace-toast",
+    "marker-workspace-toast-success",
+    "marker-workspace-toast-warning",
+    "marker-workspace-toast-error",
+    "marker-workspace-toast-info",
+    "marker-workspace-toast-indicator",
+    "geometry-vertex-row",
+    "geometry-vertex-number",
+    "geometry-coordinate-field",
+    "geometry-vertex-remove",
+    "-mr-1",
+    "-mt-1",
+    "btn-ghost",
+    "btn-xs",
+    "btn-square",
+  ],
   theme: {
     extend: {
       spacing: {

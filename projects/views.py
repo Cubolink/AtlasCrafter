@@ -3,15 +3,30 @@ from django.contrib.auth.decorators import user_passes_test
 from django.contrib import messages
 from django.conf import settings
 from django.core.exceptions import PermissionDenied
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.template.loader import render_to_string
+from django.urls import reverse
 from django.views.decorators.http import require_POST
 
 from accounts.models import ProjectMembership
 from renders.models import RenderJob
-from renders.services import preview_render_config, resolve_render_resources
+from renders.services import (
+    RenderConfigurationError,
+    enqueue_render,
+    has_active_render_job,
+    preview_render_config,
+    resolve_render_resources,
+)
+from viewer.views import render_output_exists
 from .forms import (
     AtlasCreateForm,
     AtlasEditForm,
+    ExtrudeMarkerForm,
+    HTMLMarkerForm,
+    LineMarkerForm,
+    MarkerSetForm,
+    POIMarkerForm,
     ProjectManageForm,
     ProjectUserAddForm,
     RENDER_ADVANCED_FIELDS,
@@ -21,10 +36,21 @@ from .forms import (
     RENDER_PRESET_SUMMARIES,
     RenderCreateForm,
     RenderEditForm,
+    ShapeMarkerForm,
     MinecraftResourceSourceForm,
     WorldFolderForm,
 )
-from .models import Atlas, MinecraftResourceSource, MinecraftServer, Project, Render, WorldFolder
+from .models import (
+    Atlas,
+    Marker,
+    MarkerSet,
+    MinecraftResourceSource,
+    MinecraftServer,
+    Project,
+    Render,
+    WorldFolder,
+)
+from .markers import build_marker_management_state
 from .permissions import can_manage_project
 from .world_discovery import build_world_tree, scan_source_worlds, world_folder_exists
 
@@ -554,6 +580,469 @@ def edit_render(request, render_id: int):
             "submit_label": "Save Render",
         },
     )
+
+
+def get_manageable_render_or_404(request, render_id: int):
+    render_obj = get_object_or_404(
+        Render.objects.select_related("atlas__project", "atlas__world_folder"),
+        id=render_id,
+        is_enabled=True,
+        atlas__is_active=True,
+        atlas__project__is_active=True,
+    )
+    if not can_manage_project(request.user, render_obj.project):
+        raise PermissionDenied("You do not have permission to manage markers for this Render.")
+    return render_obj
+
+
+def get_manageable_marker_set_or_404(request, marker_set_id: int):
+    marker_set = get_object_or_404(
+        MarkerSet.objects.select_related(
+            "render__atlas__project",
+            "render__atlas__world_folder",
+        ),
+        id=marker_set_id,
+        render__is_enabled=True,
+        render__atlas__is_active=True,
+        render__atlas__project__is_active=True,
+    )
+    if not can_manage_project(request.user, marker_set.render.project):
+        raise PermissionDenied("You do not have permission to manage this marker set.")
+    return marker_set
+
+
+@login_required
+def render_markers(request, render_id: int):
+    render_obj = get_manageable_render_or_404(request, render_id)
+    marker_editor = build_marker_editor(request, render_obj)
+    marker_form = marker_editor["form"]
+    async_request = is_marker_workspace_request(request)
+
+    if request.method == "POST":
+        if marker_form is None:
+            if async_request:
+                return JsonResponse({"error": "Invalid marker editor action."}, status=400)
+        elif marker_form.is_valid():
+            marker = marker_form.save(commit=False)
+            if marker_editor["mode"] == "create":
+                marker.marker_set = marker_editor["marker_set"]
+                marker.marker_type = marker_editor["marker_type"]
+                success_message = f"Marker '{marker.label}' created."
+            else:
+                success_message = f"Marker '{marker.label}' updated."
+            marker.save()
+            marker_editor = marker_editor_for_marker(marker)
+            if async_request:
+                return marker_workspace_response(
+                    request,
+                    render_obj,
+                    marker_editor,
+                    notice={
+                        "level": "success",
+                        "message": success_message,
+                        "presentation": "inline-save",
+                    },
+                )
+            messages.success(request, success_message)
+            manager_url = reverse("render_markers", kwargs={"render_id": render_obj.id})
+            return redirect(f"{manager_url}?edit={marker.id}#marker-editor")
+        elif async_request:
+            return marker_workspace_response(
+                request,
+                render_obj,
+                marker_editor,
+                notice={
+                    "level": "error",
+                    "message": "Review the highlighted marker fields.",
+                },
+                status=422,
+            )
+
+    if async_request:
+        return marker_workspace_response(request, render_obj, marker_editor)
+    context = marker_workspace_context(render_obj, marker_editor)
+    return render(
+        request,
+        "projects/markers/marker_sets.html",
+        {
+            **context,
+            "render_output_exists": render_output_exists(render_obj),
+        },
+    )
+
+
+def marker_workspace_context(render_obj, marker_editor) -> dict:
+    return {
+        "render": render_obj,
+        "marker_state": build_marker_management_state(render_obj),
+        "active_job": render_obj.jobs.filter(
+            status__in=[RenderJob.Status.QUEUED, RenderJob.Status.RUNNING]
+        ).first(),
+        "latest_marker_job": render_obj.jobs.filter(
+            operation=RenderJob.Operation.MARKERS
+        ).first(),
+        "marker_editor": marker_editor,
+    }
+
+
+def marker_workspace_response(
+    request,
+    render_obj,
+    marker_editor,
+    *,
+    notice=None,
+    status=200,
+):
+    context = marker_workspace_context(render_obj, marker_editor)
+    active_job = context["active_job"]
+    payload = {
+        "marker_browser_html": render_to_string(
+            "projects/markers/marker_browser.html",
+            context,
+            request=request,
+        ),
+        "marker_editor_html": render_to_string(
+            "projects/markers/marker_editor_panel.html",
+            context,
+            request=request,
+        ),
+        "publication_status_html": render_to_string(
+            "projects/markers/publication_status.html",
+            context,
+            request=request,
+        ),
+        "publish_action_html": render_to_string(
+            "projects/markers/publish_action.html",
+            context,
+            request=request,
+        ),
+        "active_job_id": active_job.id if active_job else None,
+        "editor_url": marker_editor_url(render_obj, marker_editor),
+        "notice": notice,
+    }
+    return JsonResponse(payload, status=status)
+
+
+def marker_editor_for_marker(marker) -> dict:
+    return {
+        "mode": "edit",
+        "marker_set": marker.marker_set,
+        "marker": marker,
+        "marker_type": marker.marker_type,
+        "form": marker_form_class(marker.marker_type)(instance=marker),
+    }
+
+
+def empty_marker_editor() -> dict:
+    return {
+        "mode": None,
+        "marker_set": None,
+        "marker": None,
+        "marker_type": None,
+        "form": None,
+    }
+
+
+def marker_editor_url(render_obj, marker_editor) -> str:
+    manager_url = reverse("render_markers", kwargs={"render_id": render_obj.id})
+    if marker_editor["mode"] == "edit":
+        return f"{manager_url}?edit={marker_editor['marker'].id}#marker-editor"
+    if marker_editor["mode"] == "create":
+        return (
+            f"{manager_url}?create={marker_editor['marker_set'].id}"
+            f"&type={marker_editor['marker_type']}#marker-editor"
+        )
+    return manager_url
+
+
+def is_marker_workspace_request(request) -> bool:
+    return request.headers.get("x-requested-with") == "XMLHttpRequest"
+
+
+def build_marker_editor(request, render_obj) -> dict:
+    mode = None
+    marker_set = None
+    marker = None
+    marker_type = None
+    marker_form = None
+
+    if request.method == "POST":
+        mode = request.POST.get("editor_action")
+        if mode == "create":
+            marker_set = get_object_or_404(
+                render_obj.marker_sets,
+                id=positive_int(request.POST.get("marker_set_id")),
+            )
+            marker_type = normalize_marker_type(request.POST.get("marker_type"))
+            marker_form = marker_form_class(marker_type)(request.POST)
+        elif mode == "edit":
+            marker = get_object_or_404(
+                Marker.objects.select_related("marker_set"),
+                id=positive_int(request.POST.get("marker_id")),
+                marker_set__render=render_obj,
+            )
+            marker_set = marker.marker_set
+            marker_type = marker.marker_type
+            marker_form = marker_form_class(marker_type)(request.POST, instance=marker)
+    else:
+        marker_id = positive_int(request.GET.get("edit"))
+        marker_set_id = positive_int(request.GET.get("create"))
+        if marker_id is not None:
+            marker = get_object_or_404(
+                Marker.objects.select_related("marker_set"),
+                id=marker_id,
+                marker_set__render=render_obj,
+            )
+            mode = "edit"
+            marker_set = marker.marker_set
+            marker_type = marker.marker_type
+            marker_form = marker_form_class(marker_type)(instance=marker)
+        elif marker_set_id is not None:
+            marker_set = get_object_or_404(
+                render_obj.marker_sets,
+                id=marker_set_id,
+            )
+            mode = "create"
+            marker_type = normalize_marker_type(request.GET.get("type"))
+            marker_form = marker_form_class(marker_type)()
+
+    return {
+        "mode": mode,
+        "marker_set": marker_set,
+        "marker": marker,
+        "marker_type": marker_type,
+        "form": marker_form,
+    }
+
+
+def normalize_marker_type(value) -> str:
+    return value if value in Marker.Type.values else Marker.Type.POI
+
+
+def marker_form_class(marker_type):
+    return {
+        Marker.Type.POI: POIMarkerForm,
+        Marker.Type.HTML: HTMLMarkerForm,
+        Marker.Type.LINE: LineMarkerForm,
+        Marker.Type.SHAPE: ShapeMarkerForm,
+        Marker.Type.EXTRUDE: ExtrudeMarkerForm,
+    }.get(marker_type, POIMarkerForm)
+
+
+def positive_int(value) -> int | None:
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return None
+    return parsed if parsed > 0 else None
+
+
+def queue_marker_publication(request, render_obj, *, notify=True) -> dict:
+    if has_active_render_job(render_obj):
+        result = {
+            "job": None,
+            "level": "warning",
+            "message": "This Render already has a queued or running job. Publish Markers was not queued.",
+        }
+        if notify:
+            messages.warning(request, result["message"])
+        return result
+    try:
+        job = enqueue_render(
+            render_obj,
+            requested_by=request.user,
+            operation=RenderJob.Operation.MARKERS,
+        )
+    except RenderConfigurationError as exc:
+        result = {"job": None, "level": "error", "message": str(exc)}
+        if notify:
+            messages.error(request, result["message"])
+        return result
+    result = {
+        "job": job,
+        "level": "success",
+        "message": f"Marker publishing job #{job.id} queued.",
+    }
+    if notify:
+        messages.success(request, result["message"])
+    return result
+
+
+@login_required
+def create_marker_set(request, render_id: int):
+    render_obj = get_manageable_render_or_404(request, render_id)
+    form = MarkerSetForm(request.POST or None)
+    if request.method == "POST" and form.is_valid():
+        marker_set = form.save(commit=False)
+        marker_set.render = render_obj
+        marker_set.save()
+        messages.success(request, f"Marker set '{marker_set.label}' created.")
+        return redirect("render_markers", render_id=render_obj.id)
+    return render(
+        request,
+        "projects/markers/marker_set_form.html",
+        {
+            "render": render_obj,
+            "form": form,
+            "title": "Create Marker Set",
+            "submit_label": "Create Marker Set",
+        },
+    )
+
+
+@login_required
+def edit_marker_set(request, marker_set_id: int):
+    marker_set = get_manageable_marker_set_or_404(request, marker_set_id)
+    form = MarkerSetForm(request.POST or None, instance=marker_set)
+    if request.method == "POST" and form.is_valid():
+        marker_set = form.save()
+        messages.success(request, f"Marker set '{marker_set.label}' updated.")
+        return redirect("render_markers", render_id=marker_set.render_id)
+    return render(
+        request,
+        "projects/markers/marker_set_form.html",
+        {
+            "render": marker_set.render,
+            "marker_set": marker_set,
+            "form": form,
+            "title": "Edit Marker Set",
+            "submit_label": "Save Marker Set",
+        },
+    )
+
+
+@login_required
+@require_POST
+def delete_marker_set(request, marker_set_id: int):
+    marker_set = get_manageable_marker_set_or_404(request, marker_set_id)
+    render_obj = marker_set.render
+    render_id = marker_set.render_id
+    label = marker_set.label
+    marker_set.delete()
+    if is_marker_workspace_request(request):
+        return marker_workspace_response(
+            request,
+            render_obj,
+            empty_marker_editor(),
+            notice={
+                "level": "success",
+                "message": f"Marker set '{label}' deleted.",
+            },
+        )
+    messages.success(request, f"Marker set '{label}' deleted.")
+    return redirect("render_markers", render_id=render_id)
+
+
+@login_required
+def create_marker(request, marker_set_id: int):
+    marker_set = get_manageable_marker_set_or_404(request, marker_set_id)
+    marker_type = normalize_marker_type(
+        request.POST.get("marker_type") if request.method == "POST" else request.GET.get("type")
+    )
+    form = marker_form_class(marker_type)(request.POST or None)
+    if request.method == "POST" and form.is_valid():
+        marker = form.save(commit=False)
+        marker.marker_set = marker_set
+        marker.marker_type = marker_type
+        marker.save()
+        messages.success(request, f"Marker '{marker.label}' created.")
+        return redirect("render_markers", render_id=marker_set.render_id)
+    return render(
+        request,
+        "projects/markers/marker_form.html",
+        {
+            "render": marker_set.render,
+            "marker_set": marker_set,
+            "marker_type": marker_type,
+            "form": form,
+            "title": f"Create {Marker.Type(marker_type).label}",
+            "submit_label": "Create Marker",
+        },
+    )
+
+
+@login_required
+def edit_marker(request, marker_id: int):
+    marker = get_object_or_404(
+        Marker.objects.select_related(
+            "marker_set__render__atlas__project",
+            "marker_set__render__atlas__world_folder",
+        ),
+        id=marker_id,
+        marker_set__render__is_enabled=True,
+        marker_set__render__atlas__is_active=True,
+        marker_set__render__atlas__project__is_active=True,
+    )
+    if not can_manage_project(request.user, marker.render.project):
+        raise PermissionDenied("You do not have permission to manage this marker.")
+    form = marker_form_class(marker.marker_type)(request.POST or None, instance=marker)
+    if request.method == "POST" and form.is_valid():
+        marker = form.save()
+        messages.success(request, f"Marker '{marker.label}' updated.")
+        return redirect("render_markers", render_id=marker.render.id)
+    return render(
+        request,
+        "projects/markers/marker_form.html",
+        {
+            "render": marker.render,
+            "marker_set": marker.marker_set,
+            "marker": marker,
+            "marker_type": marker.marker_type,
+            "form": form,
+            "title": f"Edit {marker.get_marker_type_display()}",
+            "submit_label": "Save Marker",
+        },
+    )
+
+
+@login_required
+@require_POST
+def delete_marker(request, marker_id: int):
+    marker = get_object_or_404(
+        Marker.objects.select_related("marker_set__render__atlas__project"),
+        id=marker_id,
+        marker_set__render__is_enabled=True,
+        marker_set__render__atlas__is_active=True,
+        marker_set__render__atlas__project__is_active=True,
+    )
+    if not can_manage_project(request.user, marker.render.project):
+        raise PermissionDenied("You do not have permission to delete this marker.")
+    render_obj = marker.render
+    render_id = render_obj.id
+    label = marker.label
+    marker.delete()
+    if is_marker_workspace_request(request):
+        return marker_workspace_response(
+            request,
+            render_obj,
+            empty_marker_editor(),
+            notice={"level": "success", "message": f"Marker '{label}' deleted."},
+        )
+    messages.success(request, f"Marker '{label}' deleted.")
+    return redirect("render_markers", render_id=render_id)
+
+
+@login_required
+@require_POST
+def publish_render_markers(request, render_id: int):
+    render_obj = get_manageable_render_or_404(request, render_id)
+    async_request = is_marker_workspace_request(request)
+    publication = queue_marker_publication(
+        request,
+        render_obj,
+        notify=not async_request,
+    )
+    if async_request:
+        return marker_workspace_response(
+            request,
+            render_obj,
+            empty_marker_editor(),
+            notice={
+                "level": publication["level"],
+                "message": publication["message"],
+            },
+        )
+    return redirect("render_markers", render_id=render_obj.id)
 
 
 def effective_resource_summary(render_obj: Render) -> str:

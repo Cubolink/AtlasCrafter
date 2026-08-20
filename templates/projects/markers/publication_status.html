@@ -1,0 +1,85 @@
+{% load icons %}
+
+<div id="marker-publication-status">
+  {% if active_job %}
+    <div class="marker-publication-rail marker-publication-rail-info" role="status">
+      <span class="marker-publication-icon">{% icon "loader-circle" "icon-lg" %}</span>
+      <div class="min-w-0 flex-1">
+        <div class="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+          <strong>{% if active_job.operation == "markers" %}Publishing markers{% else %}Render job in progress{% endif %}</strong>
+          <span class="text-base-content/65">The published map will refresh when the job finishes.</span>
+        </div>
+        <div class="marker-publication-meta">
+          <a href="{% url 'render_job_detail' active_job.id %}">job #{{ active_job.id }}</a>
+          <span aria-hidden="true">·</span>
+          <span class="status-{{ active_job.status }}">{{ active_job.get_status_display }}</span>
+        </div>
+      </div>
+    </div>
+  {% elif not marker_state.tracking %}
+    <div class="marker-publication-rail marker-publication-rail-neutral" role="status">
+      <span class="marker-publication-icon">{% icon "info" "icon-lg" %}</span>
+      <div class="min-w-0 flex-1">
+        <div class="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+          <strong>Publication tracking has not established a baseline</strong>
+          <span class="text-base-content/65">Publish once to identify new, modified, and pending-removal markers.</span>
+        </div>
+        {% if latest_marker_job %}
+          <div class="marker-publication-meta">
+            <span>Latest publication</span>
+            <span aria-hidden="true">·</span>
+            <a href="{% url 'render_job_detail' latest_marker_job.id %}">job #{{ latest_marker_job.id }}</a>
+            <span aria-hidden="true">·</span>
+            <span class="status-{{ latest_marker_job.status }}">{{ latest_marker_job.get_status_display }}</span>
+            <span aria-hidden="true">·</span>
+            <span>{{ latest_marker_job.updated_at|date:"M j, Y, P" }}</span>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  {% elif marker_state.is_dirty %}
+    <div class="marker-publication-rail marker-publication-rail-warning" role="status">
+      <span class="marker-publication-icon">{% icon "triangle-alert" "icon-lg" %}</span>
+      <div class="min-w-0 flex-1">
+        <div class="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+          <strong>Unpublished marker changes</strong>
+          <span class="text-base-content/70">
+            {{ marker_state.change_count }} draft item{{ marker_state.change_count|pluralize }}. The map still shows the last successful publication.
+          </span>
+        </div>
+        {% if render.markers_published_at or latest_marker_job %}
+          <div class="marker-publication-meta">
+            {% if render.markers_published_at %}<span>Published {{ render.markers_published_at|date:"M j, Y, P" }}</span>{% endif %}
+            {% if latest_marker_job %}
+              {% if render.markers_published_at %}<span aria-hidden="true">·</span>{% endif %}
+              <a href="{% url 'render_job_detail' latest_marker_job.id %}">job #{{ latest_marker_job.id }}</a>
+              <span aria-hidden="true">·</span>
+              <span class="status-{{ latest_marker_job.status }}">{{ latest_marker_job.get_status_display }}</span>
+            {% endif %}
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  {% else %}
+    <div class="marker-publication-rail marker-publication-rail-success" role="status">
+      <span class="marker-publication-icon">{% icon "circle-check" "icon-lg" %}</span>
+      <div class="min-w-0 flex-1">
+        <div class="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+          <strong>In sync</strong>
+          <span class="text-base-content/65">Marker configuration matches the published map.</span>
+        </div>
+        {% if render.markers_published_at or latest_marker_job %}
+          <div class="marker-publication-meta">
+            {% if render.markers_published_at %}<span>Published {{ render.markers_published_at|date:"M j, Y, P" }}</span>{% endif %}
+            {% if latest_marker_job %}
+              {% if render.markers_published_at %}<span aria-hidden="true">·</span>{% endif %}
+              <a href="{% url 'render_job_detail' latest_marker_job.id %}">job #{{ latest_marker_job.id }}</a>
+              <span aria-hidden="true">·</span>
+              <span class="status-{{ latest_marker_job.status }}">{{ latest_marker_job.get_status_display }}</span>
+            {% endif %}
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  {% endif %}
+</div>

@@ -30,6 +30,7 @@ DEFAULT_PROFILE_CONFIG_TEMPLATE = (
 )
 
 DEFAULT_PROFILE_COMMAND_TEMPLATE = '"{bluemap_cli}" -c "{config_dir}" -r'
+DEFAULT_PROFILE_MARKER_COMMAND_TEMPLATE = '"{bluemap_cli}" -c "{config_dir}" --markers'
 
 
 class BlueMapProfileForm(forms.ModelForm):
@@ -40,12 +41,14 @@ class BlueMapProfileForm(forms.ModelForm):
             "slug",
             "description",
             "command_template",
+            "marker_command_template",
             "config_template",
             "is_active",
         ]
         widgets = {
             "description": forms.Textarea(attrs={"rows": 3}),
             "command_template": forms.TextInput(),
+            "marker_command_template": forms.TextInput(),
             "config_template": forms.Textarea(
                 attrs={
                     "rows": 28,
@@ -60,6 +63,11 @@ class BlueMapProfileForm(forms.ModelForm):
             "command_template": (
                 "Command used by the render worker. Template variables include "
                 "{bluemap_cli}, {config_dir}, {map_id}, and {webroot_dir}."
+            ),
+            "marker_command_template": (
+                "Command used to publish marker changes without rendering terrain. "
+                "It must include BlueMap's --markers option and must not include --render "
+                "or --maps. BlueMap 5.22 may silently skip markers when map filtering is used."
             ),
             "config_template": (
                 "BlueMap map config template. It is rendered with the fields from the Render form."
@@ -89,5 +97,6 @@ def default_profile_data() -> dict[str, object]:
         ),
         "config_template": DEFAULT_PROFILE_CONFIG_TEMPLATE,
         "command_template": DEFAULT_PROFILE_COMMAND_TEMPLATE,
+        "marker_command_template": DEFAULT_PROFILE_MARKER_COMMAND_TEMPLATE,
         "is_active": True,
     }

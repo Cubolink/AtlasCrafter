@@ -3,7 +3,13 @@ from decimal import Decimal
 from pathlib import Path
 
 from django.core.exceptions import ValidationError
-from django.core.validators import MaxValueValidator, MinValueValidator, RegexValidator
+from django.core.validators import (
+    MaxLengthValidator,
+    MaxValueValidator,
+    MinValueValidator,
+    RegexValidator,
+    URLValidator,
+)
 from django.db import models
 from django.urls import reverse
 from django.utils.text import slugify
@@ -11,6 +17,14 @@ from django.utils.text import slugify
 
 def generate_bluemap_map_id() -> str:
     return f"render-{uuid.uuid4()}"
+
+
+def generate_marker_set_id() -> str:
+    return f"marker-set-{uuid.uuid4()}"
+
+
+def generate_marker_id() -> str:
+    return f"marker-{uuid.uuid4()}"
 
 
 hex_color_validator = RegexValidator(
@@ -276,7 +290,9 @@ class Render(TimeStampedModel):
     )
     start_position = models.JSONField(default=dict, blank=True)
     render_mask = models.JSONField(default=list, blank=True)
-    marker_sets = models.TextField(default="{}", blank=True)
+    legacy_marker_sets_hocon = models.TextField(default="{}", blank=True, editable=False)
+    published_marker_snapshot = models.JSONField(null=True, blank=True, editable=False)
+    markers_published_at = models.DateTimeField(null=True, blank=True, editable=False)
     lighting_options = models.JSONField(default=dict, blank=True)
     cave_options = models.JSONField(default=dict, blank=True)
     region = models.ForeignKey(Region, on_delete=models.SET_NULL, null=True, blank=True)
@@ -368,3 +384,183 @@ class Render(TimeStampedModel):
 
     def __str__(self) -> str:
         return f"{self.atlas} / {self.display_name}"
+
+
+class MarkerSet(TimeStampedModel):
+    render = models.ForeignKey(Render, on_delete=models.CASCADE, related_name="marker_sets")
+    bluemap_id = models.SlugField(
+        max_length=180,
+        editable=False,
+        default=generate_marker_set_id,
+    )
+    label = models.CharField(max_length=160)
+    toggleable = models.BooleanField(default=True)
+    default_hidden = models.BooleanField(default=False)
+    sorting = models.IntegerField(default=0)
+
+    class Meta:
+        ordering = ["sorting", "label", "id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["render", "bluemap_id"],
+                name="unique_marker_set_bluemap_id_per_render",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.render} / {self.label}"
+
+
+class Marker(TimeStampedModel):
+    class Type(models.TextChoices):
+        POI = "poi", "Point of interest"
+        HTML = "html", "Styled label"
+        LINE = "line", "Line"
+        SHAPE = "shape", "Area"
+        EXTRUDE = "extrude", "Volume"
+
+    class HTMLVariant(models.TextChoices):
+        LABEL = "label", "Floating label"
+        BADGE = "badge", "Rounded badge"
+        SIGN = "sign", "Sign"
+
+    class HTMLSize(models.TextChoices):
+        SMALL = "small", "Small"
+        MEDIUM = "medium", "Medium"
+        LARGE = "large", "Large"
+
+    class HTMLSymbol(models.TextChoices):
+        NONE = "none", "No symbol"
+        PIN = "pin", "Map pin"
+        STAR = "star", "Star"
+        HOME = "home", "Home"
+        SHOP = "shop", "Shop"
+        PORTAL = "portal", "Portal"
+        WARNING = "warning", "Warning"
+
+    marker_set = models.ForeignKey(MarkerSet, on_delete=models.CASCADE, related_name="markers")
+    bluemap_id = models.SlugField(
+        max_length=180,
+        editable=False,
+        default=generate_marker_id,
+    )
+    marker_type = models.CharField(max_length=20, choices=Type.choices, default=Type.POI)
+    label = models.CharField(max_length=160)
+    detail = models.TextField(blank=True, validators=[MaxLengthValidator(4000)])
+    position_x = models.DecimalField(max_digits=14, decimal_places=3)
+    position_y = models.DecimalField(max_digits=14, decimal_places=3)
+    position_z = models.DecimalField(max_digits=14, decimal_places=3)
+    sorting = models.IntegerField(default=0)
+    listed = models.BooleanField(default=True)
+    min_distance = models.PositiveIntegerField(null=True, blank=True)
+    max_distance = models.PositiveIntegerField(null=True, blank=True)
+    icon = models.CharField(max_length=255, default="assets/poi.svg", editable=False)
+    anchor_x = models.IntegerField(default=25, editable=False)
+    anchor_y = models.IntegerField(default=45, editable=False)
+    html_variant = models.CharField(
+        max_length=20,
+        choices=HTMLVariant.choices,
+        default=HTMLVariant.BADGE,
+    )
+    html_size = models.CharField(
+        max_length=10,
+        choices=HTMLSize.choices,
+        default=HTMLSize.MEDIUM,
+    )
+    html_symbol = models.CharField(
+        max_length=20,
+        choices=HTMLSymbol.choices,
+        default=HTMLSymbol.PIN,
+    )
+    html_text_color = models.CharField(
+        max_length=7,
+        default="#ffffff",
+        validators=[hex_color_validator],
+    )
+    html_background_color = models.CharField(
+        max_length=7,
+        default="#2563eb",
+        validators=[hex_color_validator],
+    )
+    geometry = models.JSONField(default=list, blank=True)
+    shape_min_y = models.DecimalField(
+        max_digits=14,
+        decimal_places=3,
+        null=True,
+        blank=True,
+    )
+    shape_max_y = models.DecimalField(
+        max_digits=14,
+        decimal_places=3,
+        null=True,
+        blank=True,
+    )
+    depth_test = models.BooleanField(default=False)
+    line_width = models.PositiveSmallIntegerField(
+        default=3,
+        validators=[MinValueValidator(1), MaxValueValidator(20)],
+    )
+    line_color = models.CharField(
+        max_length=7,
+        default="#ef4444",
+        validators=[hex_color_validator],
+    )
+    line_opacity = models.DecimalField(
+        max_digits=4,
+        decimal_places=3,
+        default=1,
+        validators=[MinValueValidator(0), MaxValueValidator(1)],
+    )
+    fill_color = models.CharField(
+        max_length=7,
+        default="#ef4444",
+        validators=[hex_color_validator],
+    )
+    fill_opacity = models.DecimalField(
+        max_digits=4,
+        decimal_places=3,
+        default=Decimal("0.250"),
+        validators=[MinValueValidator(0), MaxValueValidator(1)],
+    )
+    link = models.CharField(
+        max_length=500,
+        blank=True,
+        validators=[URLValidator(schemes=["http", "https"])],
+    )
+    new_tab = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ["sorting", "label", "id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["marker_set", "bluemap_id"],
+                name="unique_marker_bluemap_id_per_set",
+            ),
+        ]
+
+    def clean(self):
+        super().clean()
+        if (
+            self.min_distance is not None
+            and self.max_distance is not None
+            and self.max_distance < self.min_distance
+        ):
+            raise ValidationError(
+                {"max_distance": "Maximum distance must be greater than or equal to minimum distance."}
+            )
+        if (
+            self.marker_type == self.Type.EXTRUDE
+            and self.shape_min_y is not None
+            and self.shape_max_y is not None
+            and self.shape_max_y < self.shape_min_y
+        ):
+            raise ValidationError(
+                {"shape_max_y": "Maximum height must be greater than or equal to minimum height."}
+            )
+
+    @property
+    def render(self):
+        return self.marker_set.render
+
+    def __str__(self) -> str:
+        return f"{self.marker_set} / {self.label}"

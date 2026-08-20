@@ -92,6 +92,14 @@ Project Administrators for the Project and superusers can use these routes. Proj
 | :--- | :--- | :--- | :--- |
 | `GET` | `/renders/<render_id>/` | `render_viewer` | Render detail page and scoped BlueMap viewer frame. |
 | `GET` | `/renders/<render_id>/config-preview/` | `render_config_preview` | Preview generated BlueMap map config. |
+| `GET/POST` | `/renders/<render_id>/markers/` | `render_markers` | Project Admin marker workspace, in-page point quick editor, published-map coordinate guide, and draft publication status. |
+| `GET/POST` | `/renders/<render_id>/markers/create-set/` | `create_marker_set` | Create a marker set owned by the Render. |
+| `POST` | `/renders/<render_id>/markers/publish/` | `publish_render_markers` | Queue a BlueMap `--markers` publication job without rendering terrain. |
+| `GET/POST` | `/marker-sets/<marker_set_id>/edit/` | `edit_marker_set` | Edit a Render marker set. |
+| `POST` | `/marker-sets/<marker_set_id>/delete/` | `delete_marker_set` | Delete a marker set and its markers. |
+| `GET/POST` | `/marker-sets/<marker_set_id>/markers/create/` | `create_marker` | Create a safe point-of-interest marker. |
+| `GET/POST` | `/markers/<marker_id>/edit/` | `edit_marker` | Edit a point-of-interest marker. |
+| `POST` | `/markers/<marker_id>/delete/` | `delete_marker` | Delete a point-of-interest marker. |
 | `POST` | `/renders/<render_id>/trigger/` | `trigger_render` | Queue render job, or create failed job if source World Folder is archived/missing. |
 | `POST` | `/renders/<render_id>/rebuild/` | `rebuild_render` | Project Admin-only full rebuild using current config and Minecraft resources. Stages old output, runs BlueMap with `--force-render`, and restores old output on failure. |
 | `GET` | `/renders/<render_id>/status/` | `render_status` | JSON status endpoint used by polling while a job is active. |

@@ -17,6 +17,7 @@ from .models import RenderJob
 from .services import (
     RenderConfigurationError,
     build_command,
+    build_marker_command,
     claim_next_queued_job,
     enqueue_render,
     execute_render_job,
@@ -215,6 +216,67 @@ class RenderRunnerTests(TestCase):
         self.assertEqual(job.status, RenderJob.Status.QUEUED)
         self.assertEqual(job.operation, RenderJob.Operation.REBUILD)
 
+    def test_marker_command_uses_dedicated_cli_operation(self):
+        render = self.create_render()
+        render_config = get_or_create_render_config(render)
+
+        command = build_marker_command(render_config)
+
+        self.assertIn("--markers", command)
+        self.assertNotIn("-r", command)
+        self.assertNotIn("--render", command)
+        self.assertNotIn("-m", command)
+        self.assertNotIn("--maps", command)
+        self.assertNotIn("--mods", command)
+
+    def test_marker_command_rejects_map_filtering(self):
+        render = self.create_render()
+        render_config = get_or_create_render_config(render)
+        render_config.profile.marker_command_template = (
+            '"{bluemap_cli}" -c "{config_dir}" --markers --maps "{map_id}"'
+        )
+        render_config.profile.save(update_fields=["marker_command_template"])
+
+        with self.assertRaisesMessage(
+            RenderConfigurationError,
+            "cannot include -m or --maps",
+        ):
+            build_marker_command(render_config)
+
+    def test_marker_job_does_not_require_world_files_or_render_tiles(self):
+        with TemporaryDirectory() as config_dir, TemporaryDirectory() as webroot_dir:
+            render = self.create_render()
+            world = render.world_folder
+            (Path(world.source_path) / "level.dat").unlink()
+            job = RenderJob.objects.create(
+                render=render,
+                operation=RenderJob.Operation.MARKERS,
+            )
+
+            with override_settings(
+                BLUEMAP_CLI_PATH="bluemap",
+                BLUEMAP_CONFIG_DIR=Path(config_dir),
+                BLUEMAP_WEBROOT_DIR=Path(webroot_dir),
+                BLUEMAP_TMP_DIR=Path(config_dir) / "tmp",
+            ), patch(
+                "renders.services.subprocess.run",
+                return_value=Mock(returncode=0, stdout="Updated markers", stderr=""),
+            ) as run:
+                job = execute_render_job(job)
+
+            self.assertEqual(job.status, RenderJob.Status.SUCCEEDED)
+            self.assertIn("--markers", job.command)
+            self.assertNotIn("-r", job.command)
+            run.assert_called_once()
+            world.refresh_from_db()
+            self.assertTrue(world.is_active)
+            render.refresh_from_db()
+            self.assertEqual(
+                render.published_marker_snapshot,
+                {"version": 1, "sets": {}},
+            )
+            self.assertIsNotNone(render.markers_published_at)
+
     def test_enqueue_render_fails_and_archives_world_when_world_folder_is_missing(self):
         render = self.create_render()
         world = render.atlas.world_folder
@@ -325,6 +387,8 @@ class RenderRunnerTests(TestCase):
             self.assertTrue((map_dir / "old-tile").exists())
             self.assertFalse((map_dir / "partial-tile").exists())
             self.assertFalse(any((webroot / "maps").glob(".rebuild-job-*")))
+            render.refresh_from_db()
+            self.assertIsNone(render.published_marker_snapshot)
 
     def test_claim_next_queued_job_respects_global_running_limit(self):
         first_render = self.create_render()

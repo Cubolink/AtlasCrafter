@@ -5,8 +5,8 @@ from django.test import Client
 from django.test import TestCase
 from django.urls import reverse
 
-from projects.models import Atlas, Project, ProjectVisibleWorld, Render, WorldFolder
-from .forms import DEFAULT_PROFILE_COMMAND_TEMPLATE
+from projects.models import Atlas, Marker, MarkerSet, Project, ProjectVisibleWorld, Render, WorldFolder
+from .forms import DEFAULT_PROFILE_COMMAND_TEMPLATE, DEFAULT_PROFILE_MARKER_COMMAND_TEMPLATE
 from .models import BlueMapProfile, BlueMapRenderConfig
 
 
@@ -61,13 +61,19 @@ class BlueMapRenderConfigTests(TestCase):
                 "max-z": 200,
             },
         ]
-        render.marker_sets = (
-            "{\n"
-            "  spawn: {\n"
-            '    label: "Spawn"\n'
-            "    markers: {}\n"
-            "  }\n"
-            "}"
+        marker_set = MarkerSet.objects.create(
+            render=render,
+            bluemap_id="spawn",
+            label="Spawn",
+        )
+        Marker.objects.create(
+            marker_set=marker_set,
+            bluemap_id="main-spawn",
+            label="Main Spawn",
+            detail="Safe <script>alert('no')</script>\nSecond line",
+            position_x=10,
+            position_y=80,
+            position_z=-20,
         )
         render.save()
         profile = BlueMapProfile.objects.create(name="Default", slug="default")
@@ -100,6 +106,10 @@ class BlueMapRenderConfigTests(TestCase):
         self.assertIn("ignore-missing-light-data: true", content)
         self.assertIn("marker-sets: {", content)
         self.assertIn('label: "Spawn"', content)
+        self.assertIn('label: "Main Spawn"', content)
+        self.assertIn("&lt;script&gt;", content)
+        self.assertIn("<br>Second line", content)
+        self.assertNotIn("<script>", content)
         self.assertNotIn("maps:", content)
 
     def create_render(self):
@@ -168,6 +178,7 @@ class BlueMapProfilePanelTests(TestCase):
         profile = BlueMapProfile.objects.get(slug="default")
         self.assertEqual(profile.name, "Default BlueMap CLI")
         self.assertEqual(profile.command_template, DEFAULT_PROFILE_COMMAND_TEMPLATE)
+        self.assertEqual(profile.marker_command_template, DEFAULT_PROFILE_MARKER_COMMAND_TEMPLATE)
         self.assertTrue(profile.is_active)
 
     def test_create_and_edit_bluemap_profile(self):
@@ -183,6 +194,7 @@ class BlueMapProfilePanelTests(TestCase):
                 "slug": "custom-cli",
                 "description": "Custom render settings.",
                 "command_template": '"{bluemap_cli}" -c "{config_dir}" -r',
+                "marker_command_template": '"{bluemap_cli}" -c "{config_dir}" --markers',
                 "config_template": 'world: "{world_path}"\nname: "{display_name}"\n',
                 "is_active": "on",
             },
@@ -198,6 +210,7 @@ class BlueMapProfilePanelTests(TestCase):
                 "slug": "custom-cli",
                 "description": "Updated.",
                 "command_template": '"{bluemap_cli}" -c "{config_dir}" -r',
+                "marker_command_template": '"{bluemap_cli}" -c "{config_dir}" --markers',
                 "config_template": 'world: "{world_path}"\ndimension: "{dimension}"\n',
                 "is_active": "on",
             },

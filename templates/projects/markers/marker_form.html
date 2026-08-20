@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% load static icons %}
+
+{% block title %}{{ title }} - {{ render.display_name }}{% endblock %}
+
+{% block breadcrumbs %}
+  <li><a href="{% url 'render_viewer' render.id %}">{% icon "map-pinned" %} {{ render.display_name }}</a></li>
+  <li><a href="{% url 'render_markers' render.id %}">{% icon "map-pin" %} Markers</a></li>
+  <li>{{ title }}</li>
+{% endblock %}
+
+{% block content %}
+  <div class="page-heading">
+    <div>
+      <p class="page-kicker">{{ marker_set.label }}</p>
+      <h1>{% icon "map-pin" "icon-heading" %}{{ title }}</h1>
+      <p class="mt-2 max-w-3xl text-base-content/70">
+        {% if marker_type == 'html' %}Appearance is generated from safe controls; users never enter HTML or CSS.{% elif marker_type == 'poi' %}Descriptions are plain text and are safely escaped before BlueMap receives them.{% else %}Build the geometry with coordinate rows; AtlasCrafter generates BlueMap's configuration safely.{% endif %}
+      </p>
+    </div>
+    <a class="btn btn-ghost btn-sm" href="{% url 'render_markers' render.id %}">{% icon "arrow-left" %} Back to Markers</a>
+  </div>
+
+  <section class="panel">
+    <form method="post">
+      {% csrf_token %}
+      {% if not marker %}<input type="hidden" name="marker_type" value="{{ marker_type }}">{% endif %}
+      <div class="form-grid">
+        <div class="form-field">{{ form.label.label_tag }}{{ form.label }}{% if form.label.help_text %}<span class="form-help">{{ form.label.help_text }}</span>{% endif %}{{ form.label.errors }}</div>
+        <div class="form-field">{{ form.sorting.label_tag }}{{ form.sorting }}{% if form.sorting.help_text %}<span class="form-help">{{ form.sorting.help_text }}</span>{% endif %}{{ form.sorting.errors }}</div>
+        {% if marker_type == 'poi' %}
+          <div class="form-field form-field-wide">{{ form.detail.label_tag }}{{ form.detail }}{% if form.detail.help_text %}<span class="form-help">{{ form.detail.help_text }}</span>{% endif %}{{ form.detail.errors }}</div>
+        {% elif marker_type == 'html' %}
+          <div class="form-field form-field-wide">
+            <label>Preview</label>
+            <div class="html-marker-preview-canvas">
+              <div class="html-marker-preview" data-html-marker-preview>
+                <span data-html-marker-preview-symbol></span>
+                <span data-html-marker-preview-label>Styled label</span>
+              </div>
+            </div>
+            <span class="form-help">This preview is assembled from safe, fixed styles.</span>
+          </div>
+          <div class="form-field">{{ form.html_variant.label_tag }}{{ form.html_variant }}{% if form.html_variant.help_text %}<span class="form-help">{{ form.html_variant.help_text }}</span>{% endif %}{{ form.html_variant.errors }}</div>
+          <div class="form-field">{{ form.html_size.label_tag }}{{ form.html_size }}{{ form.html_size.errors }}</div>
+          <div class="form-field">{{ form.html_symbol.label_tag }}{{ form.html_symbol }}{{ form.html_symbol.errors }}</div>
+          <div class="form-field grid grid-cols-2 gap-3">
+            <div>{{ form.html_text_color.label_tag }}{{ form.html_text_color }}{{ form.html_text_color.errors }}</div>
+            <div>{{ form.html_background_color.label_tag }}{{ form.html_background_color }}{{ form.html_background_color.errors }}</div>
+          </div>
+        {% else %}
+          <div class="form-field form-field-wide">{{ form.detail.label_tag }}{{ form.detail }}{% if form.detail.help_text %}<span class="form-help">{{ form.detail.help_text }}</span>{% endif %}{{ form.detail.errors }}</div>
+          {% if marker_type == 'shape' %}
+            <div class="form-field">{{ form.position_y.label_tag }}{{ form.position_y }}<span class="form-help">The horizontal level where this area is drawn.</span>{{ form.position_y.errors }}</div>
+          {% elif marker_type == 'extrude' %}
+            <div class="form-field">{{ form.shape_min_y.label_tag }}{{ form.shape_min_y }}{{ form.shape_min_y.errors }}</div>
+            <div class="form-field">{{ form.shape_max_y.label_tag }}{{ form.shape_max_y }}{{ form.shape_max_y.errors }}</div>
+          {% endif %}
+          <div class="form-field form-field-wide">
+            {% include "projects/markers/geometry_editor.html" with form=form marker_type=marker_type only %}
+          </div>
+          <div class="form-field">{{ form.line_color.label_tag }}{{ form.line_color }}{{ form.line_color.errors }}</div>
+          <div class="form-field">{{ form.line_opacity.label_tag }}{{ form.line_opacity }}{{ form.line_opacity.errors }}</div>
+          <div class="form-field">{{ form.line_width.label_tag }}{{ form.line_width }}{% if form.line_width.help_text %}<span class="form-help">{{ form.line_width.help_text }}</span>{% endif %}{{ form.line_width.errors }}</div>
+          {% if marker_type == 'shape' or marker_type == 'extrude' %}
+            <div class="form-field">{{ form.fill_color.label_tag }}{{ form.fill_color }}{{ form.fill_color.errors }}</div>
+            <div class="form-field">{{ form.fill_opacity.label_tag }}{{ form.fill_opacity }}{{ form.fill_opacity.errors }}</div>
+          {% endif %}
+          <div class="form-field form-field-wide">{{ form.link.label_tag }}{{ form.link }}{% if form.link.help_text %}<span class="form-help">{{ form.link.help_text }}</span>{% endif %}{{ form.link.errors }}</div>
+          <div class="form-field flex items-center justify-between gap-4"><div>{{ form.new_tab.label_tag }}{{ form.new_tab.errors }}</div>{{ form.new_tab }}</div>
+          <div class="form-field flex items-center justify-between gap-4"><div>{{ form.depth_test.label_tag }}{% if form.depth_test.help_text %}<span class="form-help">{{ form.depth_test.help_text }}</span>{% endif %}{{ form.depth_test.errors }}</div>{{ form.depth_test }}</div>
+        {% endif %}
+
+        {% if marker_type == 'poi' or marker_type == 'html' %}
+          <div class="form-field form-field-wide">
+            <label>Position</label>
+            <div class="grid gap-3 sm:grid-cols-3">
+              <div>{{ form.position_x.label_tag }}{{ form.position_x }}{{ form.position_x.errors }}</div>
+              <div>{{ form.position_y.label_tag }}{{ form.position_y }}{{ form.position_y.errors }}</div>
+              <div>{{ form.position_z.label_tag }}{{ form.position_z }}{{ form.position_z.errors }}</div>
+            </div>
+            <span class="form-help">Minecraft world coordinates. Decimal positions are supported.</span>
+          </div>
+        {% endif %}
+
+        <div class="form-field">{{ form.min_distance.label_tag }}{{ form.min_distance }}{% if form.min_distance.help_text %}<span class="form-help">{{ form.min_distance.help_text }}</span>{% endif %}{{ form.min_distance.errors }}</div>
+        <div class="form-field">{{ form.max_distance.label_tag }}{{ form.max_distance }}{% if form.max_distance.help_text %}<span class="form-help">{{ form.max_distance.help_text }}</span>{% endif %}{{ form.max_distance.errors }}</div>
+        <div class="form-field form-field-wide flex items-center justify-between gap-4">
+          <div>{{ form.listed.label_tag }}{% if form.listed.help_text %}<span class="form-help">{{ form.listed.help_text }}</span>{% endif %}{{ form.listed.errors }}</div>
+          {{ form.listed }}
+        </div>
+      </div>
+      {{ form.non_field_errors }}
+      <div class="mt-5 flex flex-wrap gap-2">
+        <button class="btn btn-primary" type="submit" name="submit_action" value="save">{% icon "save" %} Save</button>
+      </div>
+    </form>
+  </section>
+  {% if marker_type == 'html' %}<script src="{% static 'js/html_marker_preview.js' %}" defer></script>{% endif %}
+  {% if marker_type == 'line' or marker_type == 'shape' or marker_type == 'extrude' %}<script src="{% static 'js/geometry_marker_editor.js' %}" defer></script>{% endif %}
+{% endblock %}

@@ -26,7 +26,7 @@
       {% csrf_token %}
       <div class="form-grid">
         {% for field in form %}
-          <div class="form-field {% if field.name == 'description' or field.name == 'command_template' or field.name == 'config_template' %}form-field-wide{% endif %} {% if field.field.widget.input_type == 'checkbox' %}flex items-center justify-between gap-4{% endif %}">
+          <div class="form-field {% if field.name == 'description' or field.name == 'command_template' or field.name == 'marker_command_template' or field.name == 'config_template' %}form-field-wide{% endif %} {% if field.field.widget.input_type == 'checkbox' %}flex items-center justify-between gap-4{% endif %}">
             {% if field.field.widget.input_type == 'checkbox' %}
               <div>
                 {{ field.label_tag }}
