@@ -22,7 +22,9 @@ from viewer.views import render_output_exists
 from .forms import (
     AtlasCreateForm,
     AtlasEditForm,
+    ExtrudeMarkerForm,
     HTMLMarkerForm,
+    LineMarkerForm,
     MarkerSetForm,
     POIMarkerForm,
     ProjectManageForm,
@@ -34,6 +36,7 @@ from .forms import (
     RENDER_PRESET_SUMMARIES,
     RenderCreateForm,
     RenderEditForm,
+    ShapeMarkerForm,
     MinecraftResourceSourceForm,
     WorldFolderForm,
 )
@@ -817,9 +820,13 @@ def normalize_marker_type(value) -> str:
 
 
 def marker_form_class(marker_type):
-    if marker_type == Marker.Type.HTML:
-        return HTMLMarkerForm
-    return POIMarkerForm
+    return {
+        Marker.Type.POI: POIMarkerForm,
+        Marker.Type.HTML: HTMLMarkerForm,
+        Marker.Type.LINE: LineMarkerForm,
+        Marker.Type.SHAPE: ShapeMarkerForm,
+        Marker.Type.EXTRUDE: ExtrudeMarkerForm,
+    }.get(marker_type, POIMarkerForm)
 
 
 def positive_int(value) -> int | None:

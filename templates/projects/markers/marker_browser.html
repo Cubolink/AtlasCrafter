@@ -52,7 +52,11 @@
                     <span class="flex items-start justify-between gap-2">
                       <span class="min-w-0">
                         <span class="flex items-center gap-1.5 truncate text-sm font-medium">
-                          {% if marker_row.marker.marker_type == 'html' %}{% icon "badge" %}{% endif %}
+                          {% if marker_row.marker.marker_type == 'html' %}{% icon "badge" %}
+                          {% elif marker_row.marker.marker_type == 'line' %}{% icon "route" %}
+                          {% elif marker_row.marker.marker_type == 'shape' %}{% icon "square-dashed" %}
+                          {% elif marker_row.marker.marker_type == 'extrude' %}{% icon "box" %}
+                          {% else %}{% icon "map-pin" %}{% endif %}
                           {{ marker_row.marker.label }}
                         </span>
                         <code class="mt-0.5 block truncate text-xs text-base-content/60">{{ marker_row.marker.position_x|compact_coordinate }}, {{ marker_row.marker.position_y|compact_coordinate }}, {{ marker_row.marker.position_z|compact_coordinate }}</code>

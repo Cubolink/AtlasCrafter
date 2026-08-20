@@ -1,7 +1,8 @@
 import json
 import re
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from html import escape
+from urllib.parse import urlsplit
 
 from .models import Marker
 
@@ -53,7 +54,7 @@ def build_marker_snapshot(render) -> dict:
                         "html_background_color": marker.html_background_color,
                     }
                 )
-            else:
+            elif marker.marker_type == Marker.Type.POI:
                 marker_data.update(
                     {
                         "detail": marker.detail,
@@ -62,6 +63,33 @@ def build_marker_snapshot(render) -> dict:
                         "anchor_y": marker.anchor_y,
                     }
                 )
+            else:
+                marker_data.update(
+                    {
+                        "detail": marker.detail,
+                        "geometry": marker.geometry,
+                        "depth_test": marker.depth_test,
+                        "line_width": marker.line_width,
+                        "line_color": marker.line_color,
+                        "line_opacity": format_number(marker.line_opacity),
+                        "link": marker.link,
+                        "new_tab": marker.new_tab,
+                    }
+                )
+                if marker.marker_type in {Marker.Type.SHAPE, Marker.Type.EXTRUDE}:
+                    marker_data.update(
+                        {
+                            "fill_color": marker.fill_color,
+                            "fill_opacity": format_number(marker.fill_opacity),
+                        }
+                    )
+                if marker.marker_type == Marker.Type.EXTRUDE:
+                    marker_data.update(
+                        {
+                            "shape_min_y": format_number(marker.shape_min_y),
+                            "shape_max_y": format_number(marker.shape_max_y),
+                        }
+                    )
             markers[marker.bluemap_id] = marker_data
         marker_sets[marker_set.bluemap_id] = {
             "label": marker_set.label,
@@ -208,7 +236,14 @@ def format_marker_set(marker_set_id: str, marker_set_data: dict) -> str:
 
 
 def format_marker(marker_id: str, marker_data: dict) -> str:
-    if marker_data["type"] not in {Marker.Type.POI, Marker.Type.HTML}:
+    supported_types = {
+        Marker.Type.POI,
+        Marker.Type.HTML,
+        Marker.Type.LINE,
+        Marker.Type.SHAPE,
+        Marker.Type.EXTRUDE,
+    }
+    if marker_data["type"] not in supported_types:
         raise ValueError(f"Unsupported marker type: {marker_data['type']}")
 
     lines = [
@@ -238,13 +273,64 @@ def format_marker(marker_id: str, marker_data: dict) -> str:
                 ),
             ]
         )
-    else:
+    elif marker_data["type"] == Marker.Type.HTML:
         lines.extend(
             [
                 f"      html: {hocon_string(safe_html_marker(marker_data))}",
                 "      anchor: { x: 0, y: 0 }",
             ]
         )
+    else:
+        marker_type = marker_data["type"]
+        dimensions = (
+            ("x", "y", "z") if marker_type == Marker.Type.LINE else ("x", "z")
+        )
+        minimum_vertices = 2 if marker_type == Marker.Type.LINE else 3
+        geometry_key = "line" if marker_type == Marker.Type.LINE else "shape"
+        lines.extend(
+            format_geometry(
+                geometry_key,
+                marker_data["geometry"],
+                dimensions,
+                minimum_vertices,
+            )
+        )
+        if marker_type == Marker.Type.SHAPE:
+            lines.append(f"      shape-y: {safe_hocon_number(marker_data['position_y'])}")
+        elif marker_type == Marker.Type.EXTRUDE:
+            lines.extend(
+                [
+                    f"      shape-min-y: {safe_hocon_number(marker_data['shape_min_y'])}",
+                    f"      shape-max-y: {safe_hocon_number(marker_data['shape_max_y'])}",
+                ]
+            )
+        if marker_data["detail"]:
+            lines.append(
+                f"      detail: {hocon_string(safe_marker_detail(marker_data['detail']))}"
+            )
+        lines.extend(
+            [
+                f"      depth-test: {hocon_bool(marker_data['depth_test'])}",
+                f"      line-width: {int(marker_data['line_width'])}",
+                (
+                    "      line-color: "
+                    f"{hocon_color(marker_data['line_color'], marker_data['line_opacity'])}"
+                ),
+            ]
+        )
+        if marker_type in {Marker.Type.SHAPE, Marker.Type.EXTRUDE}:
+            lines.append(
+                "      fill-color: "
+                f"{hocon_color(marker_data['fill_color'], marker_data['fill_opacity'])}"
+            )
+        link = safe_marker_link(marker_data.get("link", ""))
+        if link:
+            lines.extend(
+                [
+                    f"      link: {hocon_string(link)}",
+                    f"      new-tab: {hocon_bool(marker_data.get('new_tab', False))}",
+                ]
+            )
     lines.extend(
         [
             f"      sorting: {marker_data['sorting']}",
@@ -262,6 +348,62 @@ def format_marker(marker_id: str, marker_data: dict) -> str:
 def safe_marker_detail(detail: str) -> str:
     normalized = detail.replace("\r\n", "\n").replace("\r", "\n")
     return escape(normalized, quote=True).replace("\n", "<br>")
+
+
+def format_geometry(key: str, geometry, dimensions, minimum_vertices: int) -> list[str]:
+    if not isinstance(geometry, list) or len(geometry) < minimum_vertices:
+        raise ValueError(f"{key.title()} markers require at least {minimum_vertices} vertices.")
+    if len(geometry) > 200:
+        raise ValueError("Markers can contain at most 200 vertices.")
+    lines = [f"      {key}: ["]
+    for point in geometry:
+        if not isinstance(point, dict):
+            raise ValueError("Invalid marker vertex.")
+        coordinates = ", ".join(
+            f"{dimension}: {safe_hocon_number(point.get(dimension))}"
+            for dimension in dimensions
+        )
+        lines.append(f"        {{ {coordinates} }}")
+    lines.append("      ]")
+    return lines
+
+
+def safe_hocon_number(value) -> str:
+    try:
+        number = Decimal(str(value))
+    except (InvalidOperation, TypeError, ValueError) as exc:
+        raise ValueError(f"Invalid marker number: {value}") from exc
+    if not number.is_finite():
+        raise ValueError(f"Invalid marker number: {value}")
+    return format_number(number)
+
+
+def hocon_color(color: str, opacity) -> str:
+    color = safe_html_color(color)
+    try:
+        alpha = Decimal(str(opacity))
+    except (InvalidOperation, TypeError, ValueError) as exc:
+        raise ValueError(f"Invalid marker opacity: {opacity}") from exc
+    if not alpha.is_finite() or alpha < 0 or alpha > 1:
+        raise ValueError(f"Invalid marker opacity: {opacity}")
+    return (
+        "{ "
+        f"r: {int(color[1:3], 16)}, "
+        f"g: {int(color[3:5], 16)}, "
+        f"b: {int(color[5:7], 16)}, "
+        f"a: {format_number(alpha)} "
+        "}"
+    )
+
+
+def safe_marker_link(value: str) -> str:
+    value = str(value).strip()
+    if not value:
+        return ""
+    parsed = urlsplit(value)
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        raise ValueError("Marker links must use http or https.")
+    return value
 
 
 def safe_html_marker(marker_data: dict) -> str:

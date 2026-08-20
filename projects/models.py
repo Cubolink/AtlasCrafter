@@ -8,6 +8,7 @@ from django.core.validators import (
     MaxValueValidator,
     MinValueValidator,
     RegexValidator,
+    URLValidator,
 )
 from django.db import models
 from django.urls import reverse
@@ -414,6 +415,9 @@ class Marker(TimeStampedModel):
     class Type(models.TextChoices):
         POI = "poi", "Point of interest"
         HTML = "html", "Styled label"
+        LINE = "line", "Line"
+        SHAPE = "shape", "Area"
+        EXTRUDE = "extrude", "Volume"
 
     class HTMLVariant(models.TextChoices):
         LABEL = "label", "Floating label"
@@ -478,6 +482,52 @@ class Marker(TimeStampedModel):
         default="#2563eb",
         validators=[hex_color_validator],
     )
+    geometry = models.JSONField(default=list, blank=True)
+    shape_min_y = models.DecimalField(
+        max_digits=14,
+        decimal_places=3,
+        null=True,
+        blank=True,
+    )
+    shape_max_y = models.DecimalField(
+        max_digits=14,
+        decimal_places=3,
+        null=True,
+        blank=True,
+    )
+    depth_test = models.BooleanField(default=False)
+    line_width = models.PositiveSmallIntegerField(
+        default=3,
+        validators=[MinValueValidator(1), MaxValueValidator(20)],
+    )
+    line_color = models.CharField(
+        max_length=7,
+        default="#ef4444",
+        validators=[hex_color_validator],
+    )
+    line_opacity = models.DecimalField(
+        max_digits=4,
+        decimal_places=3,
+        default=1,
+        validators=[MinValueValidator(0), MaxValueValidator(1)],
+    )
+    fill_color = models.CharField(
+        max_length=7,
+        default="#ef4444",
+        validators=[hex_color_validator],
+    )
+    fill_opacity = models.DecimalField(
+        max_digits=4,
+        decimal_places=3,
+        default=Decimal("0.250"),
+        validators=[MinValueValidator(0), MaxValueValidator(1)],
+    )
+    link = models.CharField(
+        max_length=500,
+        blank=True,
+        validators=[URLValidator(schemes=["http", "https"])],
+    )
+    new_tab = models.BooleanField(default=False)
 
     class Meta:
         ordering = ["sorting", "label", "id"]
@@ -497,6 +547,15 @@ class Marker(TimeStampedModel):
         ):
             raise ValidationError(
                 {"max_distance": "Maximum distance must be greater than or equal to minimum distance."}
+            )
+        if (
+            self.marker_type == self.Type.EXTRUDE
+            and self.shape_min_y is not None
+            and self.shape_max_y is not None
+            and self.shape_max_y < self.shape_min_y
+        ):
+            raise ValidationError(
+                {"shape_max_y": "Maximum height must be greater than or equal to minimum height."}
             )
 
     @property

@@ -65,6 +65,12 @@
     }
   }
 
+  function initializeGeometryEditor() {
+    if (window.AtlasCrafterGeometryEditor) {
+      window.AtlasCrafterGeometryEditor.refresh(document.getElementById("marker-editor"));
+    }
+  }
+
   function showSavedState(notice) {
     var button = document.querySelector("#marker-editor [data-marker-save-button]");
     if (!button) return;
@@ -160,6 +166,7 @@
     if (options.replaceEditor !== false) {
       replaceFragment("marker-editor", payload.marker_editor_html);
       initializeHTMLMarkerPreview();
+      initializeGeometryEditor();
     }
     if (options.replacePublicationStatus !== false) {
       replaceFragment("marker-publication-status", payload.publication_status_html);
@@ -309,11 +316,18 @@
     submitWorkspaceForm(form, event.submitter);
   });
 
+  workspace.addEventListener("change", function (event) {
+    var selector = event.target.closest("[data-marker-type-switch]");
+    if (!selector || !selector.value) return;
+    loadEditor(selector.value, "replace");
+  });
+
   window.addEventListener("popstate", function () {
     loadEditor(window.location.href, false);
   });
 
   workspace.dataset.editorUrl = window.location.pathname + window.location.search + window.location.hash;
   initializeHTMLMarkerPreview();
+  initializeGeometryEditor();
   startPolling(workspace.dataset.activeJobId || null);
 })();

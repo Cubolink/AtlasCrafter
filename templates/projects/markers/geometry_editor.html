@@ -1,0 +1,22 @@
+{% load icons %}
+
+<div
+  class="geometry-editor"
+  data-geometry-editor
+  data-dimensions="{% if marker_type == 'line' %}x,y,z{% else %}x,z{% endif %}"
+  data-min-vertices="{% if marker_type == 'line' %}2{% else %}3{% endif %}"
+>
+  {{ form.vertices }}
+  <div class="geometry-editor-heading">
+    <div>
+      <label>Vertices</label>
+      <p class="form-help">
+        {% if marker_type == 'line' %}Add points in the order the line should follow.{% else %}Add corners in order around the boundary.{% endif %}
+      </p>
+    </div>
+    <button class="btn btn-outline btn-xs" type="button" data-add-geometry-vertex>{% icon "plus" %} Add vertex</button>
+  </div>
+  <div class="geometry-vertex-list" data-geometry-vertices></div>
+  {{ form.vertices.errors }}
+  <p class="form-help">The BlueMap ordering position is calculated automatically from these vertices.</p>
+</div>

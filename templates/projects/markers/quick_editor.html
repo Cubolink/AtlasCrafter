@@ -20,22 +20,25 @@
   {% if marker_editor.mode == "create" %}
     <input type="hidden" name="marker_set_id" value="{{ marker_editor.marker_set.id }}">
     <input type="hidden" name="marker_type" value="{{ marker_editor.marker_type }}">
-    <div class="mb-4 grid grid-cols-2 rounded-lg bg-base-200 p-1" aria-label="Marker type">
-      <a
-        class="rounded-md px-2 py-1.5 text-center text-xs font-medium hover:no-underline {% if marker_editor.marker_type == 'poi' %}bg-base-100 text-primary shadow-sm{% else %}text-base-content/65{% endif %}"
-        href="?create={{ marker_editor.marker_set.id }}&amp;type=poi#marker-editor"
-        data-marker-editor-link
-      >{% icon "map-pin" %} Point</a>
-      <a
-        class="rounded-md px-2 py-1.5 text-center text-xs font-medium hover:no-underline {% if marker_editor.marker_type == 'html' %}bg-base-100 text-primary shadow-sm{% else %}text-base-content/65{% endif %}"
-        href="?create={{ marker_editor.marker_set.id }}&amp;type=html#marker-editor"
-        data-marker-editor-link
-      >{% icon "badge" %} Styled label</a>
+    <div class="mb-4">
+      <label for="marker-type-switch">Marker type</label>
+      <select id="marker-type-switch" data-marker-type-switch>
+        <option value="?create={{ marker_editor.marker_set.id }}&amp;type=poi#marker-editor" {% if marker_editor.marker_type == 'poi' %}selected{% endif %}>Point</option>
+        <option value="?create={{ marker_editor.marker_set.id }}&amp;type=html#marker-editor" {% if marker_editor.marker_type == 'html' %}selected{% endif %}>Styled label</option>
+        <option value="?create={{ marker_editor.marker_set.id }}&amp;type=line#marker-editor" {% if marker_editor.marker_type == 'line' %}selected{% endif %}>Line</option>
+        <option value="?create={{ marker_editor.marker_set.id }}&amp;type=shape#marker-editor" {% if marker_editor.marker_type == 'shape' %}selected{% endif %}>Area</option>
+        <option value="?create={{ marker_editor.marker_set.id }}&amp;type=extrude#marker-editor" {% if marker_editor.marker_type == 'extrude' %}selected{% endif %}>Volume</option>
+      </select>
+      <span class="form-help">Each type keeps its own BlueMap-compatible settings.</span>
     </div>
   {% else %}
     <input type="hidden" name="marker_id" value="{{ marker_editor.marker.id }}">
     <div class="mb-3 flex items-center gap-2 text-xs text-base-content/55">
-      {% if marker_editor.marker_type == 'html' %}{% icon "badge" %}{% else %}{% icon "map-pin" %}{% endif %}
+      {% if marker_editor.marker_type == 'html' %}{% icon "badge" %}
+      {% elif marker_editor.marker_type == 'line' %}{% icon "route" %}
+      {% elif marker_editor.marker_type == 'shape' %}{% icon "square-dashed" %}
+      {% elif marker_editor.marker_type == 'extrude' %}{% icon "box" %}
+      {% else %}{% icon "map-pin" %}{% endif %}
       {{ marker_editor.marker.get_marker_type_display }}
     </div>
   {% endif %}
@@ -47,27 +50,44 @@
       {{ marker_editor.form.label.errors }}
     </div>
 
-    <div>
-      <label>Position</label>
-      <div class="grid grid-cols-3 gap-2">
+    {% if marker_editor.marker_type == 'line' or marker_editor.marker_type == 'shape' or marker_editor.marker_type == 'extrude' %}
+      {% if marker_editor.marker_type == 'shape' %}
         <div>
-          <span class="mb-1 block text-xs text-base-content/55">X</span>
-          {{ marker_editor.form.position_x }}
-          {{ marker_editor.form.position_x.errors }}
-        </div>
-        <div>
-          <span class="mb-1 block text-xs text-base-content/55">Y</span>
+          {{ marker_editor.form.position_y.label_tag }}
           {{ marker_editor.form.position_y }}
+          <span class="form-help">The horizontal level where this area is drawn.</span>
           {{ marker_editor.form.position_y.errors }}
         </div>
-        <div>
-          <span class="mb-1 block text-xs text-base-content/55">Z</span>
-          {{ marker_editor.form.position_z }}
-          {{ marker_editor.form.position_z.errors }}
+      {% elif marker_editor.marker_type == 'extrude' %}
+        <div class="grid grid-cols-2 gap-2">
+          <div>{{ marker_editor.form.shape_min_y.label_tag }}{{ marker_editor.form.shape_min_y }}{{ marker_editor.form.shape_min_y.errors }}</div>
+          <div>{{ marker_editor.form.shape_max_y.label_tag }}{{ marker_editor.form.shape_max_y }}{{ marker_editor.form.shape_max_y.errors }}</div>
         </div>
+      {% endif %}
+      {% include "projects/markers/geometry_editor.html" with form=marker_editor.form marker_type=marker_editor.marker_type only %}
+    {% else %}
+      <div>
+        <label>Position</label>
+        <div class="grid grid-cols-3 gap-2">
+          <div>
+            <span class="mb-1 block text-xs text-base-content/55">X</span>
+            {{ marker_editor.form.position_x }}
+            {{ marker_editor.form.position_x.errors }}
+          </div>
+          <div>
+            <span class="mb-1 block text-xs text-base-content/55">Y</span>
+            {{ marker_editor.form.position_y }}
+            {{ marker_editor.form.position_y.errors }}
+          </div>
+          <div>
+            <span class="mb-1 block text-xs text-base-content/55">Z</span>
+            {{ marker_editor.form.position_z }}
+            {{ marker_editor.form.position_z.errors }}
+          </div>
+        </div>
+        <span class="mt-1.5 block text-xs text-base-content/55">Decimal Minecraft coordinates are supported.</span>
       </div>
-      <span class="mt-1.5 block text-xs text-base-content/55">Decimal Minecraft coordinates are supported.</span>
-    </div>
+    {% endif %}
   </div>
 
   {% if marker_editor.marker_type == 'html' %}
@@ -111,18 +131,53 @@
     </div>
   {% endif %}
 
+  {% if marker_editor.marker_type == 'line' or marker_editor.marker_type == 'shape' or marker_editor.marker_type == 'extrude' %}
+    <div class="mt-4 rounded-lg border border-base-300 p-3">
+      <p class="mb-3 text-sm font-medium">Appearance</p>
+      <div class="grid grid-cols-2 gap-3">
+        <div>{{ marker_editor.form.line_color.label_tag }}{{ marker_editor.form.line_color }}{{ marker_editor.form.line_color.errors }}</div>
+        <div>{{ marker_editor.form.line_opacity.label_tag }}{{ marker_editor.form.line_opacity }}{{ marker_editor.form.line_opacity.errors }}</div>
+        <div class="col-span-2">{{ marker_editor.form.line_width.label_tag }}{{ marker_editor.form.line_width }}{{ marker_editor.form.line_width.errors }}</div>
+        {% if marker_editor.marker_type == 'shape' or marker_editor.marker_type == 'extrude' %}
+          <div>{{ marker_editor.form.fill_color.label_tag }}{{ marker_editor.form.fill_color }}{{ marker_editor.form.fill_color.errors }}</div>
+          <div>{{ marker_editor.form.fill_opacity.label_tag }}{{ marker_editor.form.fill_opacity }}{{ marker_editor.form.fill_opacity.errors }}</div>
+        {% endif %}
+      </div>
+    </div>
+  {% endif %}
+
   <details class="mt-4 rounded-lg border border-base-300" {% if marker_editor.form.errors %}open{% endif %}>
     <summary class="flex cursor-pointer list-none items-center justify-between px-3 py-2 text-sm font-medium hover:bg-base-200/60">
       <span class="flex items-center gap-2">{% icon "sliders-horizontal" %} More options</span>
       {% icon "chevron-down" %}
     </summary>
     <div class="grid gap-3 border-t border-base-300 p-3">
-      {% if marker_editor.marker_type == 'poi' %}
+      {% if marker_editor.marker_type == 'poi' or marker_editor.marker_type == 'line' or marker_editor.marker_type == 'shape' or marker_editor.marker_type == 'extrude' %}
         <div>
           {{ marker_editor.form.detail.label_tag }}
           {{ marker_editor.form.detail }}
           {% if marker_editor.form.detail.help_text %}<span class="form-help">{{ marker_editor.form.detail.help_text }}</span>{% endif %}
           {{ marker_editor.form.detail.errors }}
+        </div>
+      {% endif %}
+      {% if marker_editor.marker_type == 'line' or marker_editor.marker_type == 'shape' or marker_editor.marker_type == 'extrude' %}
+        <div>
+          {{ marker_editor.form.link.label_tag }}
+          {{ marker_editor.form.link }}
+          {% if marker_editor.form.link.help_text %}<span class="form-help">{{ marker_editor.form.link.help_text }}</span>{% endif %}
+          {{ marker_editor.form.link.errors }}
+        </div>
+        <div class="flex items-center justify-between gap-3 rounded-lg bg-base-200/60 p-3">
+          <div>{{ marker_editor.form.new_tab.label_tag }}{{ marker_editor.form.new_tab.errors }}</div>
+          {{ marker_editor.form.new_tab }}
+        </div>
+        <div class="flex items-center justify-between gap-3 rounded-lg bg-base-200/60 p-3">
+          <div>
+            {{ marker_editor.form.depth_test.label_tag }}
+            {% if marker_editor.form.depth_test.help_text %}<span class="form-help">{{ marker_editor.form.depth_test.help_text }}</span>{% endif %}
+            {{ marker_editor.form.depth_test.errors }}
+          </div>
+          {{ marker_editor.form.depth_test }}
         </div>
       {% endif %}
       <div>
@@ -146,7 +201,7 @@
       <div class="flex items-center justify-between gap-3 rounded-lg bg-base-200/60 p-3">
         <div>
           {{ marker_editor.form.listed.label_tag }}
-          <span class="block text-xs text-base-content/55">Show this point in BlueMap's marker list.</span>
+          <span class="block text-xs text-base-content/55">Show this marker in BlueMap's marker list.</span>
           {{ marker_editor.form.listed.errors }}
         </div>
         {{ marker_editor.form.listed }}

@@ -1,3 +1,4 @@
+import json
 import uuid
 from decimal import Decimal
 from pathlib import Path
@@ -1111,6 +1112,153 @@ class RenderMarkerManagementTests(TestCase):
         self.assertIn("background:#7c3aed", marker_config)
         self.assertIn("★", marker_config)
         self.assertIn("anchor: { x: 0, y: 0 }", marker_config)
+
+    def test_admin_can_create_line_area_and_volume_markers(self):
+        marker_set = MarkerSet.objects.create(render=self.render, label="Regions")
+        common = {
+            "editor_action": "create",
+            "marker_set_id": marker_set.id,
+            "detail": "Safe description",
+            "line_width": "4",
+            "line_color": "#ef4444",
+            "line_opacity": "0.75",
+            "depth_test": "on",
+            "link": "https://example.com/guide",
+            "new_tab": "on",
+            "sorting": "0",
+            "listed": "on",
+            "min_distance": "",
+            "max_distance": "5000",
+            "submit_action": "save",
+        }
+        cases = [
+            (
+                Marker.Type.LINE,
+                "Road",
+                [
+                    {"x": "0", "y": "64", "z": "0"},
+                    {"x": "10", "y": "70", "z": "20"},
+                ],
+                {},
+                (Decimal("5"), Decimal("67"), Decimal("10")),
+            ),
+            (
+                Marker.Type.SHAPE,
+                "Town",
+                [
+                    {"x": "0", "z": "0"},
+                    {"x": "10", "z": "0"},
+                    {"x": "10", "z": "10"},
+                    {"x": "0", "z": "10"},
+                ],
+                {"position_y": "70", "fill_color": "#22c55e", "fill_opacity": "0.25"},
+                (Decimal("5"), Decimal("70"), Decimal("5")),
+            ),
+            (
+                Marker.Type.EXTRUDE,
+                "Protected volume",
+                [
+                    {"x": "0", "z": "0"},
+                    {"x": "4", "z": "0"},
+                    {"x": "4", "z": "8"},
+                    {"x": "0", "z": "8"},
+                ],
+                {
+                    "shape_min_y": "60",
+                    "shape_max_y": "80",
+                    "fill_color": "#3b82f6",
+                    "fill_opacity": "0.4",
+                },
+                (Decimal("2"), Decimal("70"), Decimal("4")),
+            ),
+        ]
+
+        for marker_type, label, vertices, extra, expected_position in cases:
+            with self.subTest(marker_type=marker_type):
+                response = self.client_for(self.admin).post(
+                    reverse("render_markers", kwargs={"render_id": self.render.id}),
+                    {
+                        **common,
+                        **extra,
+                        "marker_type": marker_type,
+                        "label": label,
+                        "vertices": json.dumps(vertices),
+                    },
+                    **self.async_headers(),
+                )
+                self.assertEqual(response.status_code, 200)
+                marker = Marker.objects.get(marker_set=marker_set, marker_type=marker_type)
+                self.assertEqual(
+                    (marker.position_x, marker.position_y, marker.position_z),
+                    expected_position,
+                )
+                self.assertEqual(marker.geometry, vertices)
+
+        marker_config = format_marker_sets(self.render)
+        self.assertIn('type: "line"', marker_config)
+        self.assertIn("line: [", marker_config)
+        self.assertIn("{ x: 10, y: 70, z: 20 }", marker_config)
+        self.assertIn('type: "shape"', marker_config)
+        self.assertIn("shape-y: 70", marker_config)
+        self.assertIn('type: "extrude"', marker_config)
+        self.assertIn("shape-min-y: 60", marker_config)
+        self.assertIn("shape-max-y: 80", marker_config)
+        self.assertIn("line-color: { r: 239, g: 68, b: 68, a: 0.75 }", marker_config)
+        self.assertIn('link: "https://example.com/guide"', marker_config)
+        self.assertIn("new-tab: true", marker_config)
+
+    def test_geometry_editor_uses_safe_coordinate_rows_without_raw_configuration(self):
+        marker_set = MarkerSet.objects.create(render=self.render, label="Regions")
+
+        response = self.client_for(self.admin).get(
+            f"{reverse('render_markers', kwargs={'render_id': self.render.id})}"
+            f"?create={marker_set.id}&type=shape"
+        )
+
+        self.assertContains(response, "data-geometry-editor")
+        self.assertContains(response, 'name="vertices"', html=False)
+        self.assertContains(response, 'type="hidden"', html=False)
+        self.assertContains(response, 'type="color"', count=2, html=False)
+        self.assertNotContains(response, 'type="text" name="line_color"', html=False)
+        self.assertNotContains(response, 'type="text" name="fill_color"', html=False)
+        self.assertContains(response, "Add corners in order around the boundary")
+        self.assertNotContains(response, 'textarea name="vertices"', html=False)
+        self.assertNotContains(response, "Raw HOCON")
+
+    def test_geometry_marker_rejects_incomplete_vertices_and_unsafe_links(self):
+        marker_set = MarkerSet.objects.create(render=self.render, label="Regions")
+        base_payload = {
+            "editor_action": "create",
+            "marker_set_id": marker_set.id,
+            "marker_type": Marker.Type.SHAPE,
+            "label": "Unsafe area",
+            "detail": "",
+            "position_y": "64",
+            "vertices": json.dumps([{"x": "0", "z": "0"}, {"x": "1", "z": "1"}]),
+            "line_width": "3",
+            "line_color": "#ef4444",
+            "line_opacity": "1",
+            "fill_color": "#ef4444",
+            "fill_opacity": "0.25",
+            "link": "javascript:alert(1)",
+            "sorting": "0",
+            "listed": "on",
+            "min_distance": "",
+            "max_distance": "",
+            "submit_action": "save",
+        }
+
+        response = self.client_for(self.admin).post(
+            reverse("render_markers", kwargs={"render_id": self.render.id}),
+            base_payload,
+            **self.async_headers(),
+        )
+
+        self.assertEqual(response.status_code, 422)
+        html = response.json()["marker_editor_html"]
+        self.assertIn("Add at least 3 vertices", html)
+        self.assertIn("Enter a valid URL", html)
+        self.assertFalse(Marker.objects.filter(marker_set=marker_set).exists())
 
     def test_styled_label_generated_html_escapes_user_text(self):
         marker_set = MarkerSet.objects.create(render=self.render, label="Labels")
