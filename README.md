@@ -286,14 +286,15 @@ On the first BlueMap CLI run, BlueMap may generate `core.conf` and ask you to se
 4. Discover world folders under `SOURCE_WORLDS_DIR`.
 5. Let superadministrators define which world folders are visible to each Project.
 6. Let Project Administrators create Atlases from visible world folders.
-7. Create and edit BlueMap Render configs through styled forms, including color pickers, toggles, sliders, start position, render masks, marker sets, and Minecraft resource selection.
-8. Preview generated config content and show a read-only raw config panel.
-9. Generate BlueMap `.conf` files.
-10. Trigger BlueMap CLI render jobs and full Render rebuilds.
-11. Store render logs, status, exit code, operation type, timestamps, elapsed time, and progress fields.
-12. Monitor active and recent finished jobs from Panel Settings.
-13. Serve viewer pages and Render assets behind RBAC.
-14. Docker deployment with read-only source worlds and resource sources.
+7. Create and edit BlueMap Render configs through styled forms, including color pickers, toggles, sliders, start position, render masks, and Minecraft resource selection.
+8. Manage Render-owned marker sets and safe point-of-interest markers beside the published map, track unpublished changes, then publish them with BlueMap's marker-only CLI operation.
+9. Preview generated config content and show a read-only raw config panel.
+10. Generate BlueMap `.conf` files.
+11. Trigger BlueMap CLI render jobs and full Render rebuilds.
+12. Store render logs, status, exit code, operation type, timestamps, elapsed time, and progress fields.
+13. Monitor active and recent finished jobs from Panel Settings.
+14. Serve viewer pages and Render assets behind RBAC.
+15. Docker deployment with read-only source worlds and resource sources.
 
 ## Non-Goals
 
